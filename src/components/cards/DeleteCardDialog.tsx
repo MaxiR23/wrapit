@@ -2,9 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
-import { deleteColumn } from '@/actions/deleteColumn';
-import CardList from '@/components/cards/CardList';
-import NewCardDialog from '@/components/cards/NewCardDialog';
+import { deleteCard } from '@/actions/deleteCard';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,36 +15,12 @@ import {
 } from '@/components/ui/dialog';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 
-type ColumnListItem = {
-  id: string;
+type DeleteCardDialogProps = {
+  cardId: string;
   title: string;
-  cards: {
-    id: string;
-    title: string;
-    description: string | null;
-  }[];
 };
 
-export default function ColumnList({ columns }: { columns: ColumnListItem[] }) {
-  return (
-    <ul className="flex flex-col gap-4">
-      {columns.map((column) => (
-        <li key={column.id} className="rounded-lg border border-border p-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">{column.title}</h2>
-            <div className="flex items-center gap-2">
-              <NewCardDialog columnId={column.id} columnTitle={column.title} />
-              <DeleteColumnDialog columnId={column.id} title={column.title} />
-            </div>
-          </div>
-          <CardList cards={column.cards} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function DeleteColumnDialog({ columnId, title }: { columnId: string; title: string }) {
+export default function DeleteCardDialog({ cardId, title }: DeleteCardDialogProps) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,7 +28,7 @@ function DeleteColumnDialog({ columnId, title }: { columnId: string; title: stri
   function onConfirm() {
     setError(null);
     startTransition(async () => {
-      const result = await deleteColumn({ columnId });
+      const result = await deleteCard({ cardId });
       if ('error' in result) {
         setError(GENERIC_ERROR_MESSAGE);
         return;
@@ -72,16 +46,16 @@ function DeleteColumnDialog({ columnId, title }: { columnId: string; title: stri
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" aria-label={`Delete column ${title}`}>
+        <Button type="button" size="sm" variant="outline" aria-label={`Delete card ${title}`}>
           Delete
         </Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete column</DialogTitle>
+          <DialogTitle>Delete card</DialogTitle>
           <DialogDescription>
-            Delete &ldquo;{title}&rdquo;? This will also delete all cards in the column.
+            Delete &ldquo;{title}&rdquo;? This cannot be undone.
           </DialogDescription>
         </DialogHeader>
 
@@ -104,9 +78,9 @@ function DeleteColumnDialog({ columnId, title }: { columnId: string; title: stri
             type="button"
             disabled={isPending}
             onClick={onConfirm}
-            aria-label={`Confirm delete column ${title}`}
+            aria-label={`Confirm delete card ${title}`}
           >
-            {isPending ? 'Deleting...' : 'Delete column'}
+            {isPending ? 'Deleting...' : 'Delete card'}
           </Button>
         </DialogFooter>
       </DialogContent>

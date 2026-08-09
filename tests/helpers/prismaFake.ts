@@ -121,6 +121,7 @@ export function createPrismaFake() {
     verification: createModel(),
     board: createModel(),
     column: createModel(),
+    card: createModel(),
   };
 
   return {
