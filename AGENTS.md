@@ -8,8 +8,8 @@ wrapit — a personal kanban to organize tasks. Learning project on a
 production-style stack: Next.js 16 (App Router), TypeScript, Tailwind 4,
 Prisma 7, PostgreSQL 18 (Docker), Vitest, pnpm.
 
-Status: early setup. Stack and tooling are in place; app features (auth,
-boards, cards) are not built yet.
+Status: early setup. Stack and tooling are in place. Auth is wired up with a
+sign up flow; sign in, route protection, boards and cards are not built yet.
 
 ## Commands
 
@@ -25,6 +25,7 @@ boards, cards) are not built yet.
 ## Layout
 
     app/            routes, layouts, pages (App Router)
+    app/components/ React components
     app/lib/        shared code (e.g. the Prisma client)
     prisma/         schema and migrations
     tests/          tests, mirroring the source structure
