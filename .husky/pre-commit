@@ -1,0 +1,24 @@
+# Git hooks run in a non-login, non-interactive shell, so the shell profile that
+# activates nvm is never sourced and pnpm is missing from PATH. Load nvm here,
+# then fall back to the common system install locations.
+if ! command -v pnpm >/dev/null 2>&1; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # nvm.sh is not written to run under `set -e`, which husky enables.
+    set +e
+    . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+    set -e
+  fi
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-commit: pnpm was not found in PATH."
+  echo "pre-commit: install pnpm, or expose it to Git hooks via ~/.config/husky/init.sh."
+  exit 1
+fi
+
+pnpm lint-staged
