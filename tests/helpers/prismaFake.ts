@@ -120,6 +120,7 @@ export function createPrismaFake() {
     account: createModel(),
     verification: createModel(),
     board: createModel(),
+    column: createModel(),
   };
 
   return {

@@ -7,3 +7,21 @@ export function listBoardsForUser(ownerId: string) {
     orderBy: { createdAt: 'desc' },
   });
 }
+
+/**
+ * A single board owned by the given user, with its columns in order.
+ * Returns null when the board does not exist or belongs to someone else.
+ */
+export async function getBoardForUser(boardId: string, ownerId: string) {
+  const board = await prisma.board.findFirst({
+    where: { id: boardId, ownerId },
+  });
+  if (!board) return null;
+
+  const columns = await prisma.column.findMany({
+    where: { boardId: board.id },
+    orderBy: { order: 'asc' },
+  });
+
+  return { ...board, columns };
+}

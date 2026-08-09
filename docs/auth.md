@@ -23,23 +23,27 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
 ## Files
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public; BOARDS_PATH
+    src/lib/routes.ts                   which routes are public; BOARDS_PATH, boardPath
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
-    src/lib/boards.ts                   list boards for the current user
+    src/lib/boards.ts                   list boards and load one board for the current user
     src/lib/validation/fieldErrors.ts   first error per field, shared by the validators
     src/lib/validation/signUp.ts        sign up field rules, shared by both
     src/lib/validation/signIn.ts        sign in field rules
     src/lib/validation/board.ts         board title rules
+    src/lib/validation/column.ts        column title rules
     src/actions/createBoard.ts          create a board for the signed-in user
+    src/actions/createColumn.ts         create a column on a board the user owns
+    src/actions/deleteColumn.ts         delete a column from a board the user owns
     src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
-    src/components/boards/              boards list, empty state, new-board dialog
+    src/components/boards/              boards list, board detail columns, empty states, dialogs
     src/components/ui/                  shadcn/ui primitives used by the forms
     src/app/page.tsx                    / redirects by session to /boards or /sign-in
     src/app/boards/page.tsx             lists the current user's boards
+    src/app/boards/[boardId]/page.tsx   board detail with columns (owner only; else 404)
     src/app/sign-up/page.tsx            the /sign-up page
     src/app/sign-in/page.tsx            the /sign-in page
     src/app/globals.css                 theme tokens (Neutral base color)
