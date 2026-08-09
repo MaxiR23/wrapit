@@ -158,3 +158,35 @@ Machine-specific setup that should not live in the repo can be placed in
 `~/.config/husky/init.sh`, which Husky sources before running any hook.
 
 See: https://typicode.github.io/husky/
+
+## Vitest
+
+### What it is
+
+Vitest is the test runner for this project. It executes unit and component
+tests. Its API is compatible with Jest (`describe`, `it`, `expect`), but it is
+faster and works with ESM and TypeScript out of the box.
+
+### Why we use it
+
+- Native ESM and TypeScript support, with almost no configuration.
+- Much faster than Jest, especially in watch mode.
+- Jest-compatible API, so the knowledge transfers to other projects.
+
+### Configuration (vitest.config.ts)
+
+- `plugins: [react()]` — lets Vitest understand JSX and React components.
+- `environment: 'jsdom'` — runs tests in a simulated DOM, needed to test
+  components.
+- `globals: true` — allows using `describe`, `it`, `expect` without importing
+  them in every file.
+- `setupFiles: ['./vitest.setup.ts']` — runs before the tests. It loads the
+  `@testing-library/jest-dom` matchers (for example `toBeInTheDocument`).
+- `resolve.alias` — maps `@/` to the project root, matching the Next.js alias.
+
+### Commands
+
+- `pnpm test` — run Vitest in watch mode (re-runs on file changes).
+- `pnpm test:run` — run all tests once and exit. Used in CI.
+
+See: https://vitest.dev/
