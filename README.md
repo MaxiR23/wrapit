@@ -6,8 +6,9 @@ production-style stack and eventually contribute to similar codebases.
 ## Status
 
 Stack and tooling are in place. Authentication covers sign up, sign in, sign out
-and route protection. Boards can be listed, created and opened; columns can be
-created, listed and deleted. Cards and drag-and-drop are not built yet.
+and route protection. Boards can be listed, created and opened; columns and cards
+support create, list, edit and delete. Moving cards, drag-and-drop and card
+metadata (due date, priority, labels) are not built yet.
 
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
