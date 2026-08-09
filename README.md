@@ -54,6 +54,7 @@ dockerized mode is planned but not set up yet.
 
     app/            routes, layouts, pages (App Router)
     app/lib/        shared code (e.g. the Prisma client)
+    proxy.ts        route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
     tests/          tests, mirroring the source structure
     docs/           tooling, testing and database documentation

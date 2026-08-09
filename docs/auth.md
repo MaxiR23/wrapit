@@ -7,8 +7,8 @@ How authentication is set up in this repo.
 [Better Auth](https://www.better-auth.com/) with the Prisma adapter, on the
 same PostgreSQL database as the rest of the app.
 
-Only email and password is enabled. Sign up, sign in and sign out all work.
-There is no route protection yet and no social providers.
+Only email and password is enabled. Sign up, sign in, sign out and route
+protection all work. There are no social providers.
 
 ## Environment variables
 
@@ -22,6 +22,8 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
 
 ## Files
 
+    proxy.ts                           route protection, runs before every request
+    app/lib/routes.ts                  which routes are public
     app/lib/auth.ts                    the Better Auth instance (server)
     app/lib/authClient.ts              the Better Auth client (browser)
     app/lib/validation/fieldErrors.ts  first error per field, shared by the validators
@@ -121,8 +123,57 @@ clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
 A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
 
-The nav is not route-aware and does not protect anything. Route protection is
-still to be built.
+The nav is not route-aware; it only reflects the session. Protection lives in
+`proxy.ts`.
+
+## Route protection
+
+`proxy.ts` at the project root runs before every matched request and decides
+whether it may continue. Next 16 calls this file convention **proxy**; it was
+named `middleware` before and the old name is deprecated, so a snippet from the
+Better Auth docs that says `middleware.ts` belongs in `proxy.ts` here.
+
+Two rules:
+
+- No session on a private route redirects to `/sign-in`.
+- A session on `/sign-in` or `/sign-up` redirects to `/`.
+
+Everything else is served untouched.
+
+### Public vs private
+
+`app/lib/routes.ts` holds the definitions. Public means reachable without a
+session:
+
+    /            home
+    /sign-in     the sign in page
+    /sign-up     the sign up page
+    /api/auth/*  the Better Auth endpoints
+
+Anything else is private, so a new page is protected the moment it exists and
+opening one up is a deliberate edit to that file. `/api/auth/*` must stay public
+or signing in would be impossible: the request that creates the session would
+itself be redirected. Trailing slashes are normalized, and a prefix match only
+counts on a segment boundary, so `/api/authorize` is private.
+
+The `config.matcher` in `proxy.ts` skips Next internals and static files. The
+auth pages are matched on purpose — that is what makes the second rule fire.
+
+### The check is optimistic
+
+The proxy only looks for the session cookie with `getSessionCookie` from
+`better-auth/cookies`. It does not validate it against the database, which keeps
+it cheap enough to run on every request. That means a forged or expired cookie
+gets past the proxy.
+
+This is the approach Better Auth recommends, and it is safe only because the
+proxy is a redirect, not the authorization check. Anything that reads or writes
+user data must still load the real session on the server with
+`auth.api.getSession({ headers: await headers() })` and act on it. Treat the
+proxy as navigation, not as a guard.
+
+There is no `?redirect=` parameter yet: a visitor bounced from a private route
+lands on `/sign-in` and then on `/`, not on the page they asked for.
 
 ## Database schema
 
@@ -177,6 +228,12 @@ The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
 wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives
 the real route handler with raw `Request` objects and replays the session cookie
 to prove that sign out actually removes the `Session` row.
+
+Route protection is covered in `tests/lib/routes.test.ts` (which paths are
+public) and `tests/proxy.test.ts`, which calls the proxy with a `NextRequest`
+and asserts where each response redirects. Because the check is optimistic, the
+test only has to set or omit the `better-auth.session_token` cookie; the value
+is never validated.
 
 ## SEE
 
