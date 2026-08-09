@@ -11,10 +11,11 @@
 // - Rejects empty fields without calling Better Auth
 // - Shows a generic message, not the server message, when the server fails
 // - Shows a generic message for an unrecognized error code
+// - Clears a stale form-level API error when resubmitting with invalid input
 //
 // What is covered:
 // - Happy path, invalid input, duplicate email, unexpected server error,
-//   unrecognized error code
+//   unrecognized error code, stale root error on invalid resubmit
 //
 // Run with: pnpm test:run tests/components/auth/SignUpForm.test.tsx
 //
@@ -183,5 +184,29 @@ describe('SignUpForm', () => {
     );
     expect(screen.getByRole('alert')).not.toHaveTextContent('User_email_key');
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('clears a stale form-level API error when resubmitting with invalid input', async () => {
+    signUpEmail.mockResolvedValue({
+      data: null,
+      error: { message: 'boom', status: 500, statusText: 'Internal Server Error' },
+    });
+    render(<SignUpForm />);
+
+    const user = await fillForm();
+    await submit(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong. Please try again.',
+    );
+
+    await user.clear(screen.getByLabelText('Password'));
+    await submit(user);
+
+    expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`),
+    ).toBeInTheDocument();
+    expect(signUpEmail).toHaveBeenCalledTimes(1);
   });
 });

@@ -33,8 +33,10 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
+    src/components/ui/                  shadcn/ui primitives used by the forms
     src/app/sign-up/page.tsx            the /sign-up page
     src/app/sign-in/page.tsx            the /sign-in page
+    src/app/globals.css                 theme tokens (Neutral base color)
 
 `src/lib/auth.ts` wires Better Auth to the shared Prisma client from
 `src/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
@@ -51,14 +53,16 @@ current origin, which is where the API routes live.
 ## Sign up
 
 `/sign-up` renders `SignUpForm`, a client component with name, email and
-password. It validates with `validateSignUp` before calling
-`authClient.signUp.email(...)`, so invalid input never reaches the network. On
+password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
+input never reaches the network, then calls `authClient.signUp.email(...)`. On
 success Better Auth sets the session cookie and the form redirects to `/`.
 
-The rules live in `src/lib/validation/signUp.ts` as a zod schema. That module
-also exports `MIN_PASSWORD_LENGTH`, which `src/lib/auth.ts` passes to
-`emailAndPassword.minPasswordLength`. It matches Better Auth's own default of 8;
-setting it explicitly keeps the browser and the server from drifting apart.
+The rules live in `src/lib/validation/signUp.ts` as a single zod schema
+(`signUpSchema`). The form and `validateSignUp` both use that schema; do not
+duplicate the rules. That module also exports `MIN_PASSWORD_LENGTH`, which
+`src/lib/auth.ts` passes to `emailAndPassword.minPasswordLength`. It matches
+Better Auth's own default of 8; setting it explicitly keeps the browser and the
+server from drifting apart.
 
 The client returns `{ data, error }` rather than throwing. Only recognized
 codes get a specific message: `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` (the 422
@@ -71,21 +75,22 @@ database host or a constraint name. Add a code to the recognized list in
 One gap worth knowing: Better Auth's sign up schema rejects a **missing** name
 but accepts an **empty string**, so a direct POST to `/api/auth/sign-up/email`
 can still create a user with `name: ""`. The non-empty check is currently only
-in `validateSignUp`, on the client. Closing it server-side would need a
-`databaseHooks` guard in `src/lib/auth.ts`.
+in `signUpSchema` on the client (form + `validateSignUp`). Closing it
+server-side would need a `databaseHooks` guard in `src/lib/auth.ts`.
 
 ## Sign in
 
 `/sign-in` renders `SignInForm`, a client component with email and password. It
-follows the same shape as sign up: `validateSignIn` runs first so invalid input
-never reaches the network, then `authClient.signIn.email(...)`. On success the
-form redirects to `/` and calls `router.refresh()` so the nav re-reads the
-session.
+follows the same shape as sign up: react-hook-form with
+`zodResolver(signInSchema)` so invalid input never reaches the network, then
+`authClient.signIn.email(...)`. On success the form redirects to `/` and calls
+`router.refresh()` so the nav re-reads the session.
 
-The rules live in `src/lib/validation/signIn.ts`. They deliberately do **not**
-reuse `MIN_PASSWORD_LENGTH`: on sign in only presence is checked. A length rule
-would buy nothing (the server decides) and would lock out an account whose
-password predates a change to the minimum.
+The rules live in `src/lib/validation/signIn.ts` as `signInSchema`. The form and
+`validateSignIn` both use that schema. They deliberately do **not** reuse
+`MIN_PASSWORD_LENGTH`: on sign in only presence is checked. A length rule would
+buy nothing (the server decides) and would lock out an account whose password
+predates a change to the minimum.
 
 ### Not revealing whether an email is registered
 

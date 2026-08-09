@@ -24,12 +24,16 @@ All application code lives under `src/`. The tree itself is listed in
   by a single route still lives here; the App Router routes by filename, so a
   component next to a page would be indistinguishable from a route.
 
-  Nothing sits loose at the top of `src/components/`. A component belongs to the
-  domain it serves, and a style or helper shared by that domain's components
-  lives with them (`auth/formStyles.ts`). Create a domain directory when its
-  first component arrives; the flat list is what makes it unclear later which
-  feature a file belongs to. Something genuinely shared by two domains moves up
-  to `src/components/` only once a second domain actually uses it.
+  `ui/` is the exception: design-system primitives from shadcn/ui
+  (`button`, `input`, `field`, …). Domain components consume them; do not put
+  feature UI in `ui/`.
+
+  Nothing else sits loose at the top of `src/components/`. A component belongs
+  to the domain it serves, and a helper shared by that domain's components
+  lives with them. Create a domain directory when its first component arrives;
+  the flat list is what makes it unclear later which feature a file belongs to.
+  Something genuinely shared by two domains moves up to `src/components/` only
+  once a second domain actually uses it.
 
 - `src/lib/` — shared code that is not a React component: the Better Auth
   instance and client, the Prisma client, route definitions, validation schemas.

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { errorTextClasses } from '@/components/auth/formStyles';
+import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/authClient';
 import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/routes';
 
@@ -44,20 +44,15 @@ export default function AuthNav() {
   return (
     <nav className="flex items-center justify-end gap-4 p-4">
       {error && (
-        <p role="alert" className={errorTextClasses}>
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
 
       {session ? (
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          className="rounded bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
-        >
+        <Button type="button" onClick={handleSignOut} disabled={isSigningOut} size="sm">
           {isSigningOut ? 'Signing out...' : 'Sign out'}
-        </button>
+        </Button>
       ) : (
         <>
           <Link href={SIGN_IN_PATH} className={linkClasses}>

@@ -16,6 +16,7 @@ dockerized mode is planned but not set up yet.
 - Next.js 16 (App Router, Server Components)
 - TypeScript
 - Tailwind CSS 4
+- shadcn/ui (Neutral base; tokens in `src/app/globals.css`)
 - Prisma 7 + PostgreSQL 18 (in Docker)
 - Better Auth for authentication
 - Vitest for tests, ESLint and Prettier for lint and format
@@ -57,8 +58,8 @@ dockerized mode is planned but not set up yet.
 ## Layout
 
     src/app/        routes, layouts, pages (App Router)
-    src/components/ React components, grouped by domain (auth/, ...)
-    src/lib/        shared code (e.g. the Prisma client)
+    src/components/ React components: domain dirs (auth/, ...) and ui/ (shadcn)
+    src/lib/        shared code (e.g. the Prisma client, utils)
     src/generated/  generated Prisma Client (gitignored)
     src/proxy.ts    route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
