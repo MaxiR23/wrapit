@@ -10,7 +10,7 @@ services:
     ports:
       - '${POSTGRES_PORT}:5432'
     volumes:
-      # Postgres 18+ moved the declared VOLUME to /var/lib/postgresql (was /var/lib/postgresql/data in 17 and below). 
+      # Postgres 18+ moved the declared VOLUME to /var/lib/postgresql (was /var/lib/postgresql/data in 17 and below).
       # SEE: https://hub.docker.com/_/postgres
       - wrapit_pgdata:/var/lib/postgresql
 
