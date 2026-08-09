@@ -6,11 +6,14 @@
 // - Signs up a user with email and password and returns the user
 // - Stores the password hashed on a credential account, never on the user
 // - Rejects a sign up whose password is shorter than the minimum
+// - Rejects a sign up whose email format is invalid
+// - Rejects a sign up whose email is empty
+// - Rejects a sign up with a missing name
 // - Rejects a sign up for an email that is already registered
 // - Signs in with the correct password and rejects the wrong one
 //
 // What is covered:
-// - Happy path, invalid input, duplicate email, wrong credentials
+// - Happy path, invalid input, missing fields, duplicate email, wrong credentials
 //
 // Run with: pnpm test:run tests/lib/auth.test.ts
 //
@@ -61,6 +64,31 @@ describe('auth', () => {
   it('rejects a sign up when the password is too short', async () => {
     await expect(
       auth.api.signUpEmail({ body: { ...credentials, password: 'short' } }),
+    ).rejects.toThrow();
+
+    expect(db.user.rows).toHaveLength(0);
+  });
+
+  it('rejects a sign up when the email format is invalid', async () => {
+    await expect(
+      auth.api.signUpEmail({ body: { ...credentials, email: 'ada@' } }),
+    ).rejects.toThrow();
+
+    expect(db.user.rows).toHaveLength(0);
+  });
+
+  it('rejects a sign up when the email is empty', async () => {
+    await expect(auth.api.signUpEmail({ body: { ...credentials, email: '' } })).rejects.toThrow();
+
+    expect(db.user.rows).toHaveLength(0);
+  });
+
+  it('rejects a sign up when the name is missing', async () => {
+    const { email, password } = credentials;
+
+    await expect(
+      // The name is required by the sign up schema; omitting it must not create a user.
+      auth.api.signUpEmail({ body: { email, password } as typeof credentials }),
     ).rejects.toThrow();
 
     expect(db.user.rows).toHaveLength(0);
