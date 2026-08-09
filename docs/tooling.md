@@ -64,10 +64,10 @@ Prettier skips files it should not touch:
 
 See: https://prettier.io/docs/ignore
 
-### Commands
+### Rewriting vs checking
 
-- `pnpm format` — format every file in place (rewrites files).
-- `pnpm format:check` — check formatting without changing files. Useful in CI.
+`pnpm format` rewrites files in place. `pnpm format:check` reports what is
+unformatted without touching anything, which is the form CI would use.
 
 See: https://prettier.io/docs/cli
 
@@ -98,10 +98,6 @@ It is added last in `eslint.config.mjs` so it can disable the style rules
 introduced by the Next.js configs above it.
 
 See: https://github.com/prettier/eslint-config-prettier
-
-### Command
-
-- `pnpm lint` — run ESLint over the project.
 
 ## lint-staged
 
@@ -184,9 +180,8 @@ faster and works with ESM and TypeScript out of the box.
   `@testing-library/jest-dom` matchers (for example `toBeInTheDocument`).
 - `resolve.alias` — maps `@/` to the project root, matching the Next.js alias.
 
-### Commands
-
-- `pnpm test` — run Vitest in watch mode (re-runs on file changes).
-- `pnpm test:run` — run all tests once and exit. Used in CI.
+`pnpm test` runs in watch mode and re-runs on every file change, which is the
+loop to work in. `pnpm test:run` runs once and exits, for a final check and for
+CI. Test conventions live in `docs/testing.md`.
 
 See: https://vitest.dev/

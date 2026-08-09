@@ -1,13 +1,8 @@
 # Database
 
-How the database is set up and how to work with it locally.
-
-## Stack
-
-- PostgreSQL 18, running in Docker.
-- Prisma 7 as the ORM.
-- The database runs only in Docker; the Next.js app runs on the host with
-  `pnpm dev`.
+How the database is set up and how to work with it locally. PostgreSQL runs only
+in Docker; the Next.js app runs on the host. The `db:*` commands are listed in
+`README.md`.
 
 ## Environment variables
 
@@ -22,8 +17,7 @@ for the required variables:
 
 ## Running the database
 
-    pnpm db:up        start Postgres in the background
-    pnpm db:down      stop the container
+`pnpm db:up` starts Postgres in the background, `pnpm db:down` stops it.
 
 The Postgres 18 image declares its volume at `/var/lib/postgresql` (this changed
 in version 18; it was `/var/lib/postgresql/data` in 17 and below). The
@@ -49,10 +43,8 @@ Passwords live on `Account`, not on `User`. See `docs/auth.md`.
 
 ## Prisma commands
 
-    pnpm db:migrate       create and apply a migration (asks for a name)
-    pnpm db:generate      regenerate the Prisma Client
-    pnpm db:studio        open Prisma Studio (visual DB browser)
-    pnpm db:reset         drop and recreate the database from scratch
+`pnpm db:migrate` asks for a migration name before creating and applying it, and
+`pnpm db:reset` drops the database and replays every migration from scratch.
 
 In Prisma 7, `migrate` does not generate the client automatically. Run
 `pnpm db:generate` after schema changes.
@@ -73,10 +65,4 @@ See: https://www.prisma.io/docs/orm/prisma-client
 
 ## First-time setup
 
-For someone cloning the repo:
-
-1. Copy `.env.example` to `.env` and fill in the values.
-2. `pnpm install`
-3. `pnpm db:up`
-4. `pnpm db:migrate`
-5. `pnpm db:generate`
+See the Running section of `README.md`.

@@ -5,8 +5,8 @@ production-style stack and eventually contribute to similar codebases.
 
 ## Status
 
-Early setup. The stack and tooling are in place; application features (auth,
-boards, cards) are not built yet.
+Stack and tooling are in place. Authentication covers sign up, sign in, sign out
+and route protection; boards and cards are not built yet.
 
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
@@ -41,18 +41,23 @@ dockerized mode is planned but not set up yet.
 
     pnpm dev              dev server at :3000
     pnpm build            production build
+    pnpm start            serve the production build
     pnpm lint             ESLint
     pnpm format           Prettier (write)
+    pnpm format:check     Prettier (check only)
+    pnpm test             run tests in watch mode
     pnpm test:run         run all tests once
     pnpm db:up            start Postgres in Docker
     pnpm db:down          stop the container
     pnpm db:migrate       create and apply a migration
     pnpm db:generate      regenerate the Prisma Client
     pnpm db:studio        open Prisma Studio
+    pnpm db:reset         drop and recreate the database
 
 ## Layout
 
     app/            routes, layouts, pages (App Router)
+    app/components/ React components
     app/lib/        shared code (e.g. the Prisma client)
     proxy.ts        route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
@@ -61,22 +66,15 @@ dockerized mode is planned but not set up yet.
 
 ## Checks
 
-Run manually:
-
-    pnpm lint
-    pnpm format
-    pnpm test:run
-
-Run automatically:
-
-| Where      | What runs                      | Skippable |
-| ---------- | ------------------------------ | --------- |
-| pre-commit | lint-staged (ESLint, Prettier) | yes       |
+Run `pnpm lint`, `pnpm format` and `pnpm test:run` before committing. A
+pre-commit hook runs lint-staged (ESLint and Prettier on staged files) and can
+be skipped. See `docs/tooling.md`.
 
 ## Documentation
 
-    docs/workflow.md   development workflow
-    docs/tooling.md    formatters, linters, git hooks, test runner
-    docs/testing.md    test conventions
-    docs/database.md   database and Prisma usage
-    docs/auth.md       Better Auth setup
+    docs/workflow.md           development workflow
+    docs/tooling.md            formatters, linters, git hooks, test runner
+    docs/testing.md            test conventions
+    docs/database.md           database and Prisma usage
+    docs/auth.md               Better Auth setup
+    docs/repository-setup.md   GitHub settings that live outside this repo

@@ -1,11 +1,7 @@
 # Testing
 
-Conventions for tests in this repo.
-
-## Commands
-
-    pnpm test           run all tests in watch mode
-    pnpm test:run       run all tests once (CI)
+Conventions for tests in this repo. The commands are listed in `README.md`:
+`pnpm test` while working, `pnpm test:run` for a single run and for CI.
 
 ## File location
 

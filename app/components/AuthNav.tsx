@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { errorTextClasses } from '@/app/components/formStyles';
 import { authClient } from '@/app/lib/authClient';
+import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/app/lib/routes';
 
 const SIGN_OUT_ERROR_MESSAGE = 'Could not sign out. Please try again.';
 
@@ -30,7 +32,7 @@ export default function AuthNav() {
       return;
     }
 
-    router.push('/sign-in');
+    router.push(SIGN_IN_PATH);
     // Drops any cached render that was built for the session that just ended.
     router.refresh();
   }
@@ -42,7 +44,7 @@ export default function AuthNav() {
   return (
     <nav className="flex items-center justify-end gap-4 p-4">
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={errorTextClasses}>
           {error}
         </p>
       )}
@@ -58,10 +60,10 @@ export default function AuthNav() {
         </button>
       ) : (
         <>
-          <Link href="/sign-in" className={linkClasses}>
+          <Link href={SIGN_IN_PATH} className={linkClasses}>
             Sign in
           </Link>
-          <Link href="/sign-up" className={linkClasses}>
+          <Link href={SIGN_UP_PATH} className={linkClasses}>
             Sign up
           </Link>
         </>
