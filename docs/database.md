@@ -17,6 +17,8 @@ for the required variables:
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` — used by
   the Docker container.
 - `DATABASE_URL` — used by Prisma to connect.
+- `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` — used by Better Auth. See
+  `docs/auth.md`.
 
 ## Running the database
 
@@ -41,6 +43,9 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 Deleting a record cascades to its children (deleting a board deletes its columns
 and cards). `Column` and `Card` use a `Float` `order` field to allow reordering
 without renumbering every sibling.
+
+`User`, `Session`, `Account` and `Verification` are owned by Better Auth.
+Passwords live on `Account`, not on `User`. See `docs/auth.md`.
 
 ## Prisma commands
 

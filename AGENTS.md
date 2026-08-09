@@ -55,3 +55,4 @@ boards, cards) are not built yet.
     docs/tooling.md    formatters, linters, git hooks, test runner
     docs/testing.md    test conventions
     docs/database.md   database and Prisma usage
+    docs/auth.md       Better Auth setup

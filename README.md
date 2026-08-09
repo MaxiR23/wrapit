@@ -17,6 +17,7 @@ dockerized mode is planned but not set up yet.
 - TypeScript
 - Tailwind CSS 4
 - Prisma 7 + PostgreSQL 18 (in Docker)
+- Better Auth for authentication
 - Vitest for tests, ESLint and Prettier for lint and format
 
 ## Prerequisites
@@ -77,3 +78,4 @@ Run automatically:
     docs/tooling.md    formatters, linters, git hooks, test runner
     docs/testing.md    test conventions
     docs/database.md   database and Prisma usage
+    docs/auth.md       Better Auth setup
