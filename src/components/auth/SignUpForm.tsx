@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { errorTextClasses, inputClasses, submitButtonClasses } from '@/app/components/formStyles';
-import { authClient } from '@/app/lib/authClient';
-import { GENERIC_ERROR_MESSAGE } from '@/app/lib/messages';
-import { HOME_PATH } from '@/app/lib/routes';
-import { validateSignUp, type SignUpFieldErrors } from '@/app/lib/validation/signUp';
+import { errorTextClasses, inputClasses, submitButtonClasses } from '@/components/auth/formStyles';
+import { authClient } from '@/lib/authClient';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { HOME_PATH } from '@/lib/routes';
+import { validateSignUp, type SignUpFieldErrors } from '@/lib/validation/signUp';
 
 // Better Auth answers a duplicate email with 422 and this code. The plain
 // USER_ALREADY_EXISTS code covers configurations that do not append the hint.

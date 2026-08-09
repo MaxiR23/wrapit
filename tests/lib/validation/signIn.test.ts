@@ -15,11 +15,11 @@
 //
 // Run with: pnpm test:run tests/lib/validation/signIn.test.ts
 //
-// SEE: app/lib/validation/signIn.ts
+// SEE: src/lib/validation/signIn.ts
 
 import { describe, it, expect } from 'vitest';
 
-import { validateSignIn } from '@/app/lib/validation/signIn';
+import { validateSignIn } from '@/lib/validation/signIn';
 
 const validInput = {
   email: 'ada@example.com',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { firstErrorPerField, type FieldErrors } from '@/app/lib/validation/fieldErrors';
+import { firstErrorPerField, type FieldErrors } from '@/lib/validation/fieldErrors';
 
 // Shared by the sign up form and the Better Auth config, so the rule the user
 // sees in the browser is the rule the server enforces.

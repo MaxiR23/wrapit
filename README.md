@@ -56,13 +56,16 @@ dockerized mode is planned but not set up yet.
 
 ## Layout
 
-    app/            routes, layouts, pages (App Router)
-    app/components/ React components
-    app/lib/        shared code (e.g. the Prisma client)
-    proxy.ts        route protection (Next 16's renamed middleware)
+    src/app/        routes, layouts, pages (App Router)
+    src/components/ React components, grouped by domain (auth/, ...)
+    src/lib/        shared code (e.g. the Prisma client)
+    src/generated/  generated Prisma Client (gitignored)
+    src/proxy.ts    route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
     tests/          tests, mirroring the source structure
     docs/           tooling, testing and database documentation
+
+What belongs in each directory: `AGENTS.md`.
 
 ## Checks
 

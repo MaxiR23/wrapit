@@ -1,4 +1,4 @@
-// tests/components/AuthNav.test.tsx
+// tests/components/auth/AuthNav.test.tsx
 //
 // Tests for the auth nav, which hosts the sign out action.
 //
@@ -13,9 +13,9 @@
 // - Signed out state, signed in state, loading state, sign out happy path,
 //   sign out failure
 //
-// Run with: pnpm test:run tests/components/AuthNav.test.tsx
+// Run with: pnpm test:run tests/components/auth/AuthNav.test.tsx
 //
-// SEE: app/components/AuthNav.tsx
+// SEE: src/components/auth/AuthNav.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -26,7 +26,7 @@ const signOut = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
 
-vi.mock('@/app/lib/authClient', () => ({
+vi.mock('@/lib/authClient', () => ({
   authClient: { useSession, signOut },
 }));
 
@@ -34,7 +34,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
 }));
 
-const { default: AuthNav } = await import('@/app/components/AuthNav');
+const { default: AuthNav } = await import('@/components/auth/AuthNav');
 
 const session = {
   user: { id: 'user-1', email: 'ada@example.com', name: 'Ada' },

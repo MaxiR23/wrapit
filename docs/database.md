@@ -53,12 +53,12 @@ See: https://www.prisma.io/docs/orm
 
 ## Prisma Client
 
-The client is created in `app/lib/prisma.ts`. Prisma 7 requires an explicit
+The client is created in `src/lib/prisma.ts`. Prisma 7 requires an explicit
 driver adapter, so the client is built with `@prisma/adapter-pg` using
 `DATABASE_URL`. A single instance is reused across hot reloads in development to
 avoid exhausting database connections.
 
-The generated client lives in `app/generated/prisma` and is gitignored; it is
+The generated client lives in `src/generated/prisma` and is gitignored; it is
 recreated with `pnpm db:generate`.
 
 See: https://www.prisma.io/docs/orm/prisma-client

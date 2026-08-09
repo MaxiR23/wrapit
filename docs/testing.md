@@ -7,9 +7,13 @@ Conventions for tests in this repo. The commands are listed in `README.md`:
 
 Tests live in `tests/` at the project root, mirroring the source structure:
 
-    app/lib/utils.ts          -> tests/lib/utils.test.ts
-    app/actions/createCard.ts -> tests/actions/createCard.test.ts
-    app/components/Board.tsx   -> tests/components/Board.test.tsx
+    src/lib/utils.ts                -> tests/lib/utils.test.ts
+    src/actions/createCard.ts       -> tests/actions/createCard.test.ts
+    src/components/boards/Board.tsx -> tests/components/boards/Board.test.tsx
+
+Components are grouped by domain (`AGENTS.md`), and the test tree mirrors that
+grouping: `src/components/auth/AuthNav.tsx` is tested by
+`tests/components/auth/AuthNav.test.tsx`.
 
 Cross-cutting tests that do not map to a single module live at the root of
 `tests/`.
@@ -50,7 +54,7 @@ Each test file MUST start with this header:
     //
     // Run with: pnpm test:run tests/actions/createCard.test.ts
     //
-    // SEE: app/actions/createCard.ts
+    // SEE: src/actions/createCard.ts
 
 ## Mocking external services
 

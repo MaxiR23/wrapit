@@ -1,4 +1,4 @@
-// tests/components/SignUpForm.test.tsx
+// tests/components/auth/SignUpForm.test.tsx
 //
 // Tests for the sign up form.
 //
@@ -16,20 +16,20 @@
 // - Happy path, invalid input, duplicate email, unexpected server error,
 //   unrecognized error code
 //
-// Run with: pnpm test:run tests/components/SignUpForm.test.tsx
+// Run with: pnpm test:run tests/components/auth/SignUpForm.test.tsx
 //
-// SEE: app/components/SignUpForm.tsx
+// SEE: src/components/auth/SignUpForm.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { MIN_PASSWORD_LENGTH } from '@/app/lib/validation/signUp';
+import { MIN_PASSWORD_LENGTH } from '@/lib/validation/signUp';
 
 const signUpEmail = vi.fn();
 const push = vi.fn();
 
-vi.mock('@/app/lib/authClient', () => ({
+vi.mock('@/lib/authClient', () => ({
   authClient: { signUp: { email: signUpEmail } },
 }));
 
@@ -37,7 +37,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }));
 
-const { default: SignUpForm } = await import('@/app/components/SignUpForm');
+const { default: SignUpForm } = await import('@/components/auth/SignUpForm');
 
 const credentials = {
   name: 'Ada',

@@ -11,6 +11,48 @@ Stack, status, setup, commands and layout: `README.md`. It is the single source
 of truth for those lists; this file and `docs/` explain the rules and the why,
 and never restate them.
 
+## Structure
+
+All application code lives under `src/`. The tree itself is listed in
+`README.md`; what follows is the rule for deciding where a new file goes.
+
+- `src/app/` — **routes only**: pages, layouts and route handlers. Keep it thin.
+  A page composes; it does not implement. Anything a second route could ever
+  want belongs in one of the layers below, not in the route folder.
+- `src/components/` — React components, **grouped by domain** in a subdirectory:
+  `auth/` today, `boards/` and `cards/` as those features land. A component used
+  by a single route still lives here; the App Router routes by filename, so a
+  component next to a page would be indistinguishable from a route.
+
+  Nothing sits loose at the top of `src/components/`. A component belongs to the
+  domain it serves, and a style or helper shared by that domain's components
+  lives with them (`auth/formStyles.ts`). Create a domain directory when its
+  first component arrives; the flat list is what makes it unclear later which
+  feature a file belongs to. Something genuinely shared by two domains moves up
+  to `src/components/` only once a second domain actually uses it.
+
+- `src/lib/` — shared code that is not a React component: the Better Auth
+  instance and client, the Prisma client, route definitions, validation schemas.
+- `src/actions/` — server actions, one per file, each starting with
+  `'use server'`. **Does not exist yet**: every auth flow currently runs in the
+  browser through `authClient`. Create it with the first real server action
+  rather than leaving an empty placeholder.
+- `src/generated/` — generated output (the Prisma Client). Gitignored, recreated
+  by `pnpm db:generate`, never edited by hand.
+- `src/proxy.ts` — route protection. It must sit beside `src/app/`, not inside
+  it: Next only detects the proxy convention at the project root or at `src/`.
+
+Imports use the `@/` alias, which resolves to `src/`. It is declared twice and
+the two must stay in sync: `paths` in `tsconfig.json` and `resolve.alias` in
+`vitest.config.ts`. Relative imports are for siblings within a directory.
+
+The alias reaches `src/` only. Tests import their own helpers relatively
+(`../helpers/prismaFake`).
+
+Dependencies point inwards: `app/` may import from `components/`, `actions/` and
+`lib/`; `components/` may import from `actions/` and `lib/`; `lib/` imports from
+nothing above it. Nothing outside `src/app/` imports a route.
+
 ## Conventions
 
 - All code and comments in English. No emojis in code.

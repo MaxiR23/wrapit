@@ -4,9 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { errorTextClasses } from '@/app/components/formStyles';
-import { authClient } from '@/app/lib/authClient';
-import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/app/lib/routes';
+import { errorTextClasses } from '@/components/auth/formStyles';
+import { authClient } from '@/lib/authClient';
+import { SIGN_IN_PATH, SIGN_UP_PATH } from '@/lib/routes';
 
 const SIGN_OUT_ERROR_MESSAGE = 'Could not sign out. Please try again.';
 

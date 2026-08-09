@@ -1,4 +1,4 @@
-// tests/components/SignInForm.test.tsx
+// tests/components/auth/SignInForm.test.tsx
 //
 // Tests for the sign in form.
 //
@@ -17,9 +17,9 @@
 //   server error, and the rule that a failed sign in never reveals whether an
 //   email is registered
 //
-// Run with: pnpm test:run tests/components/SignInForm.test.tsx
+// Run with: pnpm test:run tests/components/auth/SignInForm.test.tsx
 //
-// SEE: app/components/SignInForm.tsx
+// SEE: src/components/auth/SignInForm.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -29,7 +29,7 @@ const signInEmail = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
 
-vi.mock('@/app/lib/authClient', () => ({
+vi.mock('@/lib/authClient', () => ({
   authClient: { signIn: { email: signInEmail } },
 }));
 
@@ -37,7 +37,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
 }));
 
-const { default: SignInForm } = await import('@/app/components/SignInForm');
+const { default: SignInForm } = await import('@/components/auth/SignInForm');
 
 const credentials = {
   email: 'ada@example.com',

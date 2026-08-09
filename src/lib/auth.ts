@@ -2,8 +2,8 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { nextCookies } from 'better-auth/next-js';
 
-import { prisma } from '@/app/lib/prisma';
-import { MIN_PASSWORD_LENGTH } from '@/app/lib/validation/signUp';
+import { prisma } from '@/lib/prisma';
+import { MIN_PASSWORD_LENGTH } from '@/lib/validation/signUp';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
