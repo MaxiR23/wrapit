@@ -11,11 +11,12 @@
 // - Rejects an invalid email format without calling Better Auth
 // - Rejects an empty password without calling Better Auth
 // - Shows a generic message, not the server message, when the server fails
+// - Clears a stale form-level API error when resubmitting with invalid input
 //
 // What is covered:
 // - Happy path, invalid input, wrong credentials, unknown email, unexpected
-//   server error, and the rule that a failed sign in never reveals whether an
-//   email is registered
+//   server error, stale root error on invalid resubmit, and the rule that a
+//   failed sign in never reveals whether an email is registered
 //
 // Run with: pnpm test:run tests/components/auth/SignInForm.test.tsx
 //
@@ -188,5 +189,22 @@ describe('SignInForm', () => {
     expect(screen.queryByText(leakyMessage)).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).not.toHaveTextContent('10.0.0.5');
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('clears a stale form-level API error when resubmitting with invalid input', async () => {
+    signInEmail.mockResolvedValue(invalidCredentials);
+    render(<SignInForm />);
+
+    const user = await fillForm({ password: 'not-the-password' });
+    await submit(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.');
+
+    await user.clear(screen.getByLabelText('Password'));
+    await submit(user);
+
+    expect(screen.queryByText('Invalid email or password.')).not.toBeInTheDocument();
+    expect(await screen.findByText('Password is required')).toBeInTheDocument();
+    expect(signInEmail).toHaveBeenCalledTimes(1);
   });
 });

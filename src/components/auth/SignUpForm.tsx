@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
 
-import { errorTextClasses, inputClasses, submitButtonClasses } from '@/components/auth/formStyles';
+import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { HOME_PATH } from '@/lib/routes';
-import { validateSignUp, type SignUpFieldErrors } from '@/lib/validation/signUp';
+import { signUpSchema, type SignUpInput } from '@/lib/validation/signUp';
 
 // Better Auth answers a duplicate email with 422 and this code. The plain
 // USER_ALREADY_EXISTS code covers configurations that do not append the hint.
@@ -18,35 +21,22 @@ const EMAIL_TAKEN_MESSAGE = 'That email is already registered.';
 export default function SignUpForm() {
   const router = useRouter();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const form = useForm<SignUpInput>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: { name: '', email: '', password: '' },
+  });
 
-  const [fieldErrors, setFieldErrors] = useState<SignUpFieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFormError(null);
-
-    const errors = validateSignUp({ name, email, password });
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setIsSubmitting(true);
-
+  async function onSubmit(values: SignUpInput) {
     // The client returns { data, error } instead of throwing.
-    const { error } = await authClient.signUp.email({ name, email, password });
+    const { error } = await authClient.signUp.email(values);
 
     if (error) {
       if (error.code && EMAIL_TAKEN_CODES.includes(error.code)) {
-        setFieldErrors({ email: EMAIL_TAKEN_MESSAGE });
+        form.setError('email', { message: EMAIL_TAKEN_MESSAGE });
       } else {
         // Only recognized codes get a specific message.
-        setFormError(GENERIC_ERROR_MESSAGE);
+        form.setError('root', { message: GENERIC_ERROR_MESSAGE });
       }
-      setIsSubmitting(false);
       return;
     }
 
@@ -54,84 +44,86 @@ export default function SignUpForm() {
   }
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4">
+    <form
+      noValidate
+      onSubmit={(event) => {
+        // Clear before handleSubmit so a stale API root error does not linger
+        // when client validation fails and onSubmit never runs.
+        form.clearErrors('root');
+        void form.handleSubmit(onSubmit)(event);
+      }}
+      className="flex w-full max-w-sm flex-col gap-4"
+    >
       <h1 className="text-2xl font-bold">Create your account</h1>
 
-      {formError && (
-        <p role="alert" className={errorTextClasses}>
-          {formError}
+      {form.formState.errors.root?.message && (
+        <p role="alert" className="text-sm text-destructive">
+          {form.formState.errors.root.message}
         </p>
       )}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="name" className="text-sm font-medium">
-          Name
-        </label>
-        <input
-          id="name"
+      <FieldGroup>
+        <Controller
           name="name"
-          type="text"
-          autoComplete="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          aria-invalid={Boolean(fieldErrors.name)}
-          aria-describedby={fieldErrors.name ? 'name-error' : undefined}
-          className={inputClasses}
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="text"
+                autoComplete="name"
+                aria-invalid={fieldState.invalid}
+                aria-describedby={fieldState.invalid ? 'name-error' : undefined}
+              />
+              {fieldState.invalid && <FieldError id="name-error" errors={[fieldState.error]} />}
+            </Field>
+          )}
         />
-        {fieldErrors.name && (
-          <p id="name-error" className={errorTextClasses}>
-            {fieldErrors.name}
-          </p>
-        )}
-      </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Email
-        </label>
-        <input
-          id="email"
+        <Controller
           name="email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          aria-invalid={Boolean(fieldErrors.email)}
-          aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-          className={inputClasses}
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="email"
+                autoComplete="email"
+                aria-invalid={fieldState.invalid}
+                aria-describedby={fieldState.invalid ? 'email-error' : undefined}
+              />
+              {fieldState.invalid && <FieldError id="email-error" errors={[fieldState.error]} />}
+            </Field>
+          )}
         />
-        {fieldErrors.email && (
-          <p id="email-error" className={errorTextClasses}>
-            {fieldErrors.email}
-          </p>
-        )}
-      </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
-        <input
-          id="password"
+        <Controller
           name="password"
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          aria-invalid={Boolean(fieldErrors.password)}
-          aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-          className={inputClasses}
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="password"
+                autoComplete="new-password"
+                aria-invalid={fieldState.invalid}
+                aria-describedby={fieldState.invalid ? 'password-error' : undefined}
+              />
+              {fieldState.invalid && <FieldError id="password-error" errors={[fieldState.error]} />}
+            </Field>
+          )}
         />
-        {fieldErrors.password && (
-          <p id="password-error" className={errorTextClasses}>
-            {fieldErrors.password}
-          </p>
-        )}
-      </div>
+      </FieldGroup>
 
-      <button type="submit" disabled={isSubmitting} className={submitButtonClasses}>
-        {isSubmitting ? 'Creating account...' : 'Create account'}
-      </button>
+      <Button type="submit" disabled={form.formState.isSubmitting}>
+        {form.formState.isSubmitting ? 'Creating account...' : 'Create account'}
+      </Button>
     </form>
   );
 }

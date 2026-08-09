@@ -20,6 +20,9 @@ export type SignInFieldErrors = FieldErrors<SignInInput>;
  *
  * These are input-shape errors only. Whether the credentials are correct is
  * never decided here, and never reported per field.
+ *
+ * Same schema as the sign-in form (`zodResolver(signInSchema)`): do not add
+ * parallel rules elsewhere.
  */
 export function validateSignIn(input: SignInInput): SignInFieldErrors {
   const result = signInSchema.safeParse(input);

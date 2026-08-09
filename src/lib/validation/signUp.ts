@@ -21,6 +21,9 @@ export type SignUpFieldErrors = FieldErrors<SignUpInput>;
 /**
  * Validates the sign up fields and returns the first error for each invalid
  * field, ready to render next to its input. An empty object means valid input.
+ *
+ * Same schema as the sign-up form (`zodResolver(signUpSchema)`): do not add
+ * parallel rules elsewhere.
  */
 export function validateSignUp(input: SignUpInput): SignUpFieldErrors {
   const result = signUpSchema.safeParse(input);
