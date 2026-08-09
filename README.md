@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# wrapit
 
-## Getting Started
+A personal kanban to organize tasks. Learning project built to practice a
+production-style stack and eventually contribute to similar codebases.
 
-First, run the development server:
+## Status
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Early setup. The stack and tooling are in place; application features (auth,
+boards, cards) are not built yet.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
+dockerized mode is planned but not set up yet.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js 16 (App Router, Server Components)
+- TypeScript
+- Tailwind CSS 4
+- Prisma 7 + PostgreSQL 18 (in Docker)
+- Vitest for tests, ESLint and Prettier for lint and format
 
-## Learn More
+## Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 22+
+- pnpm
+- Docker (for the database)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Running
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    git clone project-url
+    cd wrapit
+    cp .env.example .env      fill in the values
+    pnpm install
+    pnpm db:up                start Postgres in Docker
+    pnpm db:migrate           apply migrations
+    pnpm db:generate          generate the Prisma Client
+    pnpm dev                  dev server at :3000
 
-## Deploy on Vercel
+## Commands
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+    pnpm dev              dev server at :3000
+    pnpm build            production build
+    pnpm lint             ESLint
+    pnpm format           Prettier (write)
+    pnpm test:run         run all tests once
+    pnpm db:up            start Postgres in Docker
+    pnpm db:down          stop the container
+    pnpm db:migrate       create and apply a migration
+    pnpm db:generate      regenerate the Prisma Client
+    pnpm db:studio        open Prisma Studio
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Layout
+
+    app/            routes, layouts, pages (App Router)
+    app/lib/        shared code (e.g. the Prisma client)
+    prisma/         schema and migrations
+    tests/          tests, mirroring the source structure
+    docs/           tooling, testing and database documentation
+
+## Checks
+
+Run manually:
+
+    pnpm lint
+    pnpm format
+    pnpm test:run
+
+Run automatically:
+
+| Where      | What runs                      | Skippable |
+| ---------- | ------------------------------ | --------- |
+| pre-commit | lint-staged (ESLint, Prettier) | yes       |
+
+## Documentation
+
+    docs/workflow.md   development workflow
+    docs/tooling.md    formatters, linters, git hooks, test runner
+    docs/testing.md    test conventions
+    docs/database.md   database and Prisma usage
