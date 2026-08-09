@@ -1,14 +1,16 @@
 // tests/lib/boards.test.ts
 //
-// Tests for listing boards owned by a user.
+// Tests for listing boards and loading a single board for a user.
 //
 // Tested:
 // - Returns only boards owned by the given user
 // - Returns boards newest first
 // - Returns an empty list when the user has no boards
+// - Returns the board with columns in order for the owner
+// - Returns null for a non-owner or unknown board id
 //
 // What is covered:
-// - Happy path, ownership isolation, empty list
+// - Happy path, ownership isolation, empty list, board detail
 //
 // Run with: pnpm test:run tests/lib/boards.test.ts
 //
@@ -21,7 +23,7 @@ import { createPrismaFake } from '../helpers/prismaFake';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { listBoardsForUser } = await import('@/lib/boards');
+const { listBoardsForUser, getBoardForUser } = await import('@/lib/boards');
 
 describe('listBoardsForUser', () => {
   beforeEach(() => {
@@ -62,5 +64,46 @@ describe('listBoardsForUser', () => {
     });
 
     expect(await listBoardsForUser('user-ada')).toEqual([]);
+  });
+});
+
+describe('getBoardForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('returns the board with columns in order for the owner', async () => {
+    const board = await db.board.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    await db.column.create({
+      data: { title: 'Done', order: 2, boardId: board.id },
+    });
+    await db.column.create({
+      data: { title: 'To do', order: 1, boardId: board.id },
+    });
+
+    const result = await getBoardForUser(board.id, 'user-ada');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: board.id,
+        title: 'Sprint board',
+        ownerId: 'user-ada',
+      }),
+    );
+    expect(result?.columns.map((column) => column.title)).toEqual(['To do', 'Done']);
+  });
+
+  it('returns null for a non-owner', async () => {
+    const board = await db.board.create({
+      data: { title: 'Ada board', ownerId: 'user-ada' },
+    });
+
+    expect(await getBoardForUser(board.id, 'user-other')).toBeNull();
+  });
+
+  it('returns null for an unknown board id', async () => {
+    expect(await getBoardForUser('missing-board', 'user-ada')).toBeNull();
   });
 });

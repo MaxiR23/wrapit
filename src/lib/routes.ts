@@ -9,6 +9,11 @@ export const BOARDS_PATH = '/boards';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 
+/** Detail page for a single board. */
+export function boardPath(boardId: string) {
+  return `${BOARDS_PATH}/${boardId}`;
+}
+
 /** Pages that show the sign in or sign up forms. */
 const AUTH_PATHS: readonly string[] = [SIGN_IN_PATH, SIGN_UP_PATH];
 
