@@ -17,9 +17,13 @@ Flow for every feature, fix or non-trivial change in this repo.
    - Only for work with multiple phases, decisions worth recording, or
      open questions. Most tasks skip this step.
 
-4. **Implement**
-   - Tests and implementation ship in the same branch.
-   - See the definition of done in AGENTS.md.
+4. **Implement, test first**
+   - Red: write the failing test.
+   - Green: write the minimum code that makes it pass.
+   - Refactor with the tests green.
+   - Tests and implementation ship in the same branch and PR.
+   - Conventions and the required test file header: docs/testing.md
+   - Definition of done: AGENTS.md
 
 5. **Verify locally**
    - `pnpm lint`

@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { errorTextClasses, inputClasses, submitButtonClasses } from '@/app/components/formStyles';
 import { authClient } from '@/app/lib/authClient';
+import { GENERIC_ERROR_MESSAGE } from '@/app/lib/messages';
+import { HOME_PATH } from '@/app/lib/routes';
 import { validateSignUp, type SignUpFieldErrors } from '@/app/lib/validation/signUp';
 
 // Better Auth answers a duplicate email with 422 and this code. The plain
@@ -11,10 +14,6 @@ import { validateSignUp, type SignUpFieldErrors } from '@/app/lib/validation/sig
 const EMAIL_TAKEN_CODES = ['USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL', 'USER_ALREADY_EXISTS'];
 
 const EMAIL_TAKEN_MESSAGE = 'That email is already registered.';
-const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
-
-const inputClasses =
-  'w-full rounded border border-gray-300 px-3 py-2 outline-none focus:border-gray-900';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -44,16 +43,14 @@ export default function SignUpForm() {
       if (error.code && EMAIL_TAKEN_CODES.includes(error.code)) {
         setFieldErrors({ email: EMAIL_TAKEN_MESSAGE });
       } else {
-        // Only recognized codes get a specific message. Never render
-        // error.message from an unrecognized failure: it can carry server
-        // internals the user should not see.
+        // Only recognized codes get a specific message.
         setFormError(GENERIC_ERROR_MESSAGE);
       }
       setIsSubmitting(false);
       return;
     }
 
-    router.push('/');
+    router.push(HOME_PATH);
   }
 
   return (
@@ -61,7 +58,7 @@ export default function SignUpForm() {
       <h1 className="text-2xl font-bold">Create your account</h1>
 
       {formError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={errorTextClasses}>
           {formError}
         </p>
       )}
@@ -82,7 +79,7 @@ export default function SignUpForm() {
           className={inputClasses}
         />
         {fieldErrors.name && (
-          <p id="name-error" className="text-sm text-red-600">
+          <p id="name-error" className={errorTextClasses}>
             {fieldErrors.name}
           </p>
         )}
@@ -104,7 +101,7 @@ export default function SignUpForm() {
           className={inputClasses}
         />
         {fieldErrors.email && (
-          <p id="email-error" className="text-sm text-red-600">
+          <p id="email-error" className={errorTextClasses}>
             {fieldErrors.email}
           </p>
         )}
@@ -126,17 +123,13 @@ export default function SignUpForm() {
           className={inputClasses}
         />
         {fieldErrors.password && (
-          <p id="password-error" className="text-sm text-red-600">
+          <p id="password-error" className={errorTextClasses}>
             {fieldErrors.password}
           </p>
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={isSubmitting} className={submitButtonClasses}>
         {isSubmitting ? 'Creating account...' : 'Create account'}
       </button>
     </form>

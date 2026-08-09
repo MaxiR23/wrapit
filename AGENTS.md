@@ -4,33 +4,12 @@ Guidance for coding agents working in this repository.
 
 ## Project
 
-wrapit — a personal kanban to organize tasks. Learning project on a
-production-style stack: Next.js 16 (App Router), TypeScript, Tailwind 4,
-Prisma 7, PostgreSQL 18 (Docker), Vitest, pnpm.
+wrapit — a personal kanban to organize tasks, built as a learning project on a
+production-style stack.
 
-Status: early setup. Stack and tooling are in place. Auth covers sign up, sign
-in, sign out and route protection; boards and cards are not built yet.
-
-## Commands
-
-    pnpm dev              dev server at :3000
-    pnpm build            production build
-    pnpm lint             ESLint
-    pnpm format           Prettier (write)
-    pnpm test:run         run all tests once
-    pnpm db:up            start Postgres in Docker
-    pnpm db:migrate       create and apply a migration
-    pnpm db:generate      regenerate Prisma Client
-
-## Layout
-
-    app/            routes, layouts, pages (App Router)
-    app/components/ React components
-    app/lib/        shared code (e.g. the Prisma client)
-    proxy.ts        route protection (Next 16's renamed middleware)
-    prisma/         schema and migrations
-    tests/          tests, mirroring the source structure
-    docs/           tooling, testing and database documentation
+Stack, status, setup, commands and layout: `README.md`. It is the single source
+of truth for those lists; this file and `docs/` explain the rules and the why,
+and never restate them.
 
 ## Conventions
 
@@ -40,9 +19,10 @@ in, sign out and route protection; boards and cards are not built yet.
 
 ## Definition of done
 
-1. Lint, format and build pass.
-2. Tests for the change ship in the same branch and PR.
-3. Relevant `docs/` updated.
+1. Test first: red, green, refactor. See `docs/testing.md`.
+2. Lint, format and build pass.
+3. Tests for the change ship in the same branch and PR.
+4. Relevant `docs/` updated.
 
 ## Roles
 
@@ -53,6 +33,7 @@ in, sign out and route protection; boards and cards are not built yet.
 
 ## See also
 
+    README.md          stack, commands, layout, setup
     docs/workflow.md   development workflow
     docs/tooling.md    formatters, linters, git hooks, test runner
     docs/testing.md    test conventions

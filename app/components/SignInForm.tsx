@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { errorTextClasses, inputClasses, submitButtonClasses } from '@/app/components/formStyles';
 import { authClient } from '@/app/lib/authClient';
+import { GENERIC_ERROR_MESSAGE } from '@/app/lib/messages';
+import { HOME_PATH } from '@/app/lib/routes';
 import { validateSignIn, type SignInFieldErrors } from '@/app/lib/validation/signIn';
 
 // Better Auth answers both a wrong password and an email that was never
@@ -13,10 +16,6 @@ import { validateSignIn, type SignInFieldErrors } from '@/app/lib/validation/sig
 const CREDENTIALS_ERROR_CODES = ['INVALID_EMAIL_OR_PASSWORD', 'USER_NOT_FOUND', 'INVALID_PASSWORD'];
 
 const CREDENTIALS_ERROR_MESSAGE = 'Invalid email or password.';
-const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
-
-const inputClasses =
-  'w-full rounded border border-gray-300 px-3 py-2 outline-none focus:border-gray-900';
 
 export default function SignInForm() {
   const router = useRouter();
@@ -48,15 +47,13 @@ export default function SignInForm() {
       const isCredentialsError =
         error.status === 401 || (error.code ? CREDENTIALS_ERROR_CODES.includes(error.code) : false);
 
-      // Only recognized failures get specific wording. Never render
-      // error.message from an unrecognized failure: it can carry server
-      // internals the user should not see.
+      // Only recognized failures get specific wording.
       setFormError(isCredentialsError ? CREDENTIALS_ERROR_MESSAGE : GENERIC_ERROR_MESSAGE);
       setIsSubmitting(false);
       return;
     }
 
-    router.push('/');
+    router.push(HOME_PATH);
     router.refresh();
   }
 
@@ -65,7 +62,7 @@ export default function SignInForm() {
       <h1 className="text-2xl font-bold">Sign in to wrapit</h1>
 
       {formError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className={errorTextClasses}>
           {formError}
         </p>
       )}
@@ -86,7 +83,7 @@ export default function SignInForm() {
           className={inputClasses}
         />
         {fieldErrors.email && (
-          <p id="email-error" className="text-sm text-red-600">
+          <p id="email-error" className={errorTextClasses}>
             {fieldErrors.email}
           </p>
         )}
@@ -108,17 +105,13 @@ export default function SignInForm() {
           className={inputClasses}
         />
         {fieldErrors.password && (
-          <p id="password-error" className="text-sm text-red-600">
+          <p id="password-error" className={errorTextClasses}>
             {fieldErrors.password}
           </p>
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-gray-900 px-4 py-2 font-medium text-white disabled:opacity-60"
-      >
+      <button type="submit" disabled={isSubmitting} className={submitButtonClasses}>
         {isSubmitting ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
