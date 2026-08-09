@@ -38,9 +38,9 @@ All application code lives under `src/`. The tree itself is listed in
 - `src/lib/` — shared code that is not a React component: the Better Auth
   instance and client, the Prisma client, route definitions, validation schemas.
 - `src/actions/` — server actions, one per file, each starting with
-  `'use server'`. **Does not exist yet**: every auth flow currently runs in the
-  browser through `authClient`. Create it with the first real server action
-  rather than leaving an empty placeholder.
+  `'use server'`. Mutations that need the real session and Prisma live here
+  (for example `createBoard`); auth sign-in/up still runs in the browser through
+  `authClient`.
 - `src/generated/` — generated output (the Prisma Client). Gitignored, recreated
   by `pnpm db:generate`, never edited by hand.
 - `src/proxy.ts` — route protection. It must sit beside `src/app/`, not inside

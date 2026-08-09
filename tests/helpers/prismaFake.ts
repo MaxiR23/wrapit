@@ -45,7 +45,11 @@ function createModel() {
   return {
     rows,
     create: vi.fn(async ({ data }: { data: Row }) => {
-      const row = { ...data };
+      const row = {
+        id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
+        createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
+        ...data,
+      };
       rows.push(row);
       return { ...row };
     }),
@@ -54,11 +58,37 @@ function createModel() {
       return row ? { ...row } : null;
     }),
     findMany: vi.fn(
-      async ({ where, skip = 0, take }: { where?: Row; skip?: number; take?: number } = {}) =>
-        rows
-          .filter((r) => matches(r, where))
+      async ({
+        where,
+        skip = 0,
+        take,
+        orderBy,
+      }: {
+        where?: Row;
+        skip?: number;
+        take?: number;
+        orderBy?: Row | Row[];
+      } = {}) => {
+        let matched = rows.filter((r) => matches(r, where));
+
+        const order = Array.isArray(orderBy) ? orderBy[0] : orderBy;
+        if (order && typeof order === 'object') {
+          const [[field, direction]] = Object.entries(order);
+          matched = [...matched].sort((a, b) => {
+            const left = a[field];
+            const right = b[field];
+            if (left === right) return 0;
+            if (left == null) return 1;
+            if (right == null) return -1;
+            const cmp = left < right ? -1 : 1;
+            return direction === 'desc' ? -cmp : cmp;
+          });
+        }
+
+        return matched
           .slice(skip, take === undefined ? undefined : skip + take)
-          .map((r) => ({ ...r })),
+          .map((r) => ({ ...r }));
+      },
     ),
     update: vi.fn(async ({ where, data }: { where?: Row; data: Row }) => {
       const row = rows.find((r) => matches(r, where));
@@ -89,6 +119,7 @@ export function createPrismaFake() {
     session: createModel(),
     account: createModel(),
     verification: createModel(),
+    board: createModel(),
   };
 
   return {

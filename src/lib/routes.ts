@@ -5,6 +5,7 @@
 // default, and opening one up is a deliberate edit to this file.
 
 export const HOME_PATH = '/';
+export const BOARDS_PATH = '/boards';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 

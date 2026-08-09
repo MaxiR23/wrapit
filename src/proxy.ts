@@ -1,7 +1,7 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { HOME_PATH, SIGN_IN_PATH, isAuthPath, isPublicPath } from '@/lib/routes';
+import { BOARDS_PATH, SIGN_IN_PATH, isAuthPath, isPublicPath } from '@/lib/routes';
 
 /**
  * Route protection.
@@ -20,7 +20,7 @@ export default function proxy(request: NextRequest) {
   if (hasSession) {
     // A signed in user has nothing to do on the sign in or sign up page.
     return isAuthPath(pathname)
-      ? NextResponse.redirect(new URL(HOME_PATH, request.url))
+      ? NextResponse.redirect(new URL(BOARDS_PATH, request.url))
       : NextResponse.next();
   }
 
