@@ -15,17 +15,17 @@
 //
 // Run with: pnpm test:run tests/api/auth/route.test.ts
 //
-// SEE: app/api/auth/[...all]/route.ts
+// SEE: src/app/api/auth/[...all]/route.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { createPrismaFake } from '@/tests/helpers/prismaFake';
+import { createPrismaFake } from '../../helpers/prismaFake';
 
 vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-32-characters-long');
 vi.stubEnv('BETTER_AUTH_URL', 'http://localhost:3000');
 
 const db = createPrismaFake();
-vi.mock('@/app/lib/prisma', () => ({ prisma: db }));
+vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
 const { GET, POST } = await import('@/app/api/auth/[...all]/route');
 

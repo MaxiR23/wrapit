@@ -14,7 +14,7 @@
 //
 // Run with: pnpm test:run tests/proxy.test.ts
 //
-// SEE: proxy.ts, app/lib/routes.ts
+// SEE: src/proxy.ts, src/lib/routes.ts
 
 import { describe, it, expect } from 'vitest';
 import { NextRequest } from 'next/server';

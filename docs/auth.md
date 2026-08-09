@@ -22,29 +22,29 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
 
 ## Files
 
-    proxy.ts                           route protection, runs before every request
-    app/lib/routes.ts                  which routes are public
-    app/lib/auth.ts                    the Better Auth instance (server)
-    app/lib/authClient.ts              the Better Auth client (browser)
-    app/lib/validation/fieldErrors.ts  first error per field, shared by the validators
-    app/lib/validation/signUp.ts       sign up field rules, shared by both
-    app/lib/validation/signIn.ts       sign in field rules
-    app/api/auth/[...all]/route.ts     catch-all handler for /api/auth/*
-    app/components/SignUpForm.tsx      the sign up form
-    app/components/SignInForm.tsx      the sign in form
-    app/components/AuthNav.tsx         the nav that hosts the sign out action
-    app/sign-up/page.tsx               the /sign-up page
-    app/sign-in/page.tsx               the /sign-in page
+    src/proxy.ts                        route protection, runs before every request
+    src/lib/routes.ts                   which routes are public
+    src/lib/auth.ts                     the Better Auth instance (server)
+    src/lib/authClient.ts               the Better Auth client (browser)
+    src/lib/validation/fieldErrors.ts   first error per field, shared by the validators
+    src/lib/validation/signUp.ts        sign up field rules, shared by both
+    src/lib/validation/signIn.ts        sign in field rules
+    src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
+    src/components/auth/SignUpForm.tsx  the sign up form
+    src/components/auth/SignInForm.tsx  the sign in form
+    src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
+    src/app/sign-up/page.tsx            the /sign-up page
+    src/app/sign-in/page.tsx            the /sign-in page
 
-`app/lib/auth.ts` wires Better Auth to the shared Prisma client from
-`app/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
+`src/lib/auth.ts` wires Better Auth to the shared Prisma client from
+`src/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
 goes last in the plugin list; it lets Better Auth set cookies from server
 actions.
 
 The route handler mounts every Better Auth endpoint under `/api/auth/`, for
 example `/api/auth/sign-up/email` and `/api/auth/get-session`.
 
-`app/lib/authClient.ts` exports `authClient`, created with `createAuthClient()`
+`src/lib/authClient.ts` exports `authClient`, created with `createAuthClient()`
 from `better-auth/react`. It takes no `baseURL`: the client defaults to the
 current origin, which is where the API routes live.
 
@@ -55,8 +55,8 @@ password. It validates with `validateSignUp` before calling
 `authClient.signUp.email(...)`, so invalid input never reaches the network. On
 success Better Auth sets the session cookie and the form redirects to `/`.
 
-The rules live in `app/lib/validation/signUp.ts` as a zod schema. That module
-also exports `MIN_PASSWORD_LENGTH`, which `app/lib/auth.ts` passes to
+The rules live in `src/lib/validation/signUp.ts` as a zod schema. That module
+also exports `MIN_PASSWORD_LENGTH`, which `src/lib/auth.ts` passes to
 `emailAndPassword.minPasswordLength`. It matches Better Auth's own default of 8;
 setting it explicitly keeps the browser and the server from drifting apart.
 
@@ -72,7 +72,7 @@ One gap worth knowing: Better Auth's sign up schema rejects a **missing** name
 but accepts an **empty string**, so a direct POST to `/api/auth/sign-up/email`
 can still create a user with `name: ""`. The non-empty check is currently only
 in `validateSignUp`, on the client. Closing it server-side would need a
-`databaseHooks` guard in `app/lib/auth.ts`.
+`databaseHooks` guard in `src/lib/auth.ts`.
 
 ## Sign in
 
@@ -82,7 +82,7 @@ never reaches the network, then `authClient.signIn.email(...)`. On success the
 form redirects to `/` and calls `router.refresh()` so the nav re-reads the
 session.
 
-The rules live in `app/lib/validation/signIn.ts`. They deliberately do **not**
+The rules live in `src/lib/validation/signIn.ts`. They deliberately do **not**
 reuse `MIN_PASSWORD_LENGTH`: on sign in only presence is checked. A length rule
 would buy nothing (the server decides) and would lock out an account whose
 password predates a change to the minimum.
@@ -107,13 +107,13 @@ similar time.
 - A rejected credential is always a **form-level** error, never a field error.
   Attaching it to the email input would itself suggest the email was the problem.
 
-`tests/components/SignInForm.test.tsx` asserts the wrong-password message and
-the unknown-email message are the same string, so adding a branch that leaks
+`tests/components/auth/SignInForm.test.tsx` asserts the wrong-password message
+and the unknown-email message are the same string, so adding a branch that leaks
 existence breaks the build.
 
 ## Sign out
 
-`AuthNav` is a client component mounted in `app/layout.tsx`. It reads
+`AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
 `authClient.useSession()` and shows either a **Sign out** button or links to
 `/sign-in` and `/sign-up`. While the session is still loading it renders an
 empty nav, so a signed in user never sees the signed out links flash.
@@ -124,14 +124,19 @@ A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
 
 The nav is not route-aware; it only reflects the session. Protection lives in
-`proxy.ts`.
+`src/proxy.ts`.
 
 ## Route protection
 
-`proxy.ts` at the project root runs before every matched request and decides
-whether it may continue. Next 16 calls this file convention **proxy**; it was
-named `middleware` before and the old name is deprecated, so a snippet from the
-Better Auth docs that says `middleware.ts` belongs in `proxy.ts` here.
+`src/proxy.ts` runs before every matched request and decides whether it may
+continue. Next 16 calls this file convention **proxy**; it was named
+`middleware` before and the old name is deprecated, so a snippet from the Better
+Auth docs that says `middleware.ts` belongs in `src/proxy.ts` here.
+
+It sits beside `src/app/`, not inside it. Next only looks for the convention at
+the project root or at `src/`, so a proxy nested any deeper is silently ignored
+and every route becomes public. `pnpm build` listing a `Proxy (Middleware)` entry
+is the proof that it is wired up.
 
 Two rules:
 
@@ -142,7 +147,7 @@ Everything else is served untouched.
 
 ### Public vs private
 
-`app/lib/routes.ts` holds the definitions. Public means reachable without a
+`src/lib/routes.ts` holds the definitions. Public means reachable without a
 session:
 
     /            home
@@ -156,7 +161,7 @@ or signing in would be impossible: the request that creates the session would
 itself be redirected. Trailing slashes are normalized, and a prefix match only
 counts on a segment boundary, so `/api/authorize` is private.
 
-The `config.matcher` in `proxy.ts` skips Next internals and static files. The
+The `config.matcher` in `src/proxy.ts` skips Next internals and static files. The
 auth pages are matched on purpose — that is what makes the second rule fire.
 
 ### The check is optimistic
@@ -207,7 +212,7 @@ Two things differ from what `auth generate` emits, on purpose:
 After changing the Better Auth config (adding a plugin, for example), the CLI
 prints the models the new config needs:
 
-    pnpm dlx auth@latest generate --config app/lib/auth.ts --output /tmp/auth.prisma
+    pnpm dlx auth@latest generate --config src/lib/auth.ts --output /tmp/auth.prisma
 
 Reconcile that output into `prisma/schema.prisma` by hand, keeping the two
 deviations above, then run `pnpm db:migrate` and `pnpm db:generate`.
@@ -221,8 +226,9 @@ a real connection.
 
 The forms and the nav are tested against a mocked `authClient`, so their tests
 cover their own behavior (validation, error mapping, redirect) without a server:
-`tests/components/SignUpForm.test.tsx`, `tests/components/SignInForm.test.tsx`
-and `tests/components/AuthNav.test.tsx`.
+`tests/components/auth/SignUpForm.test.tsx`,
+`tests/components/auth/SignInForm.test.tsx` and
+`tests/components/auth/AuthNav.test.tsx`.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
 wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives

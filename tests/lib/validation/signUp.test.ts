@@ -14,11 +14,11 @@
 //
 // Run with: pnpm test:run tests/lib/validation/signUp.test.ts
 //
-// SEE: app/lib/validation/signUp.ts
+// SEE: src/lib/validation/signUp.ts
 
 import { describe, it, expect } from 'vitest';
 
-import { MIN_PASSWORD_LENGTH, validateSignUp } from '@/app/lib/validation/signUp';
+import { MIN_PASSWORD_LENGTH, validateSignUp } from '@/lib/validation/signUp';
 
 const validInput = {
   name: 'Ada',

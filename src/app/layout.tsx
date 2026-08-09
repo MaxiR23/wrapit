@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
-import AuthNav from '@/app/components/AuthNav';
+import AuthNav from '@/components/auth/AuthNav';
 
 export const metadata: Metadata = {
   title: 'wrapit',

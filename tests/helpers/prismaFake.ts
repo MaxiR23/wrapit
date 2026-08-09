@@ -4,7 +4,7 @@
 // Better Auth Prisma adapter uses. Anything it calls that is not implemented
 // here throws, so a test can never silently reach the real database.
 //
-// SEE: app/lib/prisma.ts
+// SEE: src/lib/prisma.ts
 
 import { vi } from 'vitest';
 

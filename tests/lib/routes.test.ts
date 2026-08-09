@@ -14,11 +14,11 @@
 //
 // Run with: pnpm test:run tests/lib/routes.test.ts
 //
-// SEE: app/lib/routes.ts
+// SEE: src/lib/routes.ts
 
 import { describe, it, expect } from 'vitest';
 
-import { isAuthPath, isPublicPath } from '@/app/lib/routes';
+import { isAuthPath, isPublicPath } from '@/lib/routes';
 
 describe('isPublicPath', () => {
   it('accepts home and the auth pages', () => {

@@ -1,7 +1,7 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { HOME_PATH, SIGN_IN_PATH, isAuthPath, isPublicPath } from '@/app/lib/routes';
+import { HOME_PATH, SIGN_IN_PATH, isAuthPath, isPublicPath } from '@/lib/routes';
 
 /**
  * Route protection.

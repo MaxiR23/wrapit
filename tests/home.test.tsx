@@ -10,7 +10,7 @@
 //
 // Run with: pnpm test:run tests/home.test.tsx
 //
-// SEE: app/page.tsx
+// SEE: src/app/page.tsx
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';

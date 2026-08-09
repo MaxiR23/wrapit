@@ -19,19 +19,19 @@
 //
 // Run with: pnpm test:run tests/lib/auth.test.ts
 //
-// SEE: app/lib/auth.ts
+// SEE: src/lib/auth.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { createPrismaFake } from '@/tests/helpers/prismaFake';
+import { createPrismaFake } from '../helpers/prismaFake';
 
 vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-32-characters-long');
 vi.stubEnv('BETTER_AUTH_URL', 'http://localhost:3000');
 
 const db = createPrismaFake();
-vi.mock('@/app/lib/prisma', () => ({ prisma: db }));
+vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { auth } = await import('@/app/lib/auth');
+const { auth } = await import('@/lib/auth');
 
 const credentials = {
   email: 'ada@example.com',

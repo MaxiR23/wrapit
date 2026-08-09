@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { errorTextClasses, inputClasses, submitButtonClasses } from '@/app/components/formStyles';
-import { authClient } from '@/app/lib/authClient';
-import { GENERIC_ERROR_MESSAGE } from '@/app/lib/messages';
-import { HOME_PATH } from '@/app/lib/routes';
-import { validateSignIn, type SignInFieldErrors } from '@/app/lib/validation/signIn';
+import { errorTextClasses, inputClasses, submitButtonClasses } from '@/components/auth/formStyles';
+import { authClient } from '@/lib/authClient';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { HOME_PATH } from '@/lib/routes';
+import { validateSignIn, type SignInFieldErrors } from '@/lib/validation/signIn';
 
 // Better Auth answers both a wrong password and an email that was never
 // registered with the same 401 INVALID_EMAIL_OR_PASSWORD. The other codes are

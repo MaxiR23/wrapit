@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { firstErrorPerField, type FieldErrors } from '@/app/lib/validation/fieldErrors';
+import { firstErrorPerField, type FieldErrors } from '@/lib/validation/fieldErrors';
 
 // Sign in deliberately does not reuse MIN_PASSWORD_LENGTH. Here only presence
 // matters: the server decides whether the password is right, and an account
