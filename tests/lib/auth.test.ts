@@ -11,9 +11,11 @@
 // - Rejects a sign up with a missing name
 // - Rejects a sign up for an email that is already registered
 // - Signs in with the correct password and rejects the wrong one
+// - Rejects a sign in for an email that is not registered
 //
 // What is covered:
-// - Happy path, invalid input, missing fields, duplicate email, wrong credentials
+// - Happy path, invalid input, missing fields, duplicate email, wrong
+//   credentials, unknown email
 //
 // Run with: pnpm test:run tests/lib/auth.test.ts
 //
@@ -120,5 +122,15 @@ describe('auth', () => {
         body: { email: credentials.email, password: 'not-the-password' },
       }),
     ).rejects.toThrow();
+  });
+
+  it('rejects a sign in for an email that is not registered', async () => {
+    await expect(
+      auth.api.signInEmail({
+        body: { email: 'nobody@example.com', password: credentials.password },
+      }),
+    ).rejects.toThrow();
+
+    expect(db.session.rows).toHaveLength(0);
   });
 });

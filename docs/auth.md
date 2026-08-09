@@ -7,8 +7,8 @@ How authentication is set up in this repo.
 [Better Auth](https://www.better-auth.com/) with the Prisma adapter, on the
 same PostgreSQL database as the rest of the app.
 
-Only email and password is enabled. There is a sign up page; there is no sign in
-or sign out UI yet, no route protection, and no social providers.
+Only email and password is enabled. Sign up, sign in and sign out all work.
+There is no route protection yet and no social providers.
 
 ## Environment variables
 
@@ -22,12 +22,17 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
 
 ## Files
 
-    app/lib/auth.ts                   the Better Auth instance (server)
-    app/lib/authClient.ts             the Better Auth client (browser)
-    app/lib/validation/signUp.ts      sign up field rules, shared by both
-    app/api/auth/[...all]/route.ts    catch-all handler for /api/auth/*
-    app/components/SignUpForm.tsx     the sign up form
-    app/sign-up/page.tsx              the /sign-up page
+    app/lib/auth.ts                    the Better Auth instance (server)
+    app/lib/authClient.ts              the Better Auth client (browser)
+    app/lib/validation/fieldErrors.ts  first error per field, shared by the validators
+    app/lib/validation/signUp.ts       sign up field rules, shared by both
+    app/lib/validation/signIn.ts       sign in field rules
+    app/api/auth/[...all]/route.ts     catch-all handler for /api/auth/*
+    app/components/SignUpForm.tsx      the sign up form
+    app/components/SignInForm.tsx      the sign in form
+    app/components/AuthNav.tsx         the nav that hosts the sign out action
+    app/sign-up/page.tsx               the /sign-up page
+    app/sign-in/page.tsx               the /sign-in page
 
 `app/lib/auth.ts` wires Better Auth to the shared Prisma client from
 `app/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
@@ -66,6 +71,58 @@ but accepts an **empty string**, so a direct POST to `/api/auth/sign-up/email`
 can still create a user with `name: ""`. The non-empty check is currently only
 in `validateSignUp`, on the client. Closing it server-side would need a
 `databaseHooks` guard in `app/lib/auth.ts`.
+
+## Sign in
+
+`/sign-in` renders `SignInForm`, a client component with email and password. It
+follows the same shape as sign up: `validateSignIn` runs first so invalid input
+never reaches the network, then `authClient.signIn.email(...)`. On success the
+form redirects to `/` and calls `router.refresh()` so the nav re-reads the
+session.
+
+The rules live in `app/lib/validation/signIn.ts`. They deliberately do **not**
+reuse `MIN_PASSWORD_LENGTH`: on sign in only presence is checked. A length rule
+would buy nothing (the server decides) and would lock out an account whose
+password predates a change to the minimum.
+
+### Not revealing whether an email is registered
+
+A failed sign in must never tell an attacker which emails have accounts.
+Better Auth is already built that way: an unknown email and a wrong password
+both come back as `401` with the code `INVALID_EMAIL_OR_PASSWORD`, and it hashes
+the submitted password even when the user does not exist so the two paths take
+similar time.
+
+`SignInForm` holds up its end:
+
+- Every `401`, and every code in `CREDENTIALS_ERROR_CODES`
+  (`INVALID_EMAIL_OR_PASSWORD`, `USER_NOT_FOUND`, `INVALID_PASSWORD`), renders
+  the one message `Invalid email or password.` The extra codes are listed so
+  that a future configuration which does distinguish them still cannot be used
+  to probe for registered emails.
+- Anything else renders the same generic message as sign up, and `error.message`
+  is never rendered.
+- A rejected credential is always a **form-level** error, never a field error.
+  Attaching it to the email input would itself suggest the email was the problem.
+
+`tests/components/SignInForm.test.tsx` asserts the wrong-password message and
+the unknown-email message are the same string, so adding a branch that leaks
+existence breaks the build.
+
+## Sign out
+
+`AuthNav` is a client component mounted in `app/layout.tsx`. It reads
+`authClient.useSession()` and shows either a **Sign out** button or links to
+`/sign-in` and `/sign-up`. While the session is still loading it renders an
+empty nav, so a signed in user never sees the signed out links flash.
+
+Sign out calls `authClient.signOut()`, which deletes the `Session` row and
+clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
+A failed sign out shows a fixed message and does not navigate; as everywhere
+else, the server message is not rendered.
+
+The nav is not route-aware and does not protect anything. Route protection is
+still to be built.
 
 ## Database schema
 
@@ -111,9 +168,15 @@ stand-in for the Prisma delegates the adapter uses; any method or `where`
 operator it does not implement throws, so a test cannot silently fall through to
 a real connection.
 
-The sign up form is tested against a mocked `authClient`, so its tests cover the
-form's own behavior (validation, error mapping, redirect) without a server. The
-server-side rules are covered in `tests/lib/auth.test.ts`.
+The forms and the nav are tested against a mocked `authClient`, so their tests
+cover their own behavior (validation, error mapping, redirect) without a server:
+`tests/components/SignUpForm.test.tsx`, `tests/components/SignInForm.test.tsx`
+and `tests/components/AuthNav.test.tsx`.
+
+The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
+wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives
+the real route handler with raw `Request` objects and replays the session cookie
+to prove that sign out actually removes the `Session` row.
 
 ## SEE
 
