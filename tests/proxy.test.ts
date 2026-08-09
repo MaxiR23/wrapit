@@ -5,7 +5,7 @@
 // Tested:
 // - A private route without a session redirects to /sign-in
 // - A public route is served without a session
-// - /sign-in and /sign-up with a session redirect to home
+// - /sign-in and /sign-up with a session redirect to /boards
 // - A private route with a session is served
 // - The Better Auth API is reachable in both states
 //
@@ -62,15 +62,15 @@ describe('proxy without a session', () => {
 });
 
 describe('proxy with a session', () => {
-  it('redirects the sign in page to home', () => {
+  it('redirects the sign in page to /boards', () => {
     const response = proxy(request('/sign-in', { signedIn: true }));
 
     expect(response.status).toBe(307);
-    expect(redirectTarget(response)).toBe('/');
+    expect(redirectTarget(response)).toBe('/boards');
   });
 
-  it('redirects the sign up page to home', () => {
-    expect(redirectTarget(proxy(request('/sign-up', { signedIn: true })))).toBe('/');
+  it('redirects the sign up page to /boards', () => {
+    expect(redirectTarget(proxy(request('/sign-up', { signedIn: true })))).toBe('/boards');
   });
 
   it('serves a private route', () => {

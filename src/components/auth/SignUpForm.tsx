@@ -9,7 +9,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { HOME_PATH } from '@/lib/routes';
+import { BOARDS_PATH } from '@/lib/routes';
 import { signUpSchema, type SignUpInput } from '@/lib/validation/signUp';
 
 // Better Auth answers a duplicate email with 422 and this code. The plain
@@ -40,7 +40,7 @@ export default function SignUpForm() {
       return;
     }
 
-    router.push(HOME_PATH);
+    router.push(BOARDS_PATH);
   }
 
   return (

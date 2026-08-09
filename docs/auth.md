@@ -23,17 +23,23 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
 ## Files
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public
+    src/lib/routes.ts                   which routes are public; BOARDS_PATH
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
+    src/lib/boards.ts                   list boards for the current user
     src/lib/validation/fieldErrors.ts   first error per field, shared by the validators
     src/lib/validation/signUp.ts        sign up field rules, shared by both
     src/lib/validation/signIn.ts        sign in field rules
+    src/lib/validation/board.ts         board title rules
+    src/actions/createBoard.ts          create a board for the signed-in user
     src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
+    src/components/boards/              boards list, empty state, new-board dialog
     src/components/ui/                  shadcn/ui primitives used by the forms
+    src/app/page.tsx                    / redirects by session to /boards or /sign-in
+    src/app/boards/page.tsx             lists the current user's boards
     src/app/sign-up/page.tsx            the /sign-up page
     src/app/sign-in/page.tsx            the /sign-in page
     src/app/globals.css                 theme tokens (Neutral base color)
@@ -55,7 +61,7 @@ current origin, which is where the API routes live.
 `/sign-up` renders `SignUpForm`, a client component with name, email and
 password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
 input never reaches the network, then calls `authClient.signUp.email(...)`. On
-success Better Auth sets the session cookie and the form redirects to `/`.
+success Better Auth sets the session cookie and the form redirects to `/boards`.
 
 The rules live in `src/lib/validation/signUp.ts` as a single zod schema
 (`signUpSchema`). The form and `validateSignUp` both use that schema; do not
@@ -83,7 +89,7 @@ server-side would need a `databaseHooks` guard in `src/lib/auth.ts`.
 `/sign-in` renders `SignInForm`, a client component with email and password. It
 follows the same shape as sign up: react-hook-form with
 `zodResolver(signInSchema)` so invalid input never reaches the network, then
-`authClient.signIn.email(...)`. On success the form redirects to `/` and calls
+`authClient.signIn.email(...)`. On success the form redirects to `/boards` and calls
 `router.refresh()` so the nav re-reads the session.
 
 The rules live in `src/lib/validation/signIn.ts` as `signInSchema`. The form and
@@ -146,7 +152,11 @@ is the proof that it is wired up.
 Two rules:
 
 - No session on a private route redirects to `/sign-in`.
-- A session on `/sign-in` or `/sign-up` redirects to `/`.
+- A session on `/sign-in` or `/sign-up` redirects to `/boards`.
+
+`/` itself is public but only redirects: a real session goes to `/boards`,
+otherwise to `/sign-in`. Post-login destinations are consistent on
+`BOARDS_PATH` (`/boards`) — proxy, sign-in/up forms, and the home page.
 
 Everything else is served untouched.
 
@@ -183,7 +193,11 @@ user data must still load the real session on the server with
 proxy as navigation, not as a guard.
 
 There is no `?redirect=` parameter yet: a visitor bounced from a private route
-lands on `/sign-in` and then on `/`, not on the page they asked for.
+lands on `/sign-in` and then on `/boards`, not on the page they asked for.
+
+Server actions such as `createBoard` always call
+`auth.api.getSession({ headers: await headers() })` and scope writes to
+`session.user.id`. The proxy cookie check alone is not enough.
 
 ## Database schema
 

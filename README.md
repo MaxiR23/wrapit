@@ -6,7 +6,8 @@ production-style stack and eventually contribute to similar codebases.
 ## Status
 
 Stack and tooling are in place. Authentication covers sign up, sign in, sign out
-and route protection; boards and cards are not built yet.
+and route protection. Boards can be listed and created; columns and cards are
+not built yet.
 
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
@@ -58,7 +59,8 @@ dockerized mode is planned but not set up yet.
 ## Layout
 
     src/app/        routes, layouts, pages (App Router)
-    src/components/ React components: domain dirs (auth/, ...) and ui/ (shadcn)
+    src/components/ React components: domain dirs (auth/, boards/, ...) and ui/ (shadcn)
+    src/actions/    server actions (mutations)
     src/lib/        shared code (e.g. the Prisma client, utils)
     src/generated/  generated Prisma Client (gitignored)
     src/proxy.ts    route protection (Next 16's renamed middleware)
