@@ -47,6 +47,7 @@ boards, cards) are not built yet.
 - Implementation: Claude Code.
 - Review: Codex, read-only, before committing.
 - Decisions and merge: the repo owner.
+- Agents never run git commands (commit, push, merge). The owner handles all git.
 
 ## See also
 
