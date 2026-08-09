@@ -102,3 +102,59 @@ See: https://github.com/prettier/eslint-config-prettier
 ### Command
 
 - `pnpm lint` — run ESLint over the project.
+
+## lint-staged
+
+### What it is
+
+lint-staged runs linters and formatters only on the files that are staged in
+git (the ones added with `git add`), instead of scanning the whole project.
+
+### Why we use it
+
+- Speed: on each commit it only processes changed files, not the entire codebase.
+- Consistency: it guarantees that everything committed passes ESLint and Prettier.
+
+### Configuration (.lintstagedrc.json)
+
+- `*.{ts,tsx,js,jsx,mjs}` runs `eslint --fix` and then `prettier --write`.
+  ESLint runs first to fix code issues, Prettier second to format.
+- `*.{json,css,md}` runs only `prettier --write`, since ESLint does not lint
+  those files.
+
+lint-staged is triggered by the Husky pre-commit hook, not run manually.
+
+See: https://github.com/lint-staged/lint-staged
+
+## Husky
+
+### What it is
+
+Husky manages git hooks. A git hook is a script that git runs automatically at
+certain points, such as before a commit. We use it to run checks before every
+commit.
+
+### Why we use it
+
+- It blocks commits that do not pass linting and formatting, keeping the repo
+  clean without relying on people remembering to run the tools.
+- The `prepare` script in package.json installs the hooks automatically after a
+  fresh `pnpm install`, so every contributor gets them.
+
+### The pre-commit hook (.husky/pre-commit)
+
+The hook runs `pnpm lint-staged` before each commit. If any check fails, the
+commit is aborted.
+
+It also contains logic to locate `pnpm` in the PATH. Git hooks run in a
+non-login, non-interactive shell, so the profile that activates nvm is never
+loaded and `pnpm` can be missing. The hook resolves this by:
+
+1. Sourcing nvm from `$NVM_DIR` (defaulting to `~/.nvm`).
+2. Falling back to common install locations (Homebrew paths).
+3. Failing with a clear message if `pnpm` still cannot be found.
+
+Machine-specific setup that should not live in the repo can be placed in
+`~/.config/husky/init.sh`, which Husky sources before running any hook.
+
+See: https://typicode.github.io/husky/
