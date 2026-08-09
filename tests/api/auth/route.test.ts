@@ -6,9 +6,12 @@
 // - Signs a user up through POST /api/auth/sign-up/email and sets a session cookie
 // - Returns the session for a signed in user through GET /api/auth/get-session
 // - Returns an error status for invalid credentials
+// - Signs a user in through POST /api/auth/sign-in/email and sets a session cookie
+// - Ends the session through POST /api/auth/sign-out
 //
 // What is covered:
-// - Happy path, authenticated read, invalid input
+// - Happy path, authenticated read, invalid input, the full session lifecycle
+//   from sign in to sign out
 //
 // Run with: pnpm test:run tests/api/auth/route.test.ts
 //
@@ -34,12 +37,20 @@ const credentials = {
   name: 'Ada',
 };
 
-function signUpRequest(body: Record<string, string>) {
-  return new Request(`${baseUrl}/sign-up/email`, {
+function jsonRequest(path: string, body: Record<string, string>) {
+  return new Request(`${baseUrl}/${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+function signUpRequest(body: Record<string, string>) {
+  return jsonRequest('sign-up/email', body);
+}
+
+function signInRequest(body: Record<string, string>) {
+  return jsonRequest('sign-in/email', body);
 }
 
 describe('auth route handler', () => {
@@ -72,5 +83,32 @@ describe('auth route handler', () => {
 
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(db.user.rows).toHaveLength(0);
+  });
+
+  it('signs a user in and sets a session cookie', async () => {
+    await POST(signUpRequest(credentials));
+    const { email, password } = credentials;
+
+    const response = await POST(signInRequest({ email, password }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('set-cookie')).toContain('better-auth.session_token');
+  });
+
+  it('ends the session on sign out', async () => {
+    const signUp = await POST(signUpRequest(credentials));
+    const cookie = signUp.headers.get('set-cookie') ?? '';
+    expect(db.session.rows).toHaveLength(1);
+
+    const signOut = await POST(
+      new Request(`${baseUrl}/sign-out`, { method: 'POST', headers: { cookie } }),
+    );
+
+    expect(signOut.status).toBe(200);
+    expect(db.session.rows).toHaveLength(0);
+
+    // The old cookie must no longer buy a session.
+    const session = await GET(new Request(`${baseUrl}/get-session`, { headers: { cookie } }));
+    await expect(session.text()).resolves.not.toContain(credentials.email);
   });
 });
