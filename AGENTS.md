@@ -79,9 +79,11 @@ nothing above it. Nothing outside `src/app/` imports a route.
 
 ## See also
 
-    README.md          stack, commands, layout, setup
-    docs/workflow.md   development workflow
-    docs/tooling.md    formatters, linters, git hooks, test runner
-    docs/testing.md    test conventions
-    docs/database.md   database and Prisma usage
-    docs/auth.md       Better Auth setup
+    README.md               stack, commands, layout, setup
+    docs/workflow.md        development workflow
+    docs/tooling.md         formatters, linters, git hooks, test runner
+    docs/testing.md         test conventions
+    docs/architecture.md    layers, data flow, ownership, file map
+    docs/kanban.md          boards, columns, cards, order, DnD
+    docs/database.md        database and Prisma usage
+    docs/auth.md            Better Auth and route protection

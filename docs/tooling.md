@@ -1,7 +1,8 @@
 # Tooling
 
 This document explains the development tooling used in wrapit: what each tool
-is, why we chose it, and how the pieces fit together.
+is, why we chose it, and how the pieces fit together. Script names live in
+`README.md` (Commands).
 
 ## pnpm
 

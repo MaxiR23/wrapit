@@ -1,0 +1,135 @@
+# Kanban
+
+How boards, columns and cards work: ownership, float ordering, and optimistic
+drag-and-drop. App layering and the general file map: `docs/architecture.md`.
+Schema and Prisma setup: `docs/database.md`.
+
+## Domain
+
+Hierarchy: **Board → Column → Card**. A board has one owner (`User`). Deleting a
+board or column cascades to its children, so mutations do not need orphan
+cleanup.
+
+`Column` and `Card` both carry a `Float` `order`. Creates still append with
+`(max order in parent) + 1`. Only **cards** are reordered in the UI today;
+columns keep creation order.
+
+The board detail page loads ordered columns and cards server-side via
+`getBoardForUser`. Non-owners get `notFound()`. The client receives card id lists
+per column for DnD — not the float values. Display order is the id list;
+persistence recomputes floats on the server from neighbor ids.
+
+## Ownership
+
+Mutations walk card → column → board → user through `src/lib/ownership.ts`. No
+session or a broken chain returns `{ error: 'Unauthorized' }`. Pattern details:
+`docs/architecture.md`.
+
+`moveCard` adds rules the helpers alone do not cover:
+
+- The target column must sit on the **same board** as the card. Owning two boards
+  does not allow moving a card between them.
+- Optional `beforeCardId` / `afterCardId` must exist in the **target** column
+  (and must not be the moving card).
+- The client sends **neighbor ids**, never order numbers. The server reads those
+  rows and computes placement. Trusting a client float would let a request plant
+  a card anywhere in the sort key space.
+
+## Ordering
+
+`orderBetween(before, after)` in `src/lib/order.ts` places a card without
+rewriting siblings:
+
+- no neighbors → `1` (empty column)
+- only before → `before + 1` (append)
+- only after → `after / 2` (prepend; must stay strictly between `0` and `after`)
+- both → midpoint `(before + after) / 2`
+
+It returns `null` when no distinct finite value fits: equal neighbors, a
+collapsed float gap, prepend underflow, or append past safe integer range.
+
+`moveCard` calls `orderBetween` first. A non-null result is a single update of
+`columnId` + `order`. On `null`, `renumberColumnInserting` loads the column,
+inserts the card at the neighbor-derived index, and rewrites every card to
+`1..n` in a transaction.
+
+**Why floats plus renumber:** most moves stay one UPDATE. Renumber is the safety
+valve when precision runs out or historical duplicates leave no gap — not the
+happy path.
+
+## Optimistic drag-and-drop
+
+Cards move with `@dnd-kit` in `BoardKanban`. A drop commits a semantic position
+`{ cardId, targetColumnId, beforeCardId, afterCardId }`, not indices. Pure list
+math lives in `kanbanItems.ts` / `kanbanPersist.ts` so it can be tested without
+the React tree.
+
+### Why a queue
+
+Users can drag faster than the network. Each drop updates the UI immediately and
+enqueues a persist job. Jobs run **one at a time** (`persistChainRef`) so two
+in-flight `moveCard` calls cannot race on neighbors or overwrite each other.
+
+Without a queue, a second drop would either block the UI or fire with stale
+neighbors against a board the first request had not finished writing.
+
+### Baseline vs display
+
+`BoardKanban` keeps two views of the board:
+
+- **Persisted baseline** (`persistedItemsRef`) — last layout acknowledged as
+  saved (or the latest server props).
+- **Display** (`itemsByColumn`) — what the user sees: baseline plus every job
+  still in the queue, applied in order.
+
+The queue (`persistQueueRef`) is FIFO. Enqueue and optimistic display happen
+together; the network work trails behind.
+
+### Reconcile before the action
+
+By the time a job reaches the head of the queue, the baseline may have moved
+(earlier success) or a neighbor id from drag-time may no longer sit where the
+user thought. Before calling `moveCard`, the client:
+
+1. Applies the job onto the **current** persisted baseline (`reconcilePersistJob`).
+2. Recomputes neighbors from that reconciled list (`persistPayloadFromReconciled`).
+3. Sends that payload to the server.
+
+So the server always sees neighbors that match the board the client believes is
+already saved, not the snapshot from an older drag.
+
+### Failure
+
+A failed job does **not** advance the baseline — that move was never saved.
+Display is rebuilt as baseline + **remaining** queued jobs (`reducePersistFinish`).
+Later optimistic moves stay visible; the failed one disappears relative to what
+the server has. The user sees the generic error string, never a Prisma message.
+
+### Server props after revalidate
+
+`moveCard` revalidates the board path. When fresh `columns` arrive, the effect
+sets a new server baseline and sets display to
+`applyPendingJobs(newBaseline, queue)`. Pending jobs are not dropped; cards
+created through dialogs on the server merge with in-flight drags instead of
+wiping them.
+
+## Files
+
+```
+src/lib/order.ts                    midpoint / append / prepend
+src/lib/kanbanItems.ts              place, neighbors, drag transitions
+src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
+src/lib/ownership.ts                column/card ownership chain
+src/lib/validation/moveCard.ts      moveCard input rules
+src/actions/moveCard.ts             persist columnId + order (or renumber)
+src/lib/boards.ts                   load board with ordered columns/cards
+src/components/boards/BoardKanban.tsx   DnD context, queue, commit
+src/components/boards/KanbanColumn.tsx  droppable column
+src/components/cards/SortableCard.tsx   draggable card
+```
+
+## SEE
+
+- `docs/architecture.md`
+- `docs/database.md`
+- `docs/auth.md` (session and route protection)

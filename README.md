@@ -67,7 +67,7 @@ dockerized mode is planned but not set up yet.
     src/proxy.ts    route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
     tests/          tests, mirroring the source structure
-    docs/           tooling, testing and database documentation
+    docs/           architecture, auth, kanban, tooling and related docs
 
 What belongs in each directory: `AGENTS.md`.
 
@@ -82,6 +82,8 @@ be skipped. See `docs/tooling.md`.
     docs/workflow.md           development workflow
     docs/tooling.md            formatters, linters, git hooks, test runner
     docs/testing.md            test conventions
+    docs/architecture.md       layers, data flow, ownership, file map
+    docs/kanban.md             boards, columns, cards, order, DnD
     docs/database.md           database and Prisma usage
-    docs/auth.md               Better Auth setup
+    docs/auth.md               Better Auth and route protection
     docs/repository-setup.md   GitHub settings that live outside this repo

@@ -26,10 +26,8 @@ Flow for every feature, fix or non-trivial change in this repo.
    - Definition of done: AGENTS.md
 
 5. **Verify locally**
-   - `pnpm lint`
-   - `pnpm format`
-   - `pnpm build`
-   - `pnpm test:run`
+   - Commands and the usual pre-commit checks: `README.md` (Commands, Checks).
+   - Also run `pnpm build` before opening the PR.
 
 6. **Review before committing**
    - Review the diff before committing (`git diff`).
