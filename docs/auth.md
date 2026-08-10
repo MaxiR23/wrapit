@@ -34,18 +34,22 @@ Both live in `.env` (never committed) and are listed in `.env.example`:
     src/lib/validation/board.ts         board title rules
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description rules
+    src/lib/validation/moveCard.ts      moveCard id and neighbor rules
+    src/lib/order.ts                    Float order between neighbors
+    src/lib/kanbanItems.ts              column→card id list helpers for DnD
     src/actions/createBoard.ts          create a board for the signed-in user
     src/actions/createColumn.ts         create a column on a board the user owns
     src/actions/deleteColumn.ts         delete a column from a board the user owns
     src/actions/createCard.ts           create a card on a column the user owns
     src/actions/updateCard.ts           update a card the user owns
     src/actions/deleteCard.ts           delete a card the user owns
+    src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
-    src/components/boards/              boards list, columns (with confirm delete), dialogs
-    src/components/cards/               card list, empty state, create/edit/delete dialogs
+    src/components/boards/              boards list, BoardKanban (DnD), dialogs
+    src/components/cards/               sortable cards, empty state, create/edit/delete dialogs
     src/components/ui/                  shadcn/ui primitives used by the forms
     src/app/page.tsx                    / redirects by session to /boards or /sign-in
     src/app/boards/page.tsx             lists the current user's boards

@@ -126,6 +126,7 @@ export function createPrismaFake() {
 
   return {
     ...fake,
+    $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
     reset() {
       for (const model of Object.values(fake)) model.rows.length = 0;
     },

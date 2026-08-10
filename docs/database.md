@@ -36,7 +36,11 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 
 Deleting a record cascades to its children (deleting a board deletes its columns
 and cards). `Column` and `Card` use a `Float` `order` field to allow reordering
-without renumbering every sibling.
+without renumbering every sibling. Moving a card places it between optional
+neighbors with a midpoint (or append/prepend), via `moveCard` and
+`orderBetween` in `src/lib/order.ts`. When the gap is too small for a distinct
+midpoint, `moveCard` renumbers that column to clean integers (`1, 2, 3, …`) and
+then inserts.
 
 `User`, `Session`, `Account` and `Verification` are owned by Better Auth.
 Passwords live on `Account`, not on `User`. See `docs/auth.md`.

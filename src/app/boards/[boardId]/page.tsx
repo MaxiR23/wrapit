@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 
-import ColumnList from '@/components/boards/ColumnList';
+import BoardKanban from '@/components/boards/BoardKanban';
 import ColumnsEmptyState from '@/components/boards/ColumnsEmptyState';
 import NewColumnDialog from '@/components/boards/NewColumnDialog';
 import { auth } from '@/lib/auth';
@@ -25,13 +25,27 @@ export default async function BoardDetailPage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">{board.title}</h1>
         <NewColumnDialog boardId={board.id} />
       </div>
 
-      {board.columns.length === 0 ? <ColumnsEmptyState /> : <ColumnList columns={board.columns} />}
+      {board.columns.length === 0 ? (
+        <ColumnsEmptyState />
+      ) : (
+        <BoardKanban
+          columns={board.columns.map((column) => ({
+            id: column.id,
+            title: column.title,
+            cards: column.cards.map((card) => ({
+              id: card.id,
+              title: card.title,
+              description: card.description,
+            })),
+          }))}
+        />
+      )}
     </main>
   );
 }

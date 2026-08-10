@@ -47,7 +47,7 @@ vi.mock('@/components/boards/NewColumnDialog', () => ({
   default: () => null,
 }));
 
-vi.mock('@/components/boards/ColumnList', () => ({
+vi.mock('@/components/boards/BoardKanban', () => ({
   default: () => null,
 }));
 
