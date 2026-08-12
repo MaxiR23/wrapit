@@ -25,6 +25,8 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/')).toBe(true);
     expect(isPublicPath('/sign-in')).toBe(true);
     expect(isPublicPath('/sign-up')).toBe(true);
+    expect(isPublicPath('/forgot-password')).toBe(true);
+    expect(isPublicPath('/reset-password')).toBe(true);
   });
 
   it('accepts the Better Auth endpoints below /api/auth', () => {
@@ -51,10 +53,13 @@ describe('isPublicPath', () => {
 });
 
 describe('isAuthPath', () => {
-  it('accepts the sign in and sign up pages', () => {
+  it('accepts the sign in, sign up and password-reset pages', () => {
     expect(isAuthPath('/sign-in')).toBe(true);
     expect(isAuthPath('/sign-up')).toBe(true);
     expect(isAuthPath('/sign-up/')).toBe(true);
+    expect(isAuthPath('/forgot-password')).toBe(true);
+    expect(isAuthPath('/reset-password')).toBe(true);
+    expect(isAuthPath('/reset-password/')).toBe(true);
   });
 
   it('rejects other routes, public ones included', () => {

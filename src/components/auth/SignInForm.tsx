@@ -10,7 +10,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { BOARDS_PATH, SIGN_UP_PATH } from '@/lib/routes';
+import { BOARDS_PATH, FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from '@/lib/routes';
 import { signInSchema, type SignInInput } from '@/lib/validation/signIn';
 
 // Better Auth answers both a wrong password and an email that was never
@@ -113,6 +113,12 @@ export default function SignInForm() {
           )}
         />
       </FieldGroup>
+
+      <p className="text-sm">
+        <Link href={FORGOT_PASSWORD_PATH} className="text-foreground underline underline-offset-4">
+          Forgot password?
+        </Link>
+      </p>
 
       <Button type="submit" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
