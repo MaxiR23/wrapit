@@ -36,8 +36,9 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/SignInForm.tsx  the sign in form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
     src/app/page.tsx                    / redirects by session to /boards or /sign-in
-    src/app/sign-up/page.tsx            the /sign-up page
-    src/app/sign-in/page.tsx            the /sign-in page
+    src/app/(auth)/layout.tsx           split layout for auth screens
+    src/app/(auth)/sign-up/page.tsx     the /sign-up page
+    src/app/(auth)/sign-in/page.tsx     the /sign-in page
 
 `src/lib/auth.ts` wires Better Auth to the shared Prisma client from
 `src/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
@@ -121,16 +122,17 @@ existence breaks the build.
 
 `AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
 `authClient.useSession()` and shows either a **Sign out** button or links to
-`/sign-in` and `/sign-up`. While the session is still loading it renders an
-empty nav, so a signed in user never sees the signed out links flash.
+`/sign-in` and `/sign-up`. On `/sign-in` and `/sign-up` it returns null so the
+split auth layout is not topped by nav links. While the session is still loading
+on other routes it renders an empty nav, so a signed in user never sees the
+signed out links flash.
 
 Sign out calls `authClient.signOut()`, which deletes the `Session` row and
 clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
 A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
 
-The nav is not route-aware; it only reflects the session. Protection lives in
-`src/proxy.ts`.
+Protection lives in `src/proxy.ts`.
 
 ## Route protection
 

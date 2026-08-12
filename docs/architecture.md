@@ -106,8 +106,9 @@ in `docs/kanban.md`.
     src/app/page.tsx                    / redirects by session
     src/app/boards/page.tsx             boards list
     src/app/boards/[boardId]/page.tsx   board detail (owner only; else 404)
-    src/app/sign-up/page.tsx            /sign-up
-    src/app/sign-in/page.tsx            /sign-in
+    src/app/(auth)/layout.tsx           auth split layout
+    src/app/(auth)/sign-up/page.tsx     /sign-up
+    src/app/(auth)/sign-in/page.tsx     /sign-in
     src/app/globals.css                 theme tokens (Neutral base)
     src/components/auth/                sign up, sign in, AuthNav
     src/components/boards/              boards list, BoardKanban, column dialogs

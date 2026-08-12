@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/authClient';
@@ -13,6 +13,7 @@ const SIGN_OUT_ERROR_MESSAGE = 'Could not sign out. Please try again.';
 const linkClasses = 'text-sm font-medium underline underline-offset-4';
 
 export default function AuthNav() {
+  const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
 
@@ -36,6 +37,8 @@ export default function AuthNav() {
     // Drops any cached render that was built for the session that just ended.
     router.refresh();
   }
+
+  if (pathname === SIGN_IN_PATH || pathname === SIGN_UP_PATH) return null;
 
   // Render nothing until the session is known, so the nav does not flash the
   // signed out links at a signed in user.

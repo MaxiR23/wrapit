@@ -6,12 +6,13 @@
 // - Shows sign in and sign up links when there is no session
 // - Shows the sign out button when there is a session
 // - Renders nothing while the session is still loading
+// - Renders nothing on /sign-in and /sign-up
 // - Signs the user out, redirects to the sign in page and refreshes the route
 // - Shows a generic message and stays put when sign out fails
 //
 // What is covered:
-// - Signed out state, signed in state, loading state, sign out happy path,
-//   sign out failure
+// - Signed out state, signed in state, loading state, auth routes hidden,
+//   sign out happy path, sign out failure
 //
 // Run with: pnpm test:run tests/components/auth/AuthNav.test.tsx
 //
@@ -25,6 +26,7 @@ const useSession = vi.fn();
 const signOut = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
+const usePathname = vi.fn();
 
 vi.mock('@/lib/authClient', () => ({
   authClient: { useSession, signOut },
@@ -32,6 +34,7 @@ vi.mock('@/lib/authClient', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
+  usePathname: () => usePathname(),
 }));
 
 const { default: AuthNav } = await import('@/components/auth/AuthNav');
@@ -45,6 +48,7 @@ describe('AuthNav', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useSession.mockReturnValue({ data: null, isPending: false });
+    usePathname.mockReturnValue('/boards');
     signOut.mockResolvedValue({ data: { success: true }, error: null });
   });
 
@@ -72,6 +76,22 @@ describe('AuthNav', () => {
 
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
+  });
+
+  it('renders nothing on the sign in page', () => {
+    usePathname.mockReturnValue('/sign-in');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing on the sign up page', () => {
+    usePathname.mockReturnValue('/sign-up');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('signs the user out, redirects to the sign in page and refreshes the route', async () => {
