@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -9,7 +10,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { BOARDS_PATH } from '@/lib/routes';
+import { BOARDS_PATH, SIGN_UP_PATH } from '@/lib/routes';
 import { signInSchema, type SignInInput } from '@/lib/validation/signIn';
 
 // Better Auth answers both a wrong password and an email that was never
@@ -25,6 +26,7 @@ export default function SignInForm() {
 
   const form = useForm<SignInInput>({
     resolver: zodResolver(signInSchema),
+    mode: 'onTouched',
     defaultValues: { email: '', password: '' },
   });
 
@@ -61,7 +63,10 @@ export default function SignInForm() {
       }}
       className="flex w-full max-w-sm flex-col gap-4"
     >
-      <h1 className="text-2xl font-bold">Sign in to wrapit</h1>
+      <div className="mb-2 flex flex-col gap-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+        <p className="text-sm text-muted-foreground">Access your boards.</p>
+      </div>
 
       {form.formState.errors.root?.message && (
         <p role="alert" className="text-sm text-destructive">
@@ -112,6 +117,13 @@ export default function SignInForm() {
       <Button type="submit" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
       </Button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        No account?{' '}
+        <Link href={SIGN_UP_PATH} className="text-foreground underline underline-offset-4">
+          Create one
+        </Link>
+      </p>
     </form>
   );
 }
