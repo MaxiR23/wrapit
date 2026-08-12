@@ -15,6 +15,18 @@ export const auth = betterAuth({
     // validates against.
     minPasswordLength: MIN_PASSWORD_LENGTH,
   },
+  // additionalFields (not the username plugin): our Prisma User has required
+  // unique `username` and no `displayUsername`, which the username plugin would
+  // try to write. Sign-up accepts `username` and persists it on the User row.
+  user: {
+    additionalFields: {
+      username: {
+        type: 'string',
+        required: true,
+        unique: true,
+      },
+    },
+  },
   // nextCookies must stay last so it can set cookies from server actions.
   plugins: [nextCookies()],
 });

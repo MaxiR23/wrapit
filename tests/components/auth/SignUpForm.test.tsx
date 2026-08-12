@@ -3,9 +3,10 @@
 // Tests for the sign up form.
 //
 // Tested:
-// - Renders the name, email and password fields
+// - Renders the username, name, email and password fields
 // - Signs the user up with the typed values and redirects to the app
 // - Shows a clear message when the email is already registered
+// - Shows a clear message when the username is already taken
 // - Rejects an invalid email format without calling Better Auth
 // - Rejects a password shorter than the minimum without calling Better Auth
 // - Rejects empty fields without calling Better Auth
@@ -14,8 +15,8 @@
 // - Clears a stale form-level API error when resubmitting with invalid input
 //
 // What is covered:
-// - Happy path, invalid input, duplicate email, unexpected server error,
-//   unrecognized error code, stale root error on invalid resubmit
+// - Happy path, invalid input, duplicate email, duplicate username, unexpected
+//   server error, unrecognized error code, stale root error on invalid resubmit
 //
 // Run with: pnpm test:run tests/components/auth/SignUpForm.test.tsx
 //
@@ -41,6 +42,7 @@ vi.mock('next/navigation', () => ({
 const { default: SignUpForm } = await import('@/components/auth/SignUpForm');
 
 const credentials = {
+  username: 'ada',
   name: 'Ada',
   email: 'ada@example.com',
   password: 'a-long-enough-password',
@@ -50,6 +52,7 @@ async function fillForm(fields: Partial<typeof credentials> = {}) {
   const values = { ...credentials, ...fields };
   const user = userEvent.setup();
 
+  if (values.username) await user.type(screen.getByLabelText('Username'), values.username);
   if (values.name) await user.type(screen.getByLabelText('Name'), values.name);
   if (values.email) await user.type(screen.getByLabelText('Email'), values.email);
   if (values.password) await user.type(screen.getByLabelText('Password'), values.password);
@@ -67,9 +70,10 @@ describe('SignUpForm', () => {
     signUpEmail.mockResolvedValue({ data: { user: { email: credentials.email } }, error: null });
   });
 
-  it('renders the name, email and password fields', () => {
+  it('renders the username, name, email and password fields', () => {
     render(<SignUpForm />);
 
+    expect(screen.getByLabelText('Username')).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
@@ -105,6 +109,25 @@ describe('SignUpForm', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it('shows a clear message when the username is already taken', async () => {
+    signUpEmail.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'USERNAME_IS_ALREADY_TAKEN',
+        message: 'Username is already taken. Please try another.',
+        status: 400,
+        statusText: 'Bad Request',
+      },
+    });
+    render(<SignUpForm />);
+
+    const user = await fillForm();
+    await submit(user);
+
+    expect(await screen.findByText('That username is already taken.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid email format without calling Better Auth', async () => {
     render(<SignUpForm />);
 
@@ -135,13 +158,13 @@ describe('SignUpForm', () => {
     const user = userEvent.setup();
     await submit(user);
 
-    expect(await screen.findByText('Name is required')).toBeInTheDocument();
+    expect(await screen.findByText('Username is required')).toBeInTheDocument();
+    expect(screen.getByText('Name is required')).toBeInTheDocument();
     expect(screen.getByText('Enter a valid email address')).toBeInTheDocument();
     expect(
       screen.getByText(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`),
     ).toBeInTheDocument();
     expect(signUpEmail).not.toHaveBeenCalled();
-    expect(push).not.toHaveBeenCalled();
   });
 
   it('shows a generic message instead of the server message when the server fails unexpectedly', async () => {

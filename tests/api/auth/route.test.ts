@@ -3,15 +3,15 @@
 // Tests for the Better Auth catch-all route handler.
 //
 // Tested:
-// - Signs a user up through POST /api/auth/sign-up/email and sets a session cookie
+// - Signs a user up through POST /api/auth/sign-up/email (with username) and sets a session cookie
 // - Returns the session for a signed in user through GET /api/auth/get-session
 // - Returns an error status for invalid credentials
 // - Signs a user in through POST /api/auth/sign-in/email and sets a session cookie
 // - Ends the session through POST /api/auth/sign-out
 //
 // What is covered:
-// - Happy path, authenticated read, invalid input, the full session lifecycle
-//   from sign in to sign out
+// - Happy path (including username persistence), authenticated read, invalid input,
+//   the full session lifecycle from sign in to sign out
 //
 // Run with: pnpm test:run tests/api/auth/route.test.ts
 //
@@ -35,6 +35,7 @@ const credentials = {
   email: 'ada@example.com',
   password: 'a-long-enough-password',
   name: 'Ada',
+  username: 'ada',
 };
 
 function jsonRequest(path: string, body: Record<string, string>) {
@@ -64,6 +65,7 @@ describe('auth route handler', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('set-cookie')).toContain('better-auth.session_token');
     expect(db.user.rows).toHaveLength(1);
+    expect(db.user.rows[0]?.username).toBe(credentials.username);
   });
 
   it('returns the session for a signed in user', async () => {
@@ -74,7 +76,7 @@ describe('auth route handler', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      user: { email: credentials.email },
+      user: { email: credentials.email, username: credentials.username },
     });
   });
 

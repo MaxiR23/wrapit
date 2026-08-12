@@ -7,18 +7,42 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum BoardStatus {
+  NEW
+  IN_PROGRESS
+  PAUSED
+  DONE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
   emailVerified Boolean  @default(false)
   name          String
+  username      String   @unique
   image         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  boards   Board[]
-  sessions Session[]
-  accounts Account[]
+  boards               Board[]
+  sessions             Session[]
+  accounts             Account[]
+  memberships          Membership[]
+  sentInvitations      Invitation[]    @relation("InvitationInviter")
+  receivedInvitations  Invitation[]    @relation("InvitationInvitee")
+  notifications        Notification[]
 }
 
 model Session {
@@ -68,14 +92,17 @@ model Verification {
 }
 
 model Board {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   title     String
-  createdAt DateTime @default(now())
+  status    BoardStatus @default(NEW)
+  createdAt DateTime    @default(now())
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  columns Column[]
+  columns      Column[]
+  memberships  Membership[]
+  invitations  Invitation[]
 }
 
 model Column {
@@ -102,4 +129,45 @@ model Card {
 
   columnId String
   column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  role      Role     @default(MEMBER)
+  starred   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, boardId])
+}
+
+model Invitation {
+  id        String           @id @default(cuid())
+  role      Role             @default(MEMBER)
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  boardId   String
+  board     Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  inviterId String
+  inviter   User   @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId String
+  invitee   User   @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, inviteeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  message   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  recipientId String
+  recipient   User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 }

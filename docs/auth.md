@@ -41,21 +41,24 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/app/(auth)/sign-in/page.tsx     the /sign-in page
 
 `src/lib/auth.ts` wires Better Auth to the shared Prisma client from
-`src/lib/prisma.ts` and enables email and password. The `nextCookies()` plugin
-goes last in the plugin list; it lets Better Auth set cookies from server
-actions.
+`src/lib/prisma.ts` and enables email and password. Required unique `username`
+is declared under `user.additionalFields` (not the username plugin, which also
+writes `displayUsername` and our Prisma `User` has no such column). The
+`nextCookies()` plugin goes last in the plugin list; it lets Better Auth set
+cookies from server actions.
 
 The route handler mounts every Better Auth endpoint under `/api/auth/`, for
 example `/api/auth/sign-up/email` and `/api/auth/get-session`.
 
 `src/lib/authClient.ts` exports `authClient`, created with `createAuthClient()`
-from `better-auth/react`. It takes no `baseURL`: the client defaults to the
-current origin, which is where the API routes live.
+from `better-auth/react` plus `inferAdditionalFields<typeof auth>()` so
+`signUp.email` accepts `username`. It takes no `baseURL`: the client defaults to
+the current origin, which is where the API routes live.
 
 ## Sign up
 
-`/sign-up` renders `SignUpForm`, a client component with name, email and
-password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
+`/sign-up` renders `SignUpForm`, a client component with username, name, email
+and password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
 input never reaches the network, then calls `authClient.signUp.email(...)`. On
 success Better Auth sets the session cookie and the form redirects to `/boards`.
 
@@ -64,14 +67,18 @@ The rules live in `src/lib/validation/signUp.ts` as a single zod schema
 duplicate the rules. That module also exports `MIN_PASSWORD_LENGTH`, which
 `src/lib/auth.ts` passes to `emailAndPassword.minPasswordLength`. It matches
 Better Auth's own default of 8; setting it explicitly keeps the browser and the
-server from drifting apart.
+server from drifting apart. `username` is required, 3–20 characters, and must
+match `^[a-z0-9_]+$`.
 
 The client returns `{ data, error }` rather than throwing. Only recognized
 codes get a specific message: `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` (the 422
-Better Auth sends for a taken email) becomes a message on the email field. Every
-other failure shows a fixed generic message, and `error.message` is deliberately
-never rendered — an unexpected error can carry server internals such as a
-database host or a constraint name. Add a code to the recognized list in
+Better Auth sends for a taken email) becomes a message on the email field;
+`USERNAME_IS_ALREADY_TAKEN` (if present) becomes a message on the username
+field. A duplicate username under `additionalFields` usually hits the DB unique
+constraint and surfaces as a generic create failure, which uses the fixed
+generic message on the form root. `error.message` is deliberately never
+rendered — an unexpected error can carry server internals such as a database
+host or a constraint name. Add a code to the recognized list in
 `SignUpForm.tsx` when it deserves its own wording.
 
 One gap worth knowing: Better Auth's sign up schema rejects a **missing** name

@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Reports no errors for valid input
+// - Reports an error when the username is empty, too short, too long, or invalid
 // - Reports an error when the name is empty or only whitespace
 // - Reports an error when the email format is invalid
 // - Reports an error when the password is shorter than the minimum
@@ -18,9 +19,15 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { MIN_PASSWORD_LENGTH, validateSignUp } from '@/lib/validation/signUp';
+import {
+  MIN_PASSWORD_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  validateSignUp,
+} from '@/lib/validation/signUp';
 
 const validInput = {
+  username: 'ada',
   name: 'Ada',
   email: 'ada@example.com',
   password: 'a-long-enough-password',
@@ -29,6 +36,31 @@ const validInput = {
 describe('validateSignUp', () => {
   it('reports no errors for valid input', () => {
     expect(validateSignUp(validInput)).toEqual({});
+  });
+
+  it('reports an error when the username is empty', () => {
+    const errors = validateSignUp({ ...validInput, username: '' });
+
+    expect(errors.username).toBe('Username is required');
+    expect(errors.name).toBeUndefined();
+  });
+
+  it('reports an error when the username is too short', () => {
+    expect(validateSignUp({ ...validInput, username: 'ab' }).username).toBe(
+      `Username must be at least ${USERNAME_MIN_LENGTH} characters`,
+    );
+  });
+
+  it('reports an error when the username is too long', () => {
+    expect(
+      validateSignUp({ ...validInput, username: 'a'.repeat(USERNAME_MAX_LENGTH + 1) }).username,
+    ).toBe(`Username must be at most ${USERNAME_MAX_LENGTH} characters`);
+  });
+
+  it('reports an error when the username has invalid characters', () => {
+    expect(validateSignUp({ ...validInput, username: 'Ada' }).username).toBe(
+      'Username can only contain lowercase letters, digits, and underscores',
+    );
   });
 
   it('reports an error when the name is empty', () => {
@@ -73,8 +105,9 @@ describe('validateSignUp', () => {
   });
 
   it('reports an error on every field when all of them are empty', () => {
-    const errors = validateSignUp({ name: '', email: '', password: '' });
+    const errors = validateSignUp({ username: '', name: '', email: '', password: '' });
 
+    expect(errors.username).toBeDefined();
     expect(errors.name).toBeDefined();
     expect(errors.email).toBeDefined();
     expect(errors.password).toBeDefined();

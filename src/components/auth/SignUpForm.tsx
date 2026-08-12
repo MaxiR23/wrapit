@@ -17,7 +17,13 @@ import { signUpSchema, type SignUpInput } from '@/lib/validation/signUp';
 // USER_ALREADY_EXISTS code covers configurations that do not append the hint.
 const EMAIL_TAKEN_CODES = ['USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL', 'USER_ALREADY_EXISTS'];
 
+// Present when the username plugin is used; with additionalFields a duplicate
+// username hits the DB unique constraint and usually surfaces as a generic
+// FAILED_TO_CREATE_USER, which falls through to GENERIC_ERROR_MESSAGE on root.
+const USERNAME_TAKEN_CODES = ['USERNAME_IS_ALREADY_TAKEN'];
+
 const EMAIL_TAKEN_MESSAGE = 'That email is already registered.';
+const USERNAME_TAKEN_MESSAGE = 'That username is already taken.';
 
 export default function SignUpForm() {
   const router = useRouter();
@@ -25,7 +31,7 @@ export default function SignUpForm() {
   const form = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
     mode: 'onTouched',
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { username: '', name: '', email: '', password: '' },
   });
 
   async function onSubmit(values: SignUpInput) {
@@ -35,6 +41,8 @@ export default function SignUpForm() {
     if (error) {
       if (error.code && EMAIL_TAKEN_CODES.includes(error.code)) {
         form.setError('email', { message: EMAIL_TAKEN_MESSAGE });
+      } else if (error.code && USERNAME_TAKEN_CODES.includes(error.code)) {
+        form.setError('username', { message: USERNAME_TAKEN_MESSAGE });
       } else {
         // Only recognized codes get a specific message.
         form.setError('root', { message: GENERIC_ERROR_MESSAGE });
@@ -68,6 +76,25 @@ export default function SignUpForm() {
       )}
 
       <FieldGroup>
+        <Controller
+          name="username"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor={field.name}>Username</FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="text"
+                autoComplete="username"
+                aria-invalid={fieldState.invalid}
+                aria-describedby={fieldState.invalid ? 'username-error' : undefined}
+              />
+              {fieldState.invalid && <FieldError id="username-error" errors={[fieldState.error]} />}
+            </Field>
+          )}
+        />
+
         <Controller
           name="name"
           control={form.control}

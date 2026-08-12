@@ -6,7 +6,20 @@ import { firstErrorPerField, type FieldErrors } from '@/lib/validation/fieldErro
 // sees in the browser is the rule the server enforces.
 export const MIN_PASSWORD_LENGTH = 8;
 
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 20;
+export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
+
 export const signUpSchema = z.object({
+  username: z
+    .string()
+    .min(1, 'Username is required')
+    .min(USERNAME_MIN_LENGTH, `Username must be at least ${USERNAME_MIN_LENGTH} characters`)
+    .max(USERNAME_MAX_LENGTH, `Username must be at most ${USERNAME_MAX_LENGTH} characters`)
+    .regex(
+      USERNAME_PATTERN,
+      'Username can only contain lowercase letters, digits, and underscores',
+    ),
   name: z.string().trim().min(1, 'Name is required'),
   email: z.email('Enter a valid email address'),
   password: z
