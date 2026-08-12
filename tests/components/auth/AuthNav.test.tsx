@@ -6,7 +6,7 @@
 // - Shows sign in and sign up links when there is no session
 // - Shows the sign out button when there is a session
 // - Renders nothing while the session is still loading
-// - Renders nothing on /sign-in and /sign-up
+// - Renders nothing on /sign-in, /sign-up, /forgot-password and /reset-password
 // - Signs the user out, redirects to the sign in page and refreshes the route
 // - Shows a generic message and stays put when sign out fails
 //
@@ -88,6 +88,22 @@ describe('AuthNav', () => {
 
   it('renders nothing on the sign up page', () => {
     usePathname.mockReturnValue('/sign-up');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing on the forgot-password page', () => {
+    usePathname.mockReturnValue('/forgot-password');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing on the reset-password page', () => {
+    usePathname.mockReturnValue('/reset-password');
 
     const { container } = render(<AuthNav />);
 

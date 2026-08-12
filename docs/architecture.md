@@ -81,6 +81,7 @@ in `docs/kanban.md`.
     src/lib/routes.ts                   public routes; BOARDS_PATH, boardPath
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/authClient.ts               Better Auth client (browser)
+    src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
     src/lib/boards.ts                   list/load boards (with columns and cards)
     src/lib/ownership.ts                column/card ownership chain
@@ -91,6 +92,8 @@ in `docs/kanban.md`.
     src/lib/validation/fieldErrors.ts   first error per field
     src/lib/validation/signUp.ts        sign up rules
     src/lib/validation/signIn.ts        sign in rules
+    src/lib/validation/forgotPassword.ts  forgot-password rules
+    src/lib/validation/resetPassword.ts reset-password rules
     src/lib/validation/board.ts         board title rules
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
@@ -109,8 +112,10 @@ in `docs/kanban.md`.
     src/app/(auth)/layout.tsx           auth split layout
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(auth)/sign-in/page.tsx     /sign-in
+    src/app/(auth)/forgot-password/page.tsx  /forgot-password
+    src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base)
-    src/components/auth/                sign up, sign in, AuthNav
+    src/components/auth/                sign up, sign in, password reset, AuthNav
     src/components/boards/              boards list, BoardKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
