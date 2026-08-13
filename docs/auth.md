@@ -45,11 +45,18 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
     src/components/auth/LandingHero.tsx full-viewport hero on /
     src/app/page.tsx                    / shows the hero; a session redirects to /boards
-    src/app/(auth)/layout.tsx           responsive split layout for auth screens
+    src/app/(auth)/layout.tsx           split layout for auth screens; form column is a light island
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
     src/app/(auth)/sign-in/page.tsx     the /sign-in page
     src/app/(auth)/forgot-password/page.tsx  the /forgot-password page
     src/app/(auth)/reset-password/page.tsx   the /reset-password page
+
+The auth form column is a **light island** (`.form-island` in
+`src/app/globals.css`): light surface and dark text even though `html` is
+`dark`. `--form-*` tokens remap the island; `dark:` utilities do not apply
+inside it. Shared visual classes live in `src/components/auth/formClasses.ts`.
+Input, button and band measurements follow the login handoff; copy and auth
+logic stay as they are.
 
 `src/lib/auth.ts` wires Better Auth to the shared Prisma client from
 `src/lib/prisma.ts` and enables email and password. `sendResetPassword`

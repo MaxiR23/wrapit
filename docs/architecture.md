@@ -114,7 +114,7 @@ in `docs/kanban.md`.
     src/app/(auth)/sign-in/page.tsx     /sign-in
     src/app/(auth)/forgot-password/page.tsx  /forgot-password
     src/app/(auth)/reset-password/page.tsx   /reset-password
-    src/app/globals.css                 theme tokens (Neutral base)
+    src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, landing, AuthNav
     src/components/boards/              boards list, BoardKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs

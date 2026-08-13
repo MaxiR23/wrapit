@@ -5,9 +5,10 @@
 // Tested:
 // - Renders the page form in the layout slot
 // - Shows a mobile back link to / whose wrapper is hidden from 600px up
+// - Wraps the form column in the light island
 //
 // What is covered:
-// - Form slot, mobile back affordance
+// - Form slot, mobile back affordance, light island
 //
 // Run with: pnpm test:run tests/app/auth-layout.test.tsx
 //
@@ -40,5 +41,15 @@ describe('AuthLayout', () => {
 
     expect(back).toHaveAttribute('href', '/');
     expect(back.closest('header')).toHaveClass('auth-sm:hidden');
+  });
+
+  it('wraps the form column in the light island', () => {
+    const { container } = render(
+      <AuthLayout>
+        <p>Form slot</p>
+      </AuthLayout>,
+    );
+
+    expect(container.querySelector('.form-island')).toBeInTheDocument();
   });
 });

@@ -4,6 +4,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
+import AuthFormSpinner from '@/components/auth/AuthFormSpinner';
+import {
+  authButtonClassName,
+  authFieldClassName,
+  authFieldErrorClassName,
+  authFieldGroupClassName,
+  authFieldLabelClassName,
+  authFormClassName,
+  authFormErrorBandClassName,
+  authFormHeaderClassName,
+  authFormSubtitleClassName,
+  authFormSuccessBandClassName,
+  authFormTitleClassName,
+  authInputClassName,
+} from '@/components/auth/formClasses';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -38,7 +53,11 @@ export default function ForgotPasswordForm() {
   }
 
   if (submitted) {
-    return <p role="status">{CONFIRMATION_MESSAGE}</p>;
+    return (
+      <p role="status" className={authFormSuccessBandClassName}>
+        {CONFIRMATION_MESSAGE}
+      </p>
+    );
   }
 
   return (
@@ -48,28 +67,30 @@ export default function ForgotPasswordForm() {
         form.clearErrors('root');
         void form.handleSubmit(onSubmit)(event);
       }}
-      className="flex w-full max-w-sm flex-col gap-4"
+      className={authFormClassName}
     >
-      <div className="mb-2 flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Forgot password</h1>
-        <p className="text-sm text-muted-foreground">
+      <div className={authFormHeaderClassName}>
+        <h1 className={authFormTitleClassName}>Forgot password</h1>
+        <p className={authFormSubtitleClassName}>
           Enter your email and we will send a reset link if an account exists.
         </p>
       </div>
 
       {form.formState.errors.root?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className={authFormErrorBandClassName}>
           {form.formState.errors.root.message}
         </p>
       )}
 
-      <FieldGroup>
+      <FieldGroup className={authFieldGroupClassName}>
         <Controller
           name="email"
           control={form.control}
           render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Email
+              </FieldLabel>
               <Input
                 {...field}
                 id={field.name}
@@ -77,15 +98,29 @@ export default function ForgotPasswordForm() {
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
                 aria-describedby={fieldState.invalid ? 'email-error' : undefined}
+                className={authInputClassName}
               />
-              {fieldState.invalid && <FieldError id="email-error" errors={[fieldState.error]} />}
+              {fieldState.invalid && (
+                <FieldError
+                  id="email-error"
+                  errors={[fieldState.error]}
+                  className={authFieldErrorClassName}
+                />
+              )}
             </Field>
           )}
         />
       </FieldGroup>
 
-      <Button type="submit" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting ? 'Sending...' : 'Send reset link'}
+      <Button type="submit" disabled={form.formState.isSubmitting} className={authButtonClassName}>
+        {form.formState.isSubmitting ? (
+          <>
+            <AuthFormSpinner />
+            Sending...
+          </>
+        ) : (
+          'Send reset link'
+        )}
       </Button>
     </form>
   );

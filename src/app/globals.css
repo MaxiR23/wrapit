@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *):not(:is(.form-island *)));
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -40,6 +40,25 @@
   --color-background: var(--background);
   --color-brand-cta: var(--brand-cta);
   --color-brand-icon: var(--brand-icon);
+  --color-form-bg: var(--form-bg);
+  --color-form-fg: var(--form-fg);
+  --color-form-muted: var(--form-muted);
+  --color-form-input-bg: var(--form-input-bg);
+  --color-form-input-border: var(--form-input-border);
+  --color-form-line: var(--form-line);
+  --color-form-cta-hover: var(--form-cta-hover);
+  --color-form-success-bg: var(--form-success-bg);
+  --color-form-danger-border: var(--form-danger-border);
+  --color-form-danger-bg: var(--form-danger-bg);
+  --color-form-danger-fg: var(--form-danger-fg);
+  --color-form-ring: var(--form-ring);
+  --spacing-form-control: 38px;
+  --spacing-form-field: 46px;
+  --spacing-form-gap: 18px;
+  --text-form-meta: 13.5px;
+  --text-form-meta--line-height: 1.45;
+  --text-form-hint: 12.5px;
+  --animate-form-spin: spin 0.7s linear infinite;
   --spacing-brand: 22px;
   --spacing-brand-tight: 9px;
   --spacing-brand-block: 30px;
@@ -118,6 +137,18 @@
   --brand-wash-strong: oklch(1 0 0 / 8%);
   --brand-wash-faint: oklch(1 0 0 / 2%);
   --brand-wash-softer: oklch(1 0 0 / 1.5%);
+  --form-bg: oklch(0.985 0 0);
+  --form-fg: oklch(0.205 0 0);
+  --form-muted: oklch(0.599 0 0);
+  --form-input-bg: oklch(1 0 0);
+  --form-input-border: oklch(0 0 0 / 15%);
+  --form-line: oklch(0 0 0 / 12%);
+  --form-cta-hover: oklch(0.321 0 0);
+  --form-success-bg: oklch(0.961 0 0);
+  --form-danger-border: oklch(0.704 0.191 22.216 / 35%);
+  --form-danger-bg: oklch(0.704 0.191 22.216 / 8%);
+  --form-danger-fg: oklch(0.55 0.19 25);
+  --form-ring: oklch(0.556 0 0);
 }
 
 .dark {
@@ -206,4 +237,23 @@
   .mini-board-col-mid {
     background-image: linear-gradient(180deg, var(--brand-wash-strong), transparent 70%);
   }
+
+  .form-island {
+    background-color: var(--form-bg);
+    color: var(--form-fg);
+    --background: var(--form-bg);
+    --foreground: var(--form-fg);
+    --muted-foreground: var(--form-muted);
+    --primary: var(--form-fg);
+    --primary-foreground: var(--form-bg);
+    --border: var(--form-line);
+    --input: var(--form-input-border);
+    --ring: var(--form-ring);
+    --destructive: var(--form-danger-fg);
+  }
+}
+
+.form-island :focus-visible {
+  outline: 2px solid var(--form-ring);
+  outline-offset: 2px;
 }

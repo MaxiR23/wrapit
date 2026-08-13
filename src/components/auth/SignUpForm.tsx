@@ -5,6 +5,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 
+import AuthFormSpinner from '@/components/auth/AuthFormSpinner';
+import {
+  authButtonClassName,
+  authFieldClassName,
+  authFieldErrorClassName,
+  authFieldGroupClassName,
+  authFieldLabelClassName,
+  authFooterClassName,
+  authFooterLinkClassName,
+  authFormClassName,
+  authFormErrorBandClassName,
+  authFormHeaderClassName,
+  authFormSubtitleClassName,
+  authFormTitleClassName,
+  authInputClassName,
+} from '@/components/auth/formClasses';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -54,26 +70,28 @@ export default function SignUpForm() {
         form.clearErrors('root');
         void form.handleSubmit(onSubmit)(event);
       }}
-      className="flex w-full max-w-sm flex-col gap-4"
+      className={authFormClassName}
     >
-      <div className="mb-2 flex flex-col gap-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
-        <p className="text-sm text-muted-foreground">Start with your first board.</p>
+      <div className={authFormHeaderClassName}>
+        <h1 className={authFormTitleClassName}>Create account</h1>
+        <p className={authFormSubtitleClassName}>Start with your first board.</p>
       </div>
 
       {form.formState.errors.root?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className={authFormErrorBandClassName}>
           {form.formState.errors.root.message}
         </p>
       )}
 
-      <FieldGroup>
+      <FieldGroup className={authFieldGroupClassName}>
         <Controller
           name="name"
           control={form.control}
           render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Name
+              </FieldLabel>
               <Input
                 {...field}
                 id={field.name}
@@ -81,8 +99,15 @@ export default function SignUpForm() {
                 autoComplete="name"
                 aria-invalid={fieldState.invalid}
                 aria-describedby={fieldState.invalid ? 'name-error' : undefined}
+                className={authInputClassName}
               />
-              {fieldState.invalid && <FieldError id="name-error" errors={[fieldState.error]} />}
+              {fieldState.invalid && (
+                <FieldError
+                  id="name-error"
+                  errors={[fieldState.error]}
+                  className={authFieldErrorClassName}
+                />
+              )}
             </Field>
           )}
         />
@@ -91,8 +116,10 @@ export default function SignUpForm() {
           name="email"
           control={form.control}
           render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Email
+              </FieldLabel>
               <Input
                 {...field}
                 id={field.name}
@@ -100,8 +127,15 @@ export default function SignUpForm() {
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
                 aria-describedby={fieldState.invalid ? 'email-error' : undefined}
+                className={authInputClassName}
               />
-              {fieldState.invalid && <FieldError id="email-error" errors={[fieldState.error]} />}
+              {fieldState.invalid && (
+                <FieldError
+                  id="email-error"
+                  errors={[fieldState.error]}
+                  className={authFieldErrorClassName}
+                />
+              )}
             </Field>
           )}
         />
@@ -110,8 +144,10 @@ export default function SignUpForm() {
           name="password"
           control={form.control}
           render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Password
+              </FieldLabel>
               <Input
                 {...field}
                 id={field.name}
@@ -119,20 +155,34 @@ export default function SignUpForm() {
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
                 aria-describedby={fieldState.invalid ? 'password-error' : undefined}
+                className={authInputClassName}
               />
-              {fieldState.invalid && <FieldError id="password-error" errors={[fieldState.error]} />}
+              {fieldState.invalid && (
+                <FieldError
+                  id="password-error"
+                  errors={[fieldState.error]}
+                  className={authFieldErrorClassName}
+                />
+              )}
             </Field>
           )}
         />
       </FieldGroup>
 
-      <Button type="submit" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting ? 'Creating account...' : 'Create account'}
+      <Button type="submit" disabled={form.formState.isSubmitting} className={authButtonClassName}>
+        {form.formState.isSubmitting ? (
+          <>
+            <AuthFormSpinner />
+            Creating account...
+          </>
+        ) : (
+          'Create account'
+        )}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className={authFooterClassName}>
         Already have an account?{' '}
-        <Link href={SIGN_IN_PATH} className="text-foreground underline underline-offset-4">
+        <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
           Sign in
         </Link>
       </p>
