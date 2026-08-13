@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { authClient } from '@/lib/authClient';
-import { SIGN_IN_PATH, SIGN_UP_PATH, isAuthPath } from '@/lib/routes';
+import { HOME_PATH, SIGN_IN_PATH, SIGN_UP_PATH, isAuthPath } from '@/lib/routes';
 
 const SIGN_OUT_ERROR_MESSAGE = 'Could not sign out. Please try again.';
 
@@ -38,7 +38,7 @@ export default function AuthNav() {
     router.refresh();
   }
 
-  if (isAuthPath(pathname)) return null;
+  if (isAuthPath(pathname) || pathname === HOME_PATH) return null;
 
   // Render nothing until the session is known, so the nav does not flash the
   // signed out links at a signed in user.

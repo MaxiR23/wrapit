@@ -97,10 +97,11 @@ describe('SignInForm', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute(
-      'href',
-      '/forgot-password',
-    );
+    const forgotLinks = screen.getAllByRole('link', { name: 'Forgot password?' });
+    expect(forgotLinks).toHaveLength(2);
+    for (const link of forgotLinks) {
+      expect(link).toHaveAttribute('href', '/forgot-password');
+    }
   });
 
   it('signs the user in with the typed values and redirects to the app', async () => {
