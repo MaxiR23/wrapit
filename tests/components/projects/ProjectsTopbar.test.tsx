@@ -1,13 +1,15 @@
 // tests/components/projects/ProjectsTopbar.test.tsx
 //
-// Tests for the projects topbar account button, which hosts a temporary sign out.
+// Tests for the projects topbar account button, which hosts a temporary sign out,
+// and the search input that shares query state with the projects list.
 //
 // Tested:
 // - Signs the user out, redirects to the sign in page and refreshes the route
 // - Shows a generic message and stays put when sign out fails
+// - Renders the Search projects input
 //
 // What is covered:
-// - Sign out happy path, sign out failure
+// - Sign out happy path, sign out failure, search field
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsTopbar.test.tsx
 //
@@ -16,6 +18,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 
 const signOut = vi.fn();
 const push = vi.fn();
@@ -30,8 +33,13 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { default: ProjectsTopbar } = await import('@/components/projects/ProjectsTopbar');
+const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsSearch');
 
 const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
+
+function renderTopbar(ui: ReactElement) {
+  return render(<ProjectsSearchProvider>{ui}</ProjectsSearchProvider>);
+}
 
 describe('ProjectsTopbar', () => {
   beforeEach(() => {
@@ -42,7 +50,7 @@ describe('ProjectsTopbar', () => {
   it('signs the user out, redirects to the sign in page and refreshes the route', async () => {
     const events = userEvent.setup();
 
-    render(<ProjectsTopbar user={user} />);
+    renderTopbar(<ProjectsTopbar user={user} />);
     await events.click(screen.getByRole('button', { name: 'Account' }));
 
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -58,7 +66,7 @@ describe('ProjectsTopbar', () => {
     });
     const events = userEvent.setup();
 
-    render(<ProjectsTopbar user={user} />);
+    renderTopbar(<ProjectsTopbar user={user} />);
     await events.click(screen.getByRole('button', { name: 'Account' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -66,5 +74,11 @@ describe('ProjectsTopbar', () => {
     );
     expect(screen.getByRole('alert')).not.toHaveTextContent('10.0.0.5');
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('renders the Search projects input', () => {
+    renderTopbar(<ProjectsTopbar user={user} />);
+
+    expect(screen.getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument();
   });
 });

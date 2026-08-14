@@ -1,10 +1,15 @@
+'use client';
+
 import { Plus, Search } from 'lucide-react';
 
 import NewProjectDialog from '@/components/projects/NewProjectDialog';
+import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { cn } from '@/lib/utils';
 
 export default function ProjectsMobileSearch() {
+  const { query, setQuery } = useProjectsSearch();
+
   return (
     <div className="flex items-center gap-2.5 md:hidden">
       <div className="relative flex min-w-0 flex-1 items-center">
@@ -16,6 +21,8 @@ export default function ProjectsMobileSearch() {
           type="search"
           placeholder="Search projects"
           aria-label="Search projects"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           className={cn(
             shellFocusClassName,
             'h-mobile-search w-full rounded-md border border-input bg-surface px-10 text-base text-foreground placeholder:text-subtle',

@@ -78,6 +78,13 @@ export function projectCountLabel(count: number): string {
   return count === 1 ? '1 project' : `${count} projects`;
 }
 
+/** Case-insensitive title includes. Empty / whitespace query returns the same list. */
+export function filterProjectsByTitle(projects: ProjectSummary[], query: string): ProjectSummary[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') return projects;
+  return projects.filter((project) => project.title.toLowerCase().includes(needle));
+}
+
 export function projectStatusLabel(status: ProjectGridStatus): string {
   return STATUS_LABEL[status];
 }

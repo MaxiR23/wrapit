@@ -37,7 +37,8 @@ that scopes Prisma to that user — for example `listProjectsForUser` /
 and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or foreign
 projects return `null`; the page turns that into `notFound()`. A missing
 preferences row is not an error: the helper returns GRID defaults. The client
-never talks to Prisma for project data.
+never talks to Prisma for project data. The projects list search filters those
+already-loaded summaries in the client by title (case-insensitive includes).
 
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input, checks ownership, then mutates. Preferences
@@ -88,7 +89,7 @@ in `docs/kanban.md`.
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
-    src/lib/projectGrid.ts              progress, members, count and updated labels
+    src/lib/projectGrid.ts              progress, members, count, updated labels, title filter
     src/lib/initials.ts                 two-letter initials from name / username
     src/lib/ownership.ts                column/card ownership chain
     src/lib/messages.ts                 generic user-facing error string
@@ -125,6 +126,7 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
+    src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives

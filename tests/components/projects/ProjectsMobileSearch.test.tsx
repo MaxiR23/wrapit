@@ -22,11 +22,16 @@ vi.mock('@/actions/createProject', () => ({
 
 const { default: ProjectsMobileSearch } =
   await import('@/components/projects/ProjectsMobileSearch');
+const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsSearch');
 
 describe('ProjectsMobileSearch', () => {
   it('opens the new project dialog from the mobile + button', async () => {
     const user = userEvent.setup();
-    render(<ProjectsMobileSearch />);
+    render(
+      <ProjectsSearchProvider>
+        <ProjectsMobileSearch />
+      </ProjectsSearchProvider>,
+    );
 
     await user.click(screen.getByRole('button', { name: 'New project' }));
 
