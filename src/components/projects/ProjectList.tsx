@@ -1,25 +1,33 @@
-import Link from 'next/link';
+import ProjectListRow from '@/components/projects/ProjectListRow';
+import { projectListGridClassName } from '@/components/projects/projectListGrid';
+import type { ProjectSummary } from '@/lib/projectGrid';
+import { cn } from '@/lib/utils';
 
-import { projectPath } from '@/lib/routes';
-
-type ProjectListItem = {
-  id: string;
-  title: string;
-};
-
-export default function ProjectList({ projects }: { projects: ProjectListItem[] }) {
+export default function ProjectList({
+  projects,
+  className,
+}: {
+  projects: ProjectSummary[];
+  className?: string;
+}) {
   return (
-    <ul className="flex flex-col gap-2">
+    <div className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
+      <div
+        className={cn(
+          projectListGridClassName,
+          'border-b border-border bg-surface px-3.5 py-[11px] text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase lg:px-4',
+        )}
+      >
+        <span />
+        <span>Project</span>
+        <span>Status</span>
+        <span>Progress</span>
+        <span>Team</span>
+        <span className="hidden lg:block">Updated</span>
+      </div>
       {projects.map((project) => (
-        <li key={project.id}>
-          <Link
-            href={projectPath(project.id)}
-            className="block rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/50"
-          >
-            {project.title}
-          </Link>
-        </li>
+        <ProjectListRow key={project.id} project={project} />
       ))}
-    </ul>
+    </div>
   );
 }

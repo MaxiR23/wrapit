@@ -70,6 +70,10 @@ export function taskProgressLabel(doneCount: number, taskCount: number): string 
   return `${doneCount} of ${taskCount} tasks`;
 }
 
+export function taskCountLabel(taskCount: number): string {
+  return taskCount === 1 ? '1 task' : `${taskCount} tasks`;
+}
+
 export function projectCountLabel(count: number): string {
   return count === 1 ? '1 project' : `${count} projects`;
 }

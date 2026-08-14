@@ -9,6 +9,7 @@
 // - Rounds the percentage
 // - Always includes the owner among members
 // - Pluralizes the project count label
+// - Pluralizes the list-view task count label
 // - Formats the updated label from a known now
 //
 // What is covered:
@@ -28,6 +29,7 @@ import {
   projectProgress,
   projectStatusBarClass,
   projectStatusLabel,
+  taskCountLabel,
   taskProgressLabel,
 } from '@/lib/projectGrid';
 
@@ -83,6 +85,14 @@ describe('taskProgressLabel', () => {
   it('renders N of M tasks', () => {
     expect(taskProgressLabel(0, 0)).toBe('0 of 0 tasks');
     expect(taskProgressLabel(11, 24)).toBe('11 of 24 tasks');
+  });
+});
+
+describe('taskCountLabel', () => {
+  it('pluralizes the task count', () => {
+    expect(taskCountLabel(0)).toBe('0 tasks');
+    expect(taskCountLabel(1)).toBe('1 task');
+    expect(taskCountLabel(24)).toBe('24 tasks');
   });
 });
 

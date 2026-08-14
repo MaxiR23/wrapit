@@ -1,3 +1,5 @@
+'use client';
+
 import { Plus } from 'lucide-react';
 
 import NewProjectDialog from '@/components/projects/NewProjectDialog';
@@ -5,7 +7,20 @@ import { shellFocusClassName } from '@/components/projects/shell';
 import { projectCountLabel } from '@/lib/projectGrid';
 import { cn } from '@/lib/utils';
 
-export default function ProjectsHeader({ count }: { count: number }) {
+export type ProjectsViewMode = 'grid' | 'list';
+
+const toggleButtonClassName =
+  'h-[34px] rounded-[6px] px-3.5 text-[13px] font-medium md:h-8 lg:h-[30px] lg:px-[13px]';
+
+export default function ProjectsHeader({
+  count,
+  view,
+  onViewChange,
+}: {
+  count: number;
+  view: ProjectsViewMode;
+  onViewChange: (view: ProjectsViewMode) => void;
+}) {
   return (
     <div className="flex flex-wrap items-end gap-3 md:gap-2.5 lg:gap-3">
       <div className="mr-auto flex flex-col gap-[5px]">
@@ -20,21 +35,24 @@ export default function ProjectsHeader({ count }: { count: number }) {
       <div className="flex gap-[3px] rounded-md border border-border bg-surface p-[3px]">
         <button
           type="button"
-          aria-pressed="true"
+          aria-pressed={view === 'grid'}
+          onClick={() => onViewChange('grid')}
           className={cn(
             shellFocusClassName,
-            'h-[34px] rounded-[6px] bg-card px-3.5 text-[13px] font-medium text-foreground md:h-8 lg:h-[30px] lg:px-[13px]',
+            toggleButtonClassName,
+            view === 'grid' ? 'bg-card text-foreground' : 'bg-transparent text-muted-foreground',
           )}
         >
           Grid
         </button>
         <button
           type="button"
-          disabled
-          aria-pressed="false"
+          aria-pressed={view === 'list'}
+          onClick={() => onViewChange('list')}
           className={cn(
-            'h-[34px] rounded-[6px] bg-transparent px-3.5 text-[13px] font-medium text-muted-foreground md:h-8 lg:h-[30px] lg:px-[13px]',
-            'disabled:cursor-not-allowed disabled:opacity-100',
+            shellFocusClassName,
+            toggleButtonClassName,
+            view === 'list' ? 'bg-card text-foreground' : 'bg-transparent text-muted-foreground',
           )}
         >
           List
