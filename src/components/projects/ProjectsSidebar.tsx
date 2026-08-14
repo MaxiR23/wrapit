@@ -50,7 +50,7 @@ export default function ProjectsSidebar() {
             'hidden bg-card font-medium text-foreground lg:flex',
           )}
         >
-          <span className="size-[5px] rounded-full bg-foreground" />
+          <LayoutGrid className="size-[19px]" strokeWidth={1.5} />
           Projects
         </Link>
 
@@ -77,7 +77,7 @@ export default function ProjectsSidebar() {
           'mt-auto hidden text-[12.5px] text-subtle hover:text-muted-foreground lg:flex',
         )}
       >
-        <span className="size-[5px] rounded-full bg-muted" />
+        <CircleHelp className="size-[19px]" strokeWidth={1.5} />
         Help and shortcuts
       </button>
     </aside>
@@ -104,7 +104,7 @@ function InactiveNav({
         aria-disabled="true"
         className={cn(navItemClassName, 'hidden text-muted-foreground lg:flex')}
       >
-        <span className="size-[5px] rounded-full bg-muted" />
+        <CollapsedIcon className="size-[19px]" strokeWidth={1.5} />
         {label}
       </span>
     </>

@@ -1,10 +1,9 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import ProjectsGrid from '@/components/projects/ProjectGrid';
-import ProjectsHeader from '@/components/projects/ProjectsHeader';
 import ProjectsMobileSearch from '@/components/projects/ProjectsMobileSearch';
 import ProjectsShell from '@/components/projects/ProjectsShell';
+import ProjectsView from '@/components/projects/ProjectsView';
 import { auth } from '@/lib/auth';
 import { initials } from '@/lib/initials';
 import { listProjectSummariesForUser } from '@/lib/projects';
@@ -32,8 +31,7 @@ export default async function ProjectsPage() {
       }}
     >
       <ProjectsMobileSearch />
-      <ProjectsHeader count={projects.length} />
-      <ProjectsGrid projects={projects} />
+      <ProjectsView projects={projects} />
     </ProjectsShell>
   );
 }
