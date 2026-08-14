@@ -122,6 +122,7 @@ export function createPrismaFake() {
     project: createModel(),
     column: createModel(),
     card: createModel(),
+    membership: createModel(),
   };
 
   return {

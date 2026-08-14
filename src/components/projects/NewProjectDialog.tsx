@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectSchema, type ProjectInput } from '@/lib/validation/project';
 
-export default function NewProjectDialog() {
+export default function NewProjectDialog({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -57,7 +57,7 @@ export default function NewProjectDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button">New project</Button>
+        {children ?? <Button type="button">New project</Button>}
       </DialogTrigger>
 
       <DialogContent>

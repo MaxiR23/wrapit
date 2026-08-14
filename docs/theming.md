@@ -31,6 +31,13 @@ the moment the palette moves.
 Domain components and `src/components/ui/` already follow this. New UI should
 too.
 
+The projects shell adds a few roles that the Neutral preset does not include:
+`--surface`, `--card-hover`, `--subtle`, `--border-strong`, and the status bar
+colors `--status-in-progress`, `--status-done`, `--status-paused`, `--status-new`.
+They are defined next to the other variables in `globals.css` and mapped in
+`@theme inline`, so components use `bg-surface`, `text-subtle`,
+`bg-status-in-progress`, and so on.
+
 ## Changing the palette
 
 shadcn presets can replace the theme without touching component files:

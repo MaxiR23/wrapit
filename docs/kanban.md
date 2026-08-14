@@ -19,6 +19,16 @@ The project detail page loads ordered columns and cards server-side via
 per column for DnD — not the float values. Display order is the id list;
 persistence recomputes floats on the server from neighbor ids.
 
+## Progress on the projects grid
+
+`listProjectSummariesForUser` computes **done / total** from real cards. A card
+counts as done when its column title is `Done` (case-insensitive). If the project
+has no such column, the last column by `order` is treated as done. No cards means
+`0 of 0` and `0%`. The percentage is `round(done / total * 100)`.
+
+`Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
+`project.createdAt` when there are no cards.
+
 ## Ownership
 
 Mutations walk card → column → project → user through `src/lib/ownership.ts`. No
@@ -122,7 +132,8 @@ src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card ownership chain
 src/lib/validation/moveCard.ts      moveCard input rules
 src/actions/moveCard.ts             persist columnId + order (or renumber)
-src/lib/projects.ts                 load project with ordered columns/cards
+src/lib/projects.ts                 load project with ordered columns/cards; grid summaries
+src/lib/projectGrid.ts              done/total progress for the projects grid
 src/components/projects/ProjectKanban.tsx   DnD context, queue, commit
 src/components/projects/KanbanColumn.tsx  droppable column
 src/components/cards/SortableCard.tsx   draggable card

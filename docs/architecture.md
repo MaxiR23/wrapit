@@ -33,7 +33,7 @@ Reads and writes take different paths on purpose.
 **Reads** happen in Server Components. A page loads the session with
 `auth.api.getSession({ headers: await headers() })`, then calls a lib helper
 that scopes Prisma to that user — for example `listProjectsForUser` /
-`getProjectForUser` in `src/lib/projects.ts`. Missing or foreign projects return
+`listProjectSummariesForUser` / `getProjectForUser` in `src/lib/projects.ts`. Missing or foreign projects return
 `null`; the page turns that into `notFound()`. The client never talks to Prisma
 for project data.
 
@@ -83,7 +83,9 @@ in `docs/kanban.md`.
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/projects.ts                 list/load projects (with columns and cards)
+    src/lib/projects.ts                 list/load projects (detail + grid summaries)
+    src/lib/projectGrid.ts              progress, members, count and updated labels
+    src/lib/initials.ts                 two-letter initials from name / username
     src/lib/ownership.ts                column/card ownership chain
     src/lib/messages.ts                 generic user-facing error string
     src/lib/order.ts                    Float order between neighbors
@@ -107,7 +109,7 @@ in `docs/kanban.md`.
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / landing hero; session redirects to /projects
-    src/app/projects/page.tsx           projects list
+    src/app/projects/page.tsx           projects shell and grid
     src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404)
     src/app/(auth)/layout.tsx           auth split: two-panel, stacked, mobile
     src/app/(auth)/sign-up/page.tsx     /sign-up
@@ -116,7 +118,7 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, landing, AuthNav
-    src/components/projects/            projects list, ProjectKanban, column dialogs
+    src/components/projects/            projects shell, grid, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

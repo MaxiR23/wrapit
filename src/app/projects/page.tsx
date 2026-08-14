@@ -1,12 +1,18 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import NewProjectDialog from '@/components/projects/NewProjectDialog';
-import ProjectList from '@/components/projects/ProjectList';
-import ProjectsEmptyState from '@/components/projects/ProjectsEmptyState';
+import ProjectsGrid from '@/components/projects/ProjectGrid';
+import ProjectsHeader from '@/components/projects/ProjectsHeader';
+import ProjectsMobileSearch from '@/components/projects/ProjectsMobileSearch';
+import ProjectsShell from '@/components/projects/ProjectsShell';
 import { auth } from '@/lib/auth';
-import { listProjectsForUser } from '@/lib/projects';
+import { initials } from '@/lib/initials';
+import { listProjectSummariesForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
+
+function sessionUsername(user: { username?: unknown }): string {
+  return typeof user.username === 'string' ? user.username : '';
+}
 
 export default async function ProjectsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -14,16 +20,20 @@ export default async function ProjectsPage() {
     redirect(SIGN_IN_PATH);
   }
 
-  const projects = await listProjectsForUser(session.user.id);
+  const projects = await listProjectSummariesForUser(session.user.id);
+  const username = sessionUsername(session.user);
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <NewProjectDialog />
-      </div>
-
-      {projects.length === 0 ? <ProjectsEmptyState /> : <ProjectList projects={projects} />}
-    </main>
+    <ProjectsShell
+      user={{
+        name: session.user.name,
+        username,
+        initials: initials(session.user.name, username),
+      }}
+    >
+      <ProjectsMobileSearch />
+      <ProjectsHeader count={projects.length} />
+      <ProjectsGrid projects={projects} />
+    </ProjectsShell>
   );
 }
