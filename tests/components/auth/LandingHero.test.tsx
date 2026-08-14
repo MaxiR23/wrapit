@@ -1,60 +1,31 @@
 // tests/components/auth/LandingHero.test.tsx
 //
-// Tests for the landing hero on /.
+// Tests for the landing hero used on the sign-in mobile section.
 //
 // Tested:
-// - Renders the brand headline, decorative mini-board and a Sign in link
-// - The chevron control links to /sign-in
-// - A downward wheel or ArrowDown navigates to /sign-in once
+// - Renders the brand headline, decorative mini-board and a Sign in control
+// - The chevron control scrolls to the sign-in form island
 //
 // What is covered:
-// - Hero content, chevron link, scroll-down intent
+// - Hero content, in-page chevron anchor
 //
 // Run with: pnpm test:run tests/components/auth/LandingHero.test.tsx
 //
 // SEE: src/components/auth/LandingHero.tsx
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-const push = vi.fn();
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
-}));
-
-const { default: LandingHero } = await import('@/components/auth/LandingHero');
+import LandingHero from '@/components/auth/LandingHero';
 
 describe('LandingHero', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders the headline, an aria-hidden mini-board and a Sign in link', () => {
+  it('renders the headline, an aria-hidden mini-board and a Sign in control', () => {
     render(<LandingHero />);
 
     expect(
       screen.getByRole('heading', { name: "Your team's work, in columns." }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '#sign-in-form');
     expect(document.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
-  });
-
-  it('navigates to /sign-in on a downward wheel, only once', () => {
-    render(<LandingHero />);
-
-    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, cancelable: true }));
-    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, cancelable: true }));
-
-    expect(push).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith('/sign-in');
-  });
-
-  it('navigates to /sign-in on ArrowDown', () => {
-    render(<LandingHero />);
-
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
-
-    expect(push).toHaveBeenCalledWith('/sign-in');
   });
 });

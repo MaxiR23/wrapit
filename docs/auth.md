@@ -43,11 +43,16 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/ForgotPasswordForm.tsx  the forgot-password form
     src/components/auth/ResetPasswordForm.tsx   the reset-password form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
-    src/components/auth/LandingHero.tsx full-viewport hero on /
-    src/app/page.tsx                    / shows the hero; a session redirects to /projects
-    src/app/(auth)/layout.tsx           split layout for auth screens; form column is a light island
+    src/components/auth/LandingHero.tsx mobile hero on /sign-in
+    src/components/auth/AuthFormIsland.tsx  light form column shared by auth layouts
+    src/components/projects/useSignOut.ts  shared temporary sign-out for the projects shell
+    src/components/projects/ProjectsTopbar.tsx  desktop account button (temporary sign out)
+    src/components/projects/ProjectsMobileHeader.tsx  mobile account button (temporary sign out)
+    src/app/page.tsx                    / is redirect-only: session to /projects, else /sign-in
+    src/app/(auth)/layout.tsx           split layout for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
-    src/app/(auth)/sign-in/page.tsx     the /sign-in page
+    src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero + split from auth-sm up
+    src/app/(sign-in)/sign-in/page.tsx  the /sign-in page
     src/app/(auth)/forgot-password/page.tsx  the /forgot-password page
     src/app/(auth)/reset-password/page.tsx   the /reset-password page
 
@@ -116,6 +121,14 @@ follows the same shape as sign up: react-hook-form with
 `authClient.signIn.email(...)`. On success the form redirects to `/projects` and calls
 `router.refresh()` so the nav re-reads the session.
 
+The sign-in route has its own layout (`src/app/(sign-in)/sign-in/layout.tsx`),
+not the shared `(auth)` split. It is one page with two CSS presentations of the
+same form: below `auth-sm` the `LandingHero` sits above the form island; from
+`auth-sm` up the existing brand panel and form split is used. Breakpoints only —
+no `matchMedia`, no user-agent. Sign-up, forgot-password and reset-password
+keep the shared layout and do not show the hero. Why the hero lives here:
+`docs/adr/0001-landing-hero-in-signin.md`.
+
 The rules live in `src/lib/validation/signIn.ts` as `signInSchema`. The form and
 `validateSignIn` both use that schema. They deliberately do **not** reuse
 `MIN_PASSWORD_LENGTH`: on sign in only presence is checked. A length rule would
@@ -179,16 +192,23 @@ anything else uses the generic message.
 
 `AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
 `authClient.useSession()` and shows either a **Sign out** button or links to
-`/sign-in` and `/sign-up`. On the landing page (`/`) and on auth paths
-(`isAuthPath`: sign-in, sign-up, forgot-password, reset-password) it returns
-null so the hero and the split auth layout are not topped by nav links. While
-the session is still loading on other routes it renders an empty nav, so a
-signed in user never sees the signed out links flash.
+`/sign-in` and `/sign-up`. On `/` and on auth paths (`isAuthPath`: sign-in,
+sign-up, forgot-password, reset-password) it returns null so the redirect home
+and the auth layouts are not topped by nav links. It also returns null on
+`/projects`, where the projects shell hosts sign out instead. While the
+session is still loading on other routes it renders an empty nav, so a signed
+in user never sees the signed out links flash.
 
 Sign out calls `authClient.signOut()`, which deletes the `Session` row and
 clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
 A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
+
+On `/projects`, `AuthNav` is hidden, so the account buttons in
+`ProjectsTopbar` (desktop) and `ProjectsMobileHeader` (mobile) are a
+temporary sign out until the account menu exists. Both call `useSignOut`,
+which runs the same `authClient.signOut()` → `router.push('/sign-in')` →
+`router.refresh()` sequence, including the generic failure message.
 
 Protection lives in `src/proxy.ts`.
 
@@ -210,10 +230,10 @@ Two rules:
 - A session on an auth path (`/sign-in`, `/sign-up`, `/forgot-password`,
   `/reset-password`) redirects to `/projects`.
 
-`/` is public so a visitor without a session can see the landing hero. A real
-session on `/` is redirected to `/projects` by the page itself, before the hero
-renders. Post-login destinations are consistent on `PROJECTS_PATH` (`/projects`) —
-proxy, sign-in/up forms, and the home page.
+`/` is public so the page can run without a session. It renders no UI: a
+session redirects to `/projects`, otherwise to `/sign-in`. Post-login
+destinations are consistent on `PROJECTS_PATH` (`/projects`) — proxy,
+sign-in/up forms, and the home page.
 
 Everything else is served untouched.
 
@@ -222,7 +242,7 @@ Everything else is served untouched.
 `src/lib/routes.ts` holds the definitions. Public means reachable without a
 session:
 
-    /            home
+    /            home (redirect-only)
     /sign-in     the sign in page
     /sign-up     the sign up page
     /forgot-password  request a reset email
@@ -307,8 +327,12 @@ cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/auth/SignUpForm.test.tsx`,
 `tests/components/auth/SignInForm.test.tsx`,
 `tests/components/auth/ForgotPasswordForm.test.tsx`,
-`tests/components/auth/ResetPasswordForm.test.tsx` and
-`tests/components/auth/AuthNav.test.tsx`.
+`tests/components/auth/ResetPasswordForm.test.tsx`,
+`tests/components/auth/AuthNav.test.tsx`,
+`tests/components/projects/ProjectsTopbar.test.tsx` and
+`tests/components/projects/ProjectsMobileHeader.test.tsx`.
+`tests/home.test.tsx` covers the redirect-only `/`;
+`tests/app/sign-in-layout.test.tsx` covers the CSS hero/split on `/sign-in`.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
 wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives
@@ -328,4 +352,5 @@ is never validated.
 - Better Auth docs: https://www.better-auth.com/docs
 - Prisma guide: https://www.prisma.io/docs/guides/authentication/better-auth/nextjs
 - `docs/architecture.md`
+- `docs/adr/0001-landing-hero-in-signin.md`
 - `docs/database.md`

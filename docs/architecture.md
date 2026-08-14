@@ -108,16 +108,17 @@ in `docs/kanban.md`.
     src/actions/deleteCard.ts           delete an owned card
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
-    src/app/page.tsx                    / landing hero; session redirects to /projects
+    src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, grid and list
     src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404)
-    src/app/(auth)/layout.tsx           auth split: two-panel, stacked, mobile
+    src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
-    src/app/(auth)/sign-in/page.tsx     /sign-in
+    src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
+    src/app/(sign-in)/sign-in/page.tsx  /sign-in
     src/app/(auth)/forgot-password/page.tsx  /forgot-password
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
-    src/components/auth/                sign up, sign in, password reset, landing, AuthNav
+    src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/projects/            projects shell, grid, list, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
@@ -127,6 +128,7 @@ in `docs/kanban.md`.
 - `README.md` (Layout, Commands)
 - `AGENTS.md` (Structure)
 - `docs/auth.md`
+- `docs/adr/0001-landing-hero-in-signin.md`
 - `docs/database.md`
 - `docs/kanban.md`
 - `docs/testing.md`
