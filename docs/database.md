@@ -29,15 +29,20 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Project`.
+- `User` has many `Project` and at most one `UserPreferences`.
 - `Project` belongs to a `User` and has many `Column`.
 - `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
+- `UserPreferences` belongs to a `User`. It holds per-user UI settings. Today
+  that is `viewMode` (`GRID` or `LIST`, default `GRID`). The table is meant to
+  grow with more columns (for example language) on the same 1:1 row, without a
+  new model.
 
 Deleting a record cascades to its children (deleting a project deletes its columns
-and cards). `Column` and `Card` use a `Float` `order` field so siblings can be
-reordered without rewriting every row on each move. Midpoints, renumbering when
-precision runs out, and how the UI persists moves: `docs/kanban.md`.
+and cards; deleting a user deletes their preferences). `Column` and `Card` use a
+`Float` `order` field so siblings can be reordered without rewriting every row on
+each move. Midpoints, renumbering when precision runs out, and how the UI
+persists moves: `docs/kanban.md`.
 
 `User`, `Session`, `Account` and `Verification` are owned by Better Auth.
 Passwords live on `Account`, not on `User`. See `docs/auth.md`.

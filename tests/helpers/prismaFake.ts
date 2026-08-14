@@ -39,24 +39,29 @@ function matches(row: Row, where: Row | undefined): boolean {
   });
 }
 
+function createRow(rows: Row[], data: Row) {
+  const row = {
+    id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
+    createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
+    ...data,
+  };
+  rows.push(row);
+  return { ...row };
+}
+
+function findRow(rows: Row[], where?: Row) {
+  const row = rows.find((r) => matches(r, where));
+  return row ? { ...row } : null;
+}
+
 function createModel() {
   const rows: Row[] = [];
 
   return {
     rows,
-    create: vi.fn(async ({ data }: { data: Row }) => {
-      const row = {
-        id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
-        createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
-        ...data,
-      };
-      rows.push(row);
-      return { ...row };
-    }),
-    findFirst: vi.fn(async ({ where }: { where?: Row } = {}) => {
-      const row = rows.find((r) => matches(r, where));
-      return row ? { ...row } : null;
-    }),
+    create: vi.fn(async ({ data }: { data: Row }) => createRow(rows, data)),
+    findFirst: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where)),
+    findUnique: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where)),
     findMany: vi.fn(
       async ({
         where,
@@ -110,6 +115,14 @@ function createModel() {
     count: vi.fn(
       async ({ where }: { where?: Row } = {}) => rows.filter((r) => matches(r, where)).length,
     ),
+    upsert: vi.fn(async ({ where, create, update }: { where?: Row; create: Row; update: Row }) => {
+      const row = rows.find((r) => matches(r, where));
+      if (row) {
+        Object.assign(row, update);
+        return { ...row };
+      }
+      return createRow(rows, create);
+    }),
   };
 }
 
@@ -123,6 +136,7 @@ export function createPrismaFake() {
     column: createModel(),
     card: createModel(),
     membership: createModel(),
+    userPreferences: createModel(),
   };
 
   return {
