@@ -4,11 +4,13 @@
 //
 // Tested:
 // - Signs up a user with email and password and returns the user
+// - Persists the username on the created user
 // - Stores the password hashed on a credential account, never on the user
 // - Rejects a sign up whose password is shorter than the minimum
 // - Rejects a sign up whose email format is invalid
 // - Rejects a sign up whose email is empty
 // - Rejects a sign up with a missing name
+// - Rejects a sign up with a missing username
 // - Rejects a sign up for an email that is already registered
 // - Signs in with the correct password and rejects the wrong one
 // - Rejects a sign in for an email that is not registered
@@ -38,6 +40,7 @@ const credentials = {
   email: 'ada@example.com',
   password: 'a-long-enough-password',
   name: 'Ada',
+  username: 'ada',
 };
 
 describe('auth', () => {
@@ -50,7 +53,9 @@ describe('auth', () => {
 
     expect(result.user.email).toBe(credentials.email);
     expect(result.user.name).toBe(credentials.name);
+    expect(result.user.username).toBe(credentials.username);
     expect(db.user.rows).toHaveLength(1);
+    expect(db.user.rows[0]?.username).toBe(credentials.username);
   });
 
   it('stores the password hashed on a credential account, not on the user', async () => {
@@ -87,11 +92,21 @@ describe('auth', () => {
   });
 
   it('rejects a sign up when the name is missing', async () => {
-    const { email, password } = credentials;
+    const { email, password, username } = credentials;
 
     await expect(
       // The name is required by the sign up schema; omitting it must not create a user.
-      auth.api.signUpEmail({ body: { email, password } as typeof credentials }),
+      auth.api.signUpEmail({ body: { email, password, username } as typeof credentials }),
+    ).rejects.toThrow();
+
+    expect(db.user.rows).toHaveLength(0);
+  });
+
+  it('rejects a sign up when the username is missing', async () => {
+    const { email, password, name } = credentials;
+
+    await expect(
+      auth.api.signUpEmail({ body: { email, password, name } as typeof credentials }),
     ).rejects.toThrow();
 
     expect(db.user.rows).toHaveLength(0);
