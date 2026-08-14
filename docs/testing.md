@@ -9,7 +9,7 @@ Tests live in `tests/` at the project root, mirroring the source structure:
 
     src/lib/utils.ts                -> tests/lib/utils.test.ts
     src/actions/createCard.ts       -> tests/actions/createCard.test.ts
-    src/components/boards/Board.tsx -> tests/components/boards/Board.test.tsx
+    src/components/projects/Project.tsx -> tests/components/projects/Project.test.tsx
 
 Components are grouped by domain (`AGENTS.md`), and the test tree mirrors that
 grouping: `src/components/auth/AuthNav.tsx` is tested by

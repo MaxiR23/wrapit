@@ -6,17 +6,17 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
-import { boardPath } from '@/lib/routes';
+import { projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import { columnSchema, type ColumnFieldErrors } from '@/lib/validation/column';
 
 type CreateColumnResult =
-  | { data: { id: string; title: string; order: number; boardId: string } }
+  | { data: { id: string; title: string; order: number; projectId: string } }
   | { fieldErrors: ColumnFieldErrors }
   | { error: string };
 
 export async function createColumn(input: {
-  boardId: string;
+  projectId: string;
   title: string;
 }): Promise<CreateColumnResult> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -29,16 +29,16 @@ export async function createColumn(input: {
     return { fieldErrors: firstErrorPerField(parsed.error) };
   }
 
-  const board = await prisma.board.findFirst({
-    where: { id: input.boardId, ownerId: session.user.id },
+  const project = await prisma.project.findFirst({
+    where: { id: input.projectId, ownerId: session.user.id },
   });
-  if (!board) {
+  if (!project) {
     return { error: 'Unauthorized' };
   }
 
   try {
     const [last] = await prisma.column.findMany({
-      where: { boardId: board.id },
+      where: { projectId: project.id },
       orderBy: { order: 'desc' },
       take: 1,
     });
@@ -48,11 +48,11 @@ export async function createColumn(input: {
       data: {
         title: parsed.data.title,
         order,
-        boardId: board.id,
+        projectId: project.id,
       },
     });
 
-    revalidatePath(boardPath(board.id));
+    revalidatePath(projectPath(project.id));
 
     return { data: column };
   } catch {

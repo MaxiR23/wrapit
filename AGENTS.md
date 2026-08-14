@@ -20,7 +20,7 @@ All application code lives under `src/`. The tree itself is listed in
   A page composes; it does not implement. Anything a second route could ever
   want belongs in one of the layers below, not in the route folder.
 - `src/components/` — React components, **grouped by domain** in a subdirectory:
-  `auth/` today, `boards/` and `cards/` as those features land. A component used
+  `auth/` today, `projects/` and `cards/` as those features land. A component used
   by a single route still lives here; the App Router routes by filename, so a
   component next to a page would be indistinguishable from a route.
 
@@ -39,7 +39,7 @@ All application code lives under `src/`. The tree itself is listed in
   instance and client, the Prisma client, route definitions, validation schemas.
 - `src/actions/` — server actions, one per file, each starting with
   `'use server'`. Mutations that need the real session and Prisma live here
-  (for example `createBoard`); auth sign-in/up still runs in the browser through
+  (for example `createProject`); auth sign-in/up still runs in the browser through
   `authClient`.
 - `src/generated/` — generated output (the Prisma Client). Gitignored, recreated
   by `pnpm db:generate`, never edited by hand.
@@ -84,6 +84,6 @@ nothing above it. Nothing outside `src/app/` imports a route.
     docs/tooling.md         formatters, linters, git hooks, test runner
     docs/testing.md         test conventions
     docs/architecture.md    layers, data flow, ownership, file map
-    docs/kanban.md          boards, columns, cards, order, DnD
+    docs/kanban.md          projects, columns, cards, order, DnD
     docs/database.md        database and Prisma usage
     docs/auth.md            Better Auth and route protection

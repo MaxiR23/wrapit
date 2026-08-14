@@ -8,7 +8,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { orderBetween } from '@/lib/order';
 import { getCardForUser, getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { boardPath } from '@/lib/routes';
+import { projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import { moveCardSchema, type MoveCardFieldErrors } from '@/lib/validation/moveCard';
 
@@ -53,7 +53,7 @@ export async function moveCard(input: {
     return { error: 'Unauthorized' };
   }
 
-  if (ownedCard.board.id !== ownedTarget.board.id) {
+  if (ownedCard.project.id !== ownedTarget.project.id) {
     return { error: 'Unauthorized' };
   }
 
@@ -96,7 +96,7 @@ export async function moveCard(input: {
         beforeCardId,
         afterCardId,
       });
-      revalidatePath(boardPath(ownedTarget.board.id));
+      revalidatePath(projectPath(ownedTarget.project.id));
       return { data: card };
     }
 
@@ -108,7 +108,7 @@ export async function moveCard(input: {
       },
     });
 
-    revalidatePath(boardPath(ownedTarget.board.id));
+    revalidatePath(projectPath(ownedTarget.project.id));
 
     return { data: card };
   } catch {

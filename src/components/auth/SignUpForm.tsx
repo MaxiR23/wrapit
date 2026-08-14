@@ -26,7 +26,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { BOARDS_PATH, SIGN_IN_PATH } from '@/lib/routes';
+import { PROJECTS_PATH, SIGN_IN_PATH } from '@/lib/routes';
 import { signUpSchema, type SignUpInput } from '@/lib/validation/signUp';
 
 // Better Auth answers a duplicate email with 422 and this code. The plain
@@ -66,7 +66,7 @@ export default function SignUpForm() {
       return;
     }
 
-    router.push(BOARDS_PATH);
+    router.push(PROJECTS_PATH);
   }
 
   return (
@@ -82,7 +82,7 @@ export default function SignUpForm() {
     >
       <div className={authFormHeaderClassName}>
         <h1 className={authFormTitleClassName}>Create account</h1>
-        <p className={authFormSubtitleClassName}>Start with your first board.</p>
+        <p className={authFormSubtitleClassName}>Start with your first project.</p>
       </div>
 
       {form.formState.errors.root?.message && (

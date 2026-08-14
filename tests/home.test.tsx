@@ -3,7 +3,7 @@
 // Tests for the home page: landing hero for visitors, redirect for sessions.
 //
 // Tested:
-// - Redirects a signed-in user to /boards
+// - Redirects a signed-in user to /projects
 // - Renders the landing hero for a signed-out visitor
 //
 // What is covered:
@@ -41,11 +41,11 @@ describe('Home page', () => {
     vi.clearAllMocks();
   });
 
-  it('redirects a signed-in user to /boards', async () => {
+  it('redirects a signed-in user to /projects', async () => {
     getSession.mockResolvedValue({ user: { id: 'user-ada' } });
 
-    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/boards');
-    expect(redirect).toHaveBeenCalledWith('/boards');
+    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/projects');
+    expect(redirect).toHaveBeenCalledWith('/projects');
   });
 
   it('renders the landing hero for a signed-out visitor', async () => {

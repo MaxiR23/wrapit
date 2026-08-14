@@ -5,15 +5,15 @@
 // default, and opening one up is a deliberate edit to this file.
 
 export const HOME_PATH = '/';
-export const BOARDS_PATH = '/boards';
+export const PROJECTS_PATH = '/projects';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
 export const RESET_PASSWORD_PATH = '/reset-password';
 
-/** Detail page for a single board. */
-export function boardPath(boardId: string) {
-  return `${BOARDS_PATH}/${boardId}`;
+/** Detail page for a single project. */
+export function projectPath(projectId: string) {
+  return `${PROJECTS_PATH}/${projectId}`;
 }
 
 /** Pages that show the sign in, sign up, or password-reset forms. */

@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { columnSchema, type ColumnInput } from '@/lib/validation/column';
 
-export default function NewColumnDialog({ boardId }: { boardId: string }) {
+export default function NewColumnDialog({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -29,7 +29,7 @@ export default function NewColumnDialog({ boardId }: { boardId: string }) {
   });
 
   async function onSubmit(values: ColumnInput) {
-    const result = await createColumn({ boardId, title: values.title });
+    const result = await createColumn({ projectId, title: values.title });
 
     if ('fieldErrors' in result && result.fieldErrors.title) {
       form.setError('title', { message: result.fieldErrors.title });

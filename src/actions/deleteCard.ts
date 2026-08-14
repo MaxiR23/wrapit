@@ -7,7 +7,7 @@ import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { boardPath } from '@/lib/routes';
+import { projectPath } from '@/lib/routes';
 
 type DeleteCardResult = { data: { id: string } } | { error: string };
 
@@ -25,7 +25,7 @@ export async function deleteCard(input: { cardId: string }): Promise<DeleteCardR
   try {
     await prisma.card.delete({ where: { id: owned.card.id } });
 
-    revalidatePath(boardPath(owned.board.id));
+    revalidatePath(projectPath(owned.project.id));
 
     return { data: { id: owned.card.id } };
   } catch {

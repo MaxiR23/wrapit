@@ -44,13 +44,13 @@ const { createCard } = await import('@/actions/createCard');
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada' };
 
 async function seedOwnedColumn() {
-  const board = await db.board.create({
+  const project = await db.project.create({
     data: { title: 'Sprint board', ownerId: sessionUser.id },
   });
   const column = await db.column.create({
-    data: { title: 'To do', order: 1, boardId: board.id },
+    data: { title: 'To do', order: 1, projectId: project.id },
   });
-  return { board, column };
+  return { project, column };
 }
 
 describe('createCard', () => {
@@ -61,7 +61,7 @@ describe('createCard', () => {
   });
 
   it('creates a card on the owner column with an appending order', async () => {
-    const { board, column } = await seedOwnedColumn();
+    const { project, column } = await seedOwnedColumn();
     await db.card.create({
       data: { title: 'First', order: 1, columnId: column.id },
     });
@@ -77,7 +77,7 @@ describe('createCard', () => {
       }),
     });
     expect(db.card.rows).toHaveLength(2);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('assigns order 1 when the column has no cards yet', async () => {
@@ -121,11 +121,11 @@ describe('createCard', () => {
   });
 
   it('rejects creating on a column the user does not own', async () => {
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     const result = await createCard({ columnId: column.id, title: 'Stolen' });

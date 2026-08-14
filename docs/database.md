@@ -29,12 +29,12 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Board`.
-- `Board` belongs to a `User` and has many `Column`.
-- `Column` belongs to a `Board` and has many `Card`.
+- `User` has many `Project`.
+- `Project` belongs to a `User` and has many `Column`.
+- `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
 
-Deleting a record cascades to its children (deleting a board deletes its columns
+Deleting a record cascades to its children (deleting a project deletes its columns
 and cards). `Column` and `Card` use a `Float` `order` field so siblings can be
 reordered without rewriting every row on each move. Midpoints, renumbering when
 precision runs out, and how the UI persists moves: `docs/kanban.md`.

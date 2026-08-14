@@ -1,4 +1,4 @@
-// tests/components/boards/ColumnsEmptyState.test.tsx
+// tests/components/projects/ColumnsEmptyState.test.tsx
 //
 // Tests for the columns empty state.
 //
@@ -8,21 +8,21 @@
 // What is covered:
 // - Empty list messaging
 //
-// Run with: pnpm test:run tests/components/boards/ColumnsEmptyState.test.tsx
+// Run with: pnpm test:run tests/components/projects/ColumnsEmptyState.test.tsx
 //
-// SEE: src/components/boards/ColumnsEmptyState.tsx
+// SEE: src/components/projects/ColumnsEmptyState.tsx
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import ColumnsEmptyState from '@/components/boards/ColumnsEmptyState';
+import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
 
 describe('ColumnsEmptyState', () => {
   it('shows the empty copy when there are no columns', () => {
     render(<ColumnsEmptyState />);
 
     expect(
-      screen.getByText('This board has no columns yet. Create one to get started.'),
+      screen.getByText('This project has no columns yet. Create one to get started.'),
     ).toBeInTheDocument();
   });
 });

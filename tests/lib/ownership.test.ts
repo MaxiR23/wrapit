@@ -4,9 +4,9 @@
 //
 // Tested:
 // - Resolves a column that belongs to the given user
-// - Returns null for a column on another user's board
-// - Resolves a card through column and board ownership
-// - Returns null for a card on another user's board
+// - Returns null for a column on another user's project
+// - Resolves a card through column and project ownership
+// - Returns null for a card on another user's project
 //
 // What is covered:
 // - Full ownership chain for columns and cards
@@ -30,27 +30,27 @@ describe('getColumnForUser', () => {
   });
 
   it('resolves a column that belongs to the given user', async () => {
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: 'user-ada' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     const result = await getColumnForUser(column.id, 'user-ada');
 
     expect(result).toEqual({
       column: expect.objectContaining({ id: column.id, title: 'To do' }),
-      board: expect.objectContaining({ id: board.id, ownerId: 'user-ada' }),
+      project: expect.objectContaining({ id: project.id, ownerId: 'user-ada' }),
     });
   });
 
-  it('returns null for a column on another user board', async () => {
-    const board = await db.board.create({
+  it('returns null for a column on another user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     expect(await getColumnForUser(column.id, 'user-ada')).toBeNull();
@@ -66,12 +66,12 @@ describe('getCardForUser', () => {
     db.reset();
   });
 
-  it('resolves a card through column and board ownership', async () => {
-    const board = await db.board.create({
+  it('resolves a card through column and project ownership', async () => {
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: 'user-ada' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Write tests', order: 1, columnId: column.id },
@@ -82,16 +82,16 @@ describe('getCardForUser', () => {
     expect(result).toEqual({
       card: expect.objectContaining({ id: card.id, title: 'Write tests' }),
       column: expect.objectContaining({ id: column.id }),
-      board: expect.objectContaining({ id: board.id, ownerId: 'user-ada' }),
+      project: expect.objectContaining({ id: project.id, ownerId: 'user-ada' }),
     });
   });
 
-  it('returns null for a card on another user board', async () => {
-    const board = await db.board.create({
+  it('returns null for a card on another user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Stolen', order: 1, columnId: column.id },

@@ -1,22 +1,22 @@
 import Link from 'next/link';
 
-import { boardPath } from '@/lib/routes';
+import { projectPath } from '@/lib/routes';
 
-type BoardListItem = {
+type ProjectListItem = {
   id: string;
   title: string;
 };
 
-export default function BoardList({ boards }: { boards: BoardListItem[] }) {
+export default function ProjectList({ projects }: { projects: ProjectListItem[] }) {
   return (
     <ul className="flex flex-col gap-2">
-      {boards.map((board) => (
-        <li key={board.id}>
+      {projects.map((project) => (
+        <li key={project.id}>
           <Link
-            href={boardPath(board.id)}
+            href={projectPath(project.id)}
             className="block rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/50"
           >
-            {board.title}
+            {project.title}
           </Link>
         </li>
       ))}

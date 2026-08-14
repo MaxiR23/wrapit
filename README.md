@@ -6,7 +6,7 @@ production-style stack and eventually contribute to similar codebases.
 ## Status
 
 Stack and tooling are in place. Authentication covers sign up, sign in, sign out
-and route protection. Boards can be listed, created and opened; columns and cards support create,
+and route protection. Projects can be listed, created and opened; columns and cards support create,
 list, edit, delete, and drag-and-drop moves between columns (persisted). Card
 metadata (due date, priority, labels) is not built yet.
 
@@ -60,7 +60,7 @@ dockerized mode is planned but not set up yet.
 ## Layout
 
     src/app/        routes, layouts, pages (App Router)
-    src/components/ React components: domain dirs (auth/, boards/, ...) and ui/ (shadcn)
+    src/components/ React components: domain dirs (auth/, projects/, ...) and ui/ (shadcn)
     src/actions/    server actions (mutations)
     src/lib/        shared code (e.g. the Prisma client, utils)
     src/generated/  generated Prisma Client (gitignored)
@@ -83,7 +83,7 @@ be skipped. See `docs/tooling.md`.
     docs/tooling.md            formatters, linters, git hooks, test runner
     docs/testing.md            test conventions
     docs/architecture.md       layers, data flow, ownership, file map
-    docs/kanban.md             boards, columns, cards, order, DnD
+    docs/kanban.md             projects, columns, cards, order, DnD
     docs/database.md           database and Prisma usage
     docs/auth.md               Better Auth and route protection
     docs/repository-setup.md   GitHub settings that live outside this repo

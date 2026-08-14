@@ -111,7 +111,7 @@ describe('SignInForm', () => {
     await submit(user);
 
     expect(signInEmail).toHaveBeenCalledWith(credentials);
-    expect(push).toHaveBeenCalledWith('/boards');
+    expect(push).toHaveBeenCalledWith('/projects');
   });
 
   it('shows a generic message when the password is wrong', async () => {

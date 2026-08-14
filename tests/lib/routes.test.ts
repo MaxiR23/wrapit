@@ -36,9 +36,9 @@ describe('isPublicPath', () => {
   });
 
   it('rejects a route that is not listed', () => {
-    expect(isPublicPath('/boards')).toBe(false);
-    expect(isPublicPath('/boards/1')).toBe(false);
-    expect(isPublicPath('/api/boards')).toBe(false);
+    expect(isPublicPath('/projects')).toBe(false);
+    expect(isPublicPath('/projects/1')).toBe(false);
+    expect(isPublicPath('/api/projects')).toBe(false);
   });
 
   it('rejects a route that only starts with a public prefix', () => {
@@ -48,7 +48,7 @@ describe('isPublicPath', () => {
 
   it('ignores a trailing slash', () => {
     expect(isPublicPath('/sign-in/')).toBe(true);
-    expect(isPublicPath('/boards/')).toBe(false);
+    expect(isPublicPath('/projects/')).toBe(false);
   });
 });
 
@@ -65,6 +65,6 @@ describe('isAuthPath', () => {
   it('rejects other routes, public ones included', () => {
     expect(isAuthPath('/')).toBe(false);
     expect(isAuthPath('/api/auth/sign-in/email')).toBe(false);
-    expect(isAuthPath('/boards')).toBe(false);
+    expect(isAuthPath('/projects')).toBe(false);
   });
 });
