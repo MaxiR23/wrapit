@@ -2,11 +2,13 @@
 
 import { Bell } from 'lucide-react';
 
+import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
 import { useSignOut } from '@/components/projects/useSignOut';
 import { cn } from '@/lib/utils';
 
 export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
+  const { query, setQuery } = useProjectsSearch();
   const { signOut, error, isSigningOut } = useSignOut();
 
   return (
@@ -21,6 +23,8 @@ export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
           type="search"
           placeholder="Search projects"
           aria-label="Search projects"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           className={cn(
             shellFocusClassName,
             'rounded-md border border-input bg-surface text-foreground placeholder:text-subtle',

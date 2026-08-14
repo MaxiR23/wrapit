@@ -27,8 +27,10 @@ has no such column, the last column by `order` is treated as done. No cards mean
 `0 of 0` and `0%`. The percentage is `round(done / total * 100)`.
 
 The projects page presents those summaries as a card grid or a list table. Both
-views share the same payload; only the layout changes. The choice is client-side
-for now and may reset on reload.
+views share the same payload; only the layout changes. Search filters that
+payload in the client by title (case-insensitive includes) and does not
+re-query the server. The grid/list choice is client-side for now and may reset
+on reload.
 
 `Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
 `project.createdAt` when there are no cards.

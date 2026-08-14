@@ -6,7 +6,8 @@ import { updateViewMode } from '@/actions/updateViewMode';
 import ProjectGrid from '@/components/projects/ProjectGrid';
 import ProjectList from '@/components/projects/ProjectList';
 import ProjectsHeader, { type ProjectsViewMode } from '@/components/projects/ProjectsHeader';
-import type { ProjectSummary } from '@/lib/projectGrid';
+import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
+import { filterProjectsByTitle, type ProjectSummary } from '@/lib/projectGrid';
 
 export default function ProjectsView({
   projects,
@@ -18,6 +19,9 @@ export default function ProjectsView({
   const [view, setView] = useState<ProjectsViewMode>(initialView);
   const latestViewRef = useRef(initialView);
   const persistInFlightRef = useRef(false);
+  const { query } = useProjectsSearch();
+  const visible = filterProjectsByTitle(projects, query);
+  const noMatches = visible.length === 0 && query.trim() !== '';
 
   function handleViewChange(next: ProjectsViewMode) {
     setView(next);
@@ -43,16 +47,18 @@ export default function ProjectsView({
 
   return (
     <>
-      <ProjectsHeader count={projects.length} view={view} onViewChange={handleViewChange} />
-      {view === 'list' ? (
+      <ProjectsHeader count={visible.length} view={view} onViewChange={handleViewChange} />
+      {noMatches ? (
+        <p className="text-sm text-muted-foreground">No projects match your search.</p>
+      ) : view === 'list' ? (
         <>
           <div className="md:hidden">
-            <ProjectGrid projects={projects} />
+            <ProjectGrid projects={visible} />
           </div>
-          <ProjectList projects={projects} className="hidden md:block" />
+          <ProjectList projects={visible} className="hidden md:block" />
         </>
       ) : (
-        <ProjectGrid projects={projects} />
+        <ProjectGrid projects={visible} />
       )}
     </>
   );

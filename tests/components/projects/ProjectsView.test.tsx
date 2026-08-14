@@ -1,6 +1,6 @@
 // tests/components/projects/ProjectsView.test.tsx
 //
-// Tests for the projects grid/list toggle and the mobile list fallback.
+// Tests for the projects grid/list toggle, mobile list fallback, and search.
 //
 // Tested:
 // - Defaults to the card grid
@@ -9,9 +9,14 @@
 // - Switching back to grid hides the table
 // - Toggle persists the new viewMode through the server action
 // - Rapid toggles persist the last selection, not a slower earlier write
+// - Typing filters visible projects case-insensitively
+// - Clearing the query restores the full list
+// - A non-matching query shows the empty result
+// - Filtering applies in both grid and list and updates the header count
 //
 // What is covered:
-// - Client-side view toggle, initial seed, persistence, last-write-wins, mobile card fallback
+// - Client-side view toggle, initial seed, persistence, last-write-wins,
+//   mobile card fallback, in-memory title search
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsView.test.tsx
 //
@@ -20,6 +25,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 
 import type { ProjectSummary } from '@/lib/projectGrid';
 
@@ -34,6 +40,9 @@ vi.mock('@/actions/updateViewMode', () => ({
 }));
 
 const { default: ProjectsView } = await import('@/components/projects/ProjectsView');
+const { default: ProjectsMobileSearch } =
+  await import('@/components/projects/ProjectsMobileSearch');
+const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsSearch');
 
 const project: ProjectSummary = {
   id: 'project-1',
@@ -48,13 +57,33 @@ const project: ProjectSummary = {
   members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
 };
 
+const emptyBoard: ProjectSummary = {
+  ...project,
+  id: 'project-2',
+  title: 'Empty board',
+  status: 'NEW',
+  statusLabel: 'New',
+  taskCount: 0,
+  doneCount: 0,
+  percent: 0,
+};
+
+function renderView(ui: ReactElement, { withSearch = false }: { withSearch?: boolean } = {}) {
+  return render(
+    <ProjectsSearchProvider>
+      {withSearch ? <ProjectsMobileSearch /> : null}
+      {ui}
+    </ProjectsSearchProvider>,
+  );
+}
+
 describe('ProjectsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('defaults to the grid with one link per project', () => {
-    render(<ProjectsView projects={[project]} />);
+    renderView(<ProjectsView projects={[project]} />);
 
     expect(screen.getByRole('link', { name: /Sprint board/ })).toHaveAttribute(
       'href',
@@ -65,7 +94,7 @@ describe('ProjectsView', () => {
   });
 
   it('seeds the list from the initial view without a click', () => {
-    render(<ProjectsView projects={[project]} initialView="list" />);
+    renderView(<ProjectsView projects={[project]} initialView="list" />);
 
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('24 tasks')).toBeInTheDocument();
@@ -75,7 +104,7 @@ describe('ProjectsView', () => {
 
   it('switches to the list table and keeps a card grid for mobile', async () => {
     const user = userEvent.setup();
-    render(<ProjectsView projects={[project]} />);
+    renderView(<ProjectsView projects={[project]} />);
 
     await user.click(screen.getByRole('button', { name: 'List' }));
 
@@ -93,7 +122,7 @@ describe('ProjectsView', () => {
 
   it('returns to the grid when Grid is pressed', async () => {
     const user = userEvent.setup();
-    render(<ProjectsView projects={[project]} />);
+    renderView(<ProjectsView projects={[project]} />);
 
     await user.click(screen.getByRole('button', { name: 'List' }));
     await user.click(screen.getByRole('button', { name: 'Grid' }));
@@ -105,7 +134,7 @@ describe('ProjectsView', () => {
 
   it('persists the new viewMode when the toggle is pressed', async () => {
     const user = userEvent.setup();
-    render(<ProjectsView projects={[project]} />);
+    renderView(<ProjectsView projects={[project]} />);
 
     await user.click(screen.getByRole('button', { name: 'List' }));
     expect(updateViewMode).toHaveBeenCalledWith({ viewMode: 'list' });
@@ -135,7 +164,7 @@ describe('ProjectsView', () => {
     });
 
     const user = userEvent.setup();
-    render(<ProjectsView projects={[project]} />);
+    renderView(<ProjectsView projects={[project]} />);
 
     await user.click(screen.getByRole('button', { name: 'List' }));
     await user.click(screen.getByRole('button', { name: 'Grid' }));
@@ -152,5 +181,56 @@ describe('ProjectsView', () => {
     });
 
     expect(updateViewMode.mock.calls.at(-1)).toEqual([{ viewMode: 'grid' }]);
+  });
+
+  it('filters visible projects case-insensitively as the user types', async () => {
+    const user = userEvent.setup();
+    renderView(<ProjectsView projects={[project, emptyBoard]} />, { withSearch: true });
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'SPRINT');
+
+    expect(screen.getByRole('link', { name: /Sprint board/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Empty board/ })).not.toBeInTheDocument();
+    expect(screen.getByText('1 project')).toBeInTheDocument();
+  });
+
+  it('restores the full list when the query is cleared', async () => {
+    const user = userEvent.setup();
+    renderView(<ProjectsView projects={[project, emptyBoard]} />, { withSearch: true });
+
+    const search = screen.getByRole('searchbox', { name: 'Search projects' });
+    await user.type(search, 'sprint');
+    expect(screen.queryByRole('link', { name: /Empty board/ })).not.toBeInTheDocument();
+
+    await user.clear(search);
+
+    expect(screen.getByRole('link', { name: /Sprint board/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Empty board/ })).toBeInTheDocument();
+    expect(screen.getByText('2 projects')).toBeInTheDocument();
+  });
+
+  it('shows an empty result when nothing matches', async () => {
+    const user = userEvent.setup();
+    renderView(<ProjectsView projects={[project, emptyBoard]} />, { withSearch: true });
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'kanban');
+
+    expect(screen.getByText('No projects match your search.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Sprint board/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Empty board/ })).not.toBeInTheDocument();
+    expect(screen.getByText('0 projects')).toBeInTheDocument();
+  });
+
+  it('applies the same filter in the list view', async () => {
+    const user = userEvent.setup();
+    renderView(<ProjectsView projects={[project, emptyBoard]} />, { withSearch: true });
+
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'empty');
+
+    expect(screen.getAllByRole('link', { name: /Empty board/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: /Sprint board/ })).not.toBeInTheDocument();
+    expect(screen.getByText('1 project')).toBeInTheDocument();
+    expect(screen.getByText('0 tasks')).toBeInTheDocument();
   });
 });

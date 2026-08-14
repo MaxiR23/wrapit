@@ -1,6 +1,7 @@
 // tests/lib/projectGrid.test.ts
 //
-// Tests for project grid view-model helpers: progress, members, labels, time.
+// Tests for project grid view-model helpers: progress, members, labels, time,
+// and client-side title search.
 //
 // Tested:
 // - Counts cards in a Done column as done
@@ -11,9 +12,11 @@
 // - Pluralizes the project count label
 // - Pluralizes the list-view task count label
 // - Formats the updated label from a known now
+// - Filters projects by title: empty query, case-insensitive includes, no match, trim
 //
 // What is covered:
-// - Done-title vs last-column fallback, empty project, rounding, avatars, copy
+// - Done-title vs last-column fallback, empty project, rounding, avatars, copy,
+//   client-side title filter
 //
 // Run with: pnpm test:run tests/lib/projectGrid.test.ts
 //
@@ -22,6 +25,7 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  filterProjectsByTitle,
   formatUpdatedAt,
   latestActivityAt,
   projectCountLabel,
@@ -31,7 +35,32 @@ import {
   projectStatusLabel,
   taskCountLabel,
   taskProgressLabel,
+  type ProjectSummary,
 } from '@/lib/projectGrid';
+
+const sprintBoard: ProjectSummary = {
+  id: 'project-1',
+  title: 'Sprint board',
+  status: 'IN_PROGRESS',
+  statusLabel: 'In progress',
+  taskCount: 24,
+  doneCount: 11,
+  percent: 46,
+  updatedLabel: 'Updated 2 hours ago',
+  starred: false,
+  members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
+};
+
+const emptyBoard: ProjectSummary = {
+  ...sprintBoard,
+  id: 'project-2',
+  title: 'Empty board',
+  status: 'NEW',
+  statusLabel: 'New',
+  taskCount: 0,
+  doneCount: 0,
+  percent: 0,
+};
 
 describe('projectProgress', () => {
   it('counts cards in a Done column as done', () => {
@@ -156,6 +185,28 @@ describe('formatUpdatedAt', () => {
   it('uses a relative English phrase', () => {
     expect(formatUpdatedAt(new Date('2026-08-13T20:00:00Z'), now)).toBe('Updated 2 hours ago');
     expect(formatUpdatedAt(new Date('2026-08-12T22:00:00Z'), now)).toBe('Updated yesterday');
+  });
+});
+
+describe('filterProjectsByTitle', () => {
+  const projects = [sprintBoard, emptyBoard];
+
+  it('returns all projects when the query is empty or only whitespace', () => {
+    expect(filterProjectsByTitle(projects, '')).toEqual(projects);
+    expect(filterProjectsByTitle(projects, '   ')).toEqual(projects);
+  });
+
+  it('matches titles case-insensitively by includes', () => {
+    expect(filterProjectsByTitle(projects, 'SPRINT')).toEqual([sprintBoard]);
+    expect(filterProjectsByTitle(projects, 'board')).toEqual(projects);
+  });
+
+  it('returns an empty list when nothing matches', () => {
+    expect(filterProjectsByTitle(projects, 'kanban')).toEqual([]);
+  });
+
+  it('trims the query before matching', () => {
+    expect(filterProjectsByTitle(projects, '  empty  ')).toEqual([emptyBoard]);
   });
 });
 
