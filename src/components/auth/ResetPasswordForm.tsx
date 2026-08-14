@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -12,10 +11,6 @@ import {
   authFieldErrorClassName,
   authFieldGroupClassName,
   authFieldLabelClassName,
-  authFooterClassName,
-  authFooterLinkClassName,
-  authForgotLinkDesktopClassName,
-  authForgotLinkMobileClassName,
   authFormClassName,
   authFormErrorBandClassName,
   authFormHeaderClassName,
@@ -28,62 +23,67 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { BOARDS_PATH, FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from '@/lib/routes';
-import { signInSchema, type SignInInput } from '@/lib/validation/signIn';
+import { SIGN_IN_PATH } from '@/lib/routes';
+import { resetPasswordSchema, type ResetPasswordInput } from '@/lib/validation/resetPassword';
 
-// Better Auth answers both a wrong password and an email that was never
-// registered with the same 401 INVALID_EMAIL_OR_PASSWORD. The other codes are
-// listed so a configuration that does tell them apart still lands on the same
-// message here: a failed sign in must never reveal whether an email exists.
-const CREDENTIALS_ERROR_CODES = ['INVALID_EMAIL_OR_PASSWORD', 'USER_NOT_FOUND', 'INVALID_PASSWORD'];
+const INVALID_LINK_MESSAGE = 'This reset link is invalid or has expired.';
 
-const CREDENTIALS_ERROR_MESSAGE = 'Invalid email or password.';
+type ResetPasswordFormProps = {
+  token?: string;
+  error?: string;
+};
 
-export default function SignInForm() {
+export default function ResetPasswordForm({ token, error }: ResetPasswordFormProps) {
   const router = useRouter();
+  const hasValidToken = Boolean(token) && error !== 'INVALID_TOKEN';
 
-  const form = useForm<SignInInput>({
-    resolver: zodResolver(signInSchema),
+  const form = useForm<ResetPasswordInput>({
+    resolver: zodResolver(resetPasswordSchema),
     mode: 'onTouched',
-    defaultValues: { email: '', password: '' },
+    defaultValues: { password: '', confirmPassword: '' },
   });
 
-  async function onSubmit(values: SignInInput) {
-    // The client returns { data, error } instead of throwing.
-    const { error } = await authClient.signIn.email(values);
+  async function onSubmit(values: ResetPasswordInput) {
+    if (!token) {
+      form.setError('root', { message: INVALID_LINK_MESSAGE });
+      return;
+    }
 
-    if (error) {
-      // A rejected credential is always a form-level error, never a field one.
-      // Pinning it on the email input would itself hint that the email is the
-      // part that was wrong.
-      const isCredentialsError =
-        error.status === 401 || (error.code ? CREDENTIALS_ERROR_CODES.includes(error.code) : false);
+    const { error: resetError } = await authClient.resetPassword({
+      newPassword: values.password,
+      token,
+    });
 
-      // Only recognized failures get specific wording.
+    if (resetError) {
       form.setError('root', {
-        message: isCredentialsError ? CREDENTIALS_ERROR_MESSAGE : GENERIC_ERROR_MESSAGE,
+        message: resetError.code === 'INVALID_TOKEN' ? INVALID_LINK_MESSAGE : GENERIC_ERROR_MESSAGE,
       });
       return;
     }
 
-    router.push(BOARDS_PATH);
-    router.refresh();
+    router.push(SIGN_IN_PATH);
+  }
+
+  if (!hasValidToken) {
+    return (
+      <p role="alert" className={authFormErrorBandClassName}>
+        {INVALID_LINK_MESSAGE}
+      </p>
+    );
   }
 
   return (
     <form
       noValidate
       onSubmit={(event) => {
-        // Clear before handleSubmit so a stale API root error does not linger
-        // when client validation fails and onSubmit never runs.
         form.clearErrors('root');
         void form.handleSubmit(onSubmit)(event);
       }}
       className={authFormClassName}
     >
       <div className={authFormHeaderClassName}>
-        <h1 className={authFormTitleClassName}>Sign in</h1>
-        <p className={authFormSubtitleClassName}>Access your boards.</p>
+        <h1 className={authFormTitleClassName}>Reset password</h1>
+        <p className={authFormSubtitleClassName}>Choose a new password for your account.</p>
       </div>
 
       {form.formState.errors.root?.message && (
@@ -94,51 +94,18 @@ export default function SignInForm() {
 
       <FieldGroup className={authFieldGroupClassName}>
         <Controller
-          name="email"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
-              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
-                Email
-              </FieldLabel>
-              <Input
-                {...field}
-                id={field.name}
-                type="email"
-                autoComplete="email"
-                aria-invalid={fieldState.invalid}
-                aria-describedby={fieldState.invalid ? 'email-error' : undefined}
-                className={authInputClassName}
-              />
-              {fieldState.invalid && (
-                <FieldError
-                  id="email-error"
-                  errors={[fieldState.error]}
-                  className={authFieldErrorClassName}
-                />
-              )}
-            </Field>
-          )}
-        />
-
-        <Controller
           name="password"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
-              <div className="flex items-center justify-between gap-2">
-                <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
-                  Password
-                </FieldLabel>
-                <Link href={FORGOT_PASSWORD_PATH} className={authForgotLinkDesktopClassName}>
-                  Forgot password?
-                </Link>
-              </div>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Password
+              </FieldLabel>
               <Input
                 {...field}
                 id={field.name}
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
                 aria-describedby={fieldState.invalid ? 'password-error' : undefined}
                 className={authInputClassName}
@@ -153,29 +120,46 @@ export default function SignInForm() {
             </Field>
           )}
         />
+
+        <Controller
+          name="confirmPassword"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
+              <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
+                Confirm password
+              </FieldLabel>
+              <Input
+                {...field}
+                id={field.name}
+                type="password"
+                autoComplete="new-password"
+                aria-invalid={fieldState.invalid}
+                aria-describedby={fieldState.invalid ? 'confirm-password-error' : undefined}
+                className={authInputClassName}
+              />
+              {fieldState.invalid && (
+                <FieldError
+                  id="confirm-password-error"
+                  errors={[fieldState.error]}
+                  className={authFieldErrorClassName}
+                />
+              )}
+            </Field>
+          )}
+        />
       </FieldGroup>
 
       <Button type="submit" disabled={form.formState.isSubmitting} className={authButtonClassName}>
         {form.formState.isSubmitting ? (
           <>
             <AuthFormSpinner />
-            Signing in...
+            Resetting...
           </>
         ) : (
-          'Sign in'
+          'Reset password'
         )}
       </Button>
-
-      <Link href={FORGOT_PASSWORD_PATH} className={authForgotLinkMobileClassName}>
-        Forgot password?
-      </Link>
-
-      <p className={authFooterClassName}>
-        No account?{' '}
-        <Link href={SIGN_UP_PATH} className={authFooterLinkClassName}>
-          Create one
-        </Link>
-      </p>
     </form>
   );
 }

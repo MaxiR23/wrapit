@@ -3,7 +3,7 @@
 // Tests for the sign in form.
 //
 // Tested:
-// - Renders the email and password fields and no name field
+// - Renders the email and password fields, a forgot-password link, and no name field
 // - Signs the user in with the typed values and redirects to the app
 // - Shows a generic message when the password is wrong
 // - Shows the same message for an email that is not registered
@@ -97,6 +97,11 @@ describe('SignInForm', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    const forgotLinks = screen.getAllByRole('link', { name: 'Forgot password?' });
+    expect(forgotLinks).toHaveLength(2);
+    for (const link of forgotLinks) {
+      expect(link).toHaveAttribute('href', '/forgot-password');
+    }
   });
 
   it('signs the user in with the typed values and redirects to the app', async () => {

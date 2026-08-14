@@ -26,6 +26,7 @@ vi.stubEnv('BETTER_AUTH_URL', 'http://localhost:3000');
 
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
+vi.mock('@/lib/email', () => ({ sendResetPasswordEmail: vi.fn() }));
 
 const { GET, POST } = await import('@/app/api/auth/[...all]/route');
 

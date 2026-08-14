@@ -5,7 +5,7 @@
 // Tested:
 // - A private route without a session redirects to /sign-in
 // - A public route is served without a session
-// - /sign-in and /sign-up with a session redirect to /boards
+// - /sign-in, /sign-up, /forgot-password and /reset-password with a session redirect to /boards
 // - A private route with a session is served
 // - The Better Auth API is reachable in both states
 //
@@ -51,9 +51,11 @@ describe('proxy without a session', () => {
     expect(redirectTarget(proxy(request('/')))).toBeNull();
   });
 
-  it('serves the sign in and sign up pages', () => {
+  it('serves the sign in, sign up and password-reset pages', () => {
     expect(redirectTarget(proxy(request('/sign-in')))).toBeNull();
     expect(redirectTarget(proxy(request('/sign-up')))).toBeNull();
+    expect(redirectTarget(proxy(request('/forgot-password')))).toBeNull();
+    expect(redirectTarget(proxy(request('/reset-password')))).toBeNull();
   });
 
   it('serves the Better Auth API, so signing in stays possible', () => {
@@ -71,6 +73,14 @@ describe('proxy with a session', () => {
 
   it('redirects the sign up page to /boards', () => {
     expect(redirectTarget(proxy(request('/sign-up', { signedIn: true })))).toBe('/boards');
+  });
+
+  it('redirects the forgot-password page to /boards', () => {
+    expect(redirectTarget(proxy(request('/forgot-password', { signedIn: true })))).toBe('/boards');
+  });
+
+  it('redirects the reset-password page to /boards', () => {
+    expect(redirectTarget(proxy(request('/reset-password', { signedIn: true })))).toBe('/boards');
   });
 
   it('serves a private route', () => {

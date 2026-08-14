@@ -7,18 +7,21 @@ How authentication is set up in this repo.
 [Better Auth](https://www.better-auth.com/) with the Prisma adapter, on the
 same PostgreSQL database as the rest of the app.
 
-Only email and password is enabled. Sign up, sign in, sign out and route
-protection all work. There are no social providers.
+Only email and password is enabled. Sign up, sign in, sign out, password
+reset and route protection all work. There are no social providers.
 
 ## Environment variables
 
-Both live in `.env` (never committed) and are listed in `.env.example`:
+They live in `.env` (never committed) and are listed in `.env.example`:
 
 - `BETTER_AUTH_SECRET` — signs sessions and tokens. Generate one with
   `openssl rand -base64 32`. Changing it invalidates every existing session.
 - `BETTER_AUTH_URL` — the base URL of the app, `http://localhost:3000` in
   development. Without it Better Auth derives the origin from the incoming
-  request, which makes callbacks and redirects unreliable.
+  request, which makes callbacks and redirects unreliable. Password-reset
+  emails build the `/reset-password?token=` link from this value.
+- `RESEND_API_KEY` — used by `src/lib/email.ts` to send the reset email.
+  Never hardcode it.
 
 ## Files
 
@@ -28,22 +31,40 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/lib/routes.ts                   which routes are public; BOARDS_PATH, boardPath
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
+    src/lib/email.ts                    Resend helper for the password-reset email
     src/lib/validation/fieldErrors.ts   first error per field (shared with domain validators)
     src/lib/validation/signUp.ts        sign up field rules
     src/lib/validation/signIn.ts        sign in field rules
+    src/lib/validation/forgotPassword.ts  forgot-password field rules
+    src/lib/validation/resetPassword.ts reset-password field rules
     src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
+    src/components/auth/ForgotPasswordForm.tsx  the forgot-password form
+    src/components/auth/ResetPasswordForm.tsx   the reset-password form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
-    src/app/page.tsx                    / redirects by session to /boards or /sign-in
-    src/app/(auth)/layout.tsx           split layout for auth screens
+    src/components/auth/LandingHero.tsx full-viewport hero on /
+    src/app/page.tsx                    / shows the hero; a session redirects to /boards
+    src/app/(auth)/layout.tsx           split layout for auth screens; form column is a light island
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
     src/app/(auth)/sign-in/page.tsx     the /sign-in page
+    src/app/(auth)/forgot-password/page.tsx  the /forgot-password page
+    src/app/(auth)/reset-password/page.tsx   the /reset-password page
+
+The auth form column is a **light island** (`.form-island` in
+`src/app/globals.css`): light surface and dark text even though `html` is
+`dark`. `--form-*` tokens remap the island; `dark:` utilities do not apply
+inside it. Shared visual classes live in `src/components/auth/formClasses.ts`.
+Input, button and band measurements follow the login handoff; copy and auth
+logic stay as they are.
 
 `src/lib/auth.ts` wires Better Auth to the shared Prisma client from
 `src/lib/prisma.ts` and enables email and password. Required unique `username`
 is declared under `user.additionalFields` (not the username plugin, which also
-writes `displayUsername` and our Prisma `User` has no such column). The
+writes `displayUsername` and our Prisma `User` has no such column).
+`sendResetPassword` builds `{BETTER_AUTH_URL}/reset-password?token=` from the
+token Better Auth provides and hands it to `sendResetPasswordEmail` in
+`src/lib/email.ts`. The
 `nextCookies()` plugin goes last in the plugin list; it lets Better Auth set
 cookies from server actions.
 
@@ -125,14 +146,44 @@ similar time.
 and the unknown-email message are the same string, so adding a branch that leaks
 existence breaks the build.
 
+The form also links to `/forgot-password`.
+
+## Password reset
+
+`/forgot-password` renders `ForgotPasswordForm`, email only. It calls
+`authClient.requestPasswordReset({ email, redirectTo: RESET_PASSWORD_PATH })`.
+On success it always shows the same confirmation: "If that email is registered,
+a reset link is on its way." Better Auth already returns success for unknown
+emails without sending; the form must not add a branch that would reveal
+whether the address exists. Any client `{ error }` uses `GENERIC_ERROR_MESSAGE`.
+
+`src/lib/auth.ts` implements `emailAndPassword.sendResetPassword`. The callback
+receives `{ user, url, token }` from Better Auth 1.6. It builds
+`{BETTER_AUTH_URL}/reset-password?token=` from `token` (the custom-route option
+the types document) and sends that URL through `sendResetPasswordEmail`. The
+email is plain HTML from `onboarding@resend.dev`. Resend resolves with an
+`{ error }` field instead of throwing; the helper throws when that field is
+set so Better Auth does not report success for a send that never happened.
+The thrown message is for server logs. The form never renders it.
+
+`/reset-password` reads `token` and `error` from the query string and passes
+them to `ResetPasswordForm`. A missing token or `error=INVALID_TOKEN` shows
+"This reset link is invalid or has expired." and does not render the form.
+Otherwise the form takes password and confirmPassword (`resetPasswordSchema`,
+same minimum as sign up, confirm must match), then calls
+`authClient.resetPassword({ newPassword, token })`. Success redirects to
+`/sign-in`. An `INVALID_TOKEN` from the API uses the same expired-link message;
+anything else uses the generic message.
+
 ## Sign out
 
 `AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
 `authClient.useSession()` and shows either a **Sign out** button or links to
-`/sign-in` and `/sign-up`. On `/sign-in` and `/sign-up` it returns null so the
-split auth layout is not topped by nav links. While the session is still loading
-on other routes it renders an empty nav, so a signed in user never sees the
-signed out links flash.
+`/sign-in` and `/sign-up`. On the landing page (`/`) and on auth paths
+(`isAuthPath`: sign-in, sign-up, forgot-password, reset-password) it returns
+null so the hero and the split auth layout are not topped by nav links. While
+the session is still loading on other routes it renders an empty nav, so a
+signed in user never sees the signed out links flash.
 
 Sign out calls `authClient.signOut()`, which deletes the `Session` row and
 clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
@@ -156,11 +207,13 @@ is the proof that it is wired up.
 Two rules:
 
 - No session on a private route redirects to `/sign-in`.
-- A session on `/sign-in` or `/sign-up` redirects to `/boards`.
+- A session on an auth path (`/sign-in`, `/sign-up`, `/forgot-password`,
+  `/reset-password`) redirects to `/boards`.
 
-`/` itself is public but only redirects: a real session goes to `/boards`,
-otherwise to `/sign-in`. Post-login destinations are consistent on
-`BOARDS_PATH` (`/boards`) — proxy, sign-in/up forms, and the home page.
+`/` is public so a visitor without a session can see the landing hero. A real
+session on `/` is redirected to `/boards` by the page itself, before the hero
+renders. Post-login destinations are consistent on `BOARDS_PATH` (`/boards`) —
+proxy, sign-in/up forms, and the home page.
 
 Everything else is served untouched.
 
@@ -172,6 +225,8 @@ session:
     /            home
     /sign-in     the sign in page
     /sign-up     the sign up page
+    /forgot-password  request a reset email
+    /reset-password   set a new password from the emailed token
     /api/auth/*  the Better Auth endpoints
 
 Anything else is private, so a new page is protected the moment it exists and
@@ -250,13 +305,17 @@ a real connection.
 The forms and the nav are tested against a mocked `authClient`, so their tests
 cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/auth/SignUpForm.test.tsx`,
-`tests/components/auth/SignInForm.test.tsx` and
+`tests/components/auth/SignInForm.test.tsx`,
+`tests/components/auth/ForgotPasswordForm.test.tsx`,
+`tests/components/auth/ResetPasswordForm.test.tsx` and
 `tests/components/auth/AuthNav.test.tsx`.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
 wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives
 the real route handler with raw `Request` objects and replays the session cookie
-to prove that sign out actually removes the `Session` row.
+to prove that sign out actually removes the `Session` row. Those tests mock
+`src/lib/email.ts` so they never call Resend. `tests/lib/email.test.ts` mocks
+the Resend client and asserts that a `{ error }` result is thrown.
 
 Route protection is covered in `tests/lib/routes.test.ts` (which paths are
 public) and `tests/proxy.test.ts`, which calls the proxy with a `NextRequest`
