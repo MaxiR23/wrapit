@@ -119,7 +119,7 @@ export function createPrismaFake() {
     session: createModel(),
     account: createModel(),
     verification: createModel(),
-    board: createModel(),
+    project: createModel(),
     column: createModel(),
     card: createModel(),
   };

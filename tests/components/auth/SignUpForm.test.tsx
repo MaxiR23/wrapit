@@ -87,7 +87,7 @@ describe('SignUpForm', () => {
     await submit(user);
 
     expect(signUpEmail).toHaveBeenCalledWith(credentials);
-    expect(push).toHaveBeenCalledWith('/boards');
+    expect(push).toHaveBeenCalledWith('/projects');
   });
 
   it('shows a clear message when the email is already registered', async () => {

@@ -43,11 +43,11 @@ const { updateCard } = await import('@/actions/updateCard');
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada' };
 
 async function seedOwnedCard() {
-  const board = await db.board.create({
+  const project = await db.project.create({
     data: { title: 'Sprint board', ownerId: sessionUser.id },
   });
   const column = await db.column.create({
-    data: { title: 'To do', order: 1, boardId: board.id },
+    data: { title: 'To do', order: 1, projectId: project.id },
   });
   const card = await db.card.create({
     data: {
@@ -57,7 +57,7 @@ async function seedOwnedCard() {
       columnId: column.id,
     },
   });
-  return { board, column, card };
+  return { project, column, card };
 }
 
 describe('updateCard', () => {
@@ -68,7 +68,7 @@ describe('updateCard', () => {
   });
 
   it('updates title and description on the owner card', async () => {
-    const { board, card } = await seedOwnedCard();
+    const { project, card } = await seedOwnedCard();
 
     const result = await updateCard({
       cardId: card.id,
@@ -85,7 +85,7 @@ describe('updateCard', () => {
     });
     expect(db.card.rows[0]?.title).toBe('New title');
     expect(db.card.rows[0]?.description).toBe('New description');
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('clears the description when it is empty', async () => {
@@ -116,11 +116,11 @@ describe('updateCard', () => {
   });
 
   it('rejects updating a card the user does not own', async () => {
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Stolen', order: 1, columnId: column.id },

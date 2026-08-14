@@ -1,41 +1,41 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 
-import BoardKanban from '@/components/boards/BoardKanban';
-import ColumnsEmptyState from '@/components/boards/ColumnsEmptyState';
-import NewColumnDialog from '@/components/boards/NewColumnDialog';
+import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
+import NewColumnDialog from '@/components/projects/NewColumnDialog';
+import ProjectKanban from '@/components/projects/ProjectKanban';
 import { auth } from '@/lib/auth';
-import { getBoardForUser } from '@/lib/boards';
+import { getProjectForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
 
-export default async function BoardDetailPage({
+export default async function ProjectDetailPage({
   params,
 }: {
-  params: Promise<{ boardId: string }>;
+  params: Promise<{ projectId: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     redirect(SIGN_IN_PATH);
   }
 
-  const { boardId } = await params;
-  const board = await getBoardForUser(boardId, session.user.id);
-  if (!board) {
+  const { projectId } = await params;
+  const project = await getProjectForUser(projectId, session.user.id);
+  if (!project) {
     notFound();
   }
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{board.title}</h1>
-        <NewColumnDialog boardId={board.id} />
+        <h1 className="text-2xl font-bold">{project.title}</h1>
+        <NewColumnDialog projectId={project.id} />
       </div>
 
-      {board.columns.length === 0 ? (
+      {project.columns.length === 0 ? (
         <ColumnsEmptyState />
       ) : (
-        <BoardKanban
-          columns={board.columns.map((column) => ({
+        <ProjectKanban
+          columns={project.columns.map((column) => ({
             id: column.id,
             title: column.title,
             cards: column.cards.map((card) => ({

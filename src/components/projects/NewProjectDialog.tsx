@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 
-import { createBoard } from '@/actions/createBoard';
+import { createProject } from '@/actions/createProject';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,19 +17,19 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { boardSchema, type BoardInput } from '@/lib/validation/board';
+import { projectSchema, type ProjectInput } from '@/lib/validation/project';
 
-export default function NewBoardDialog() {
+export default function NewProjectDialog() {
   const [open, setOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const form = useForm<BoardInput>({
-    resolver: zodResolver(boardSchema),
+  const form = useForm<ProjectInput>({
+    resolver: zodResolver(projectSchema),
     defaultValues: { title: '' },
   });
 
-  async function onSubmit(values: BoardInput) {
-    const result = await createBoard(values);
+  async function onSubmit(values: ProjectInput) {
+    const result = await createProject(values);
 
     if ('fieldErrors' in result && result.fieldErrors.title) {
       form.setError('title', { message: result.fieldErrors.title });
@@ -57,12 +57,12 @@ export default function NewBoardDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button">New board</Button>
+        <Button type="button">New project</Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New board</DialogTitle>
+          <DialogTitle>New project</DialogTitle>
         </DialogHeader>
 
         <form
@@ -105,7 +105,7 @@ export default function NewBoardDialog() {
 
           <DialogFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Creating...' : 'Create board'}
+              {form.formState.isSubmitting ? 'Creating...' : 'Create project'}
             </Button>
           </DialogFooter>
         </form>

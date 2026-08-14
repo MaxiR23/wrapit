@@ -11,7 +11,7 @@ export default function BrandPanel() {
           Your team&apos;s work, in columns.
         </h1>
         <p className="max-w-[52ch] text-brand-lede text-muted-foreground auth-lg:max-w-brand-lede">
-          Shared boards, cards with an owner and a due date, and one view of what&apos;s in
+          Shared projects, cards with an owner and a due date, and one view of what&apos;s in
           progress.
         </p>
       </div>

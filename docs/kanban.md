@@ -1,33 +1,33 @@
 # Kanban
 
-How boards, columns and cards work: ownership, float ordering, and optimistic
+How projects, columns and cards work: ownership, float ordering, and optimistic
 drag-and-drop. App layering and the general file map: `docs/architecture.md`.
 Schema and Prisma setup: `docs/database.md`.
 
 ## Domain
 
-Hierarchy: **Board → Column → Card**. A board has one owner (`User`). Deleting a
-board or column cascades to its children, so mutations do not need orphan
+Hierarchy: **Project → Column → Card**. A project has one owner (`User`). Deleting a
+project or column cascades to its children, so mutations do not need orphan
 cleanup.
 
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. Only **cards** are reordered in the UI today;
 columns keep creation order.
 
-The board detail page loads ordered columns and cards server-side via
-`getBoardForUser`. Non-owners get `notFound()`. The client receives card id lists
+The project detail page loads ordered columns and cards server-side via
+`getProjectForUser`. Non-owners get `notFound()`. The client receives card id lists
 per column for DnD — not the float values. Display order is the id list;
 persistence recomputes floats on the server from neighbor ids.
 
 ## Ownership
 
-Mutations walk card → column → board → user through `src/lib/ownership.ts`. No
+Mutations walk card → column → project → user through `src/lib/ownership.ts`. No
 session or a broken chain returns `{ error: 'Unauthorized' }`. Pattern details:
 `docs/architecture.md`.
 
 `moveCard` adds rules the helpers alone do not cover:
 
-- The target column must sit on the **same board** as the card. Owning two boards
+- The target column must sit on the **same project** as the card. Owning two projects
   does not allow moving a card between them.
 - Optional `beforeCardId` / `afterCardId` must exist in the **target** column
   (and must not be the moving card).
@@ -59,7 +59,7 @@ happy path.
 
 ## Optimistic drag-and-drop
 
-Cards move with `@dnd-kit` in `BoardKanban`. A drop commits a semantic position
+Cards move with `@dnd-kit` in `ProjectKanban`. A drop commits a semantic position
 `{ cardId, targetColumnId, beforeCardId, afterCardId }`, not indices. Pure list
 math lives in `kanbanItems.ts` / `kanbanPersist.ts` so it can be tested without
 the React tree.
@@ -75,7 +75,7 @@ neighbors against a board the first request had not finished writing.
 
 ### Baseline vs display
 
-`BoardKanban` keeps two views of the board:
+`ProjectKanban` keeps two views of the board:
 
 - **Persisted baseline** (`persistedItemsRef`) — last layout acknowledged as
   saved (or the latest server props).
@@ -107,7 +107,7 @@ the server has. The user sees the generic error string, never a Prisma message.
 
 ### Server props after revalidate
 
-`moveCard` revalidates the board path. When fresh `columns` arrive, the effect
+`moveCard` revalidates the project path. When fresh `columns` arrive, the effect
 sets a new server baseline and sets display to
 `applyPendingJobs(newBaseline, queue)`. Pending jobs are not dropped; cards
 created through dialogs on the server merge with in-flight drags instead of
@@ -122,9 +122,9 @@ src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card ownership chain
 src/lib/validation/moveCard.ts      moveCard input rules
 src/actions/moveCard.ts             persist columnId + order (or renumber)
-src/lib/boards.ts                   load board with ordered columns/cards
-src/components/boards/BoardKanban.tsx   DnD context, queue, commit
-src/components/boards/KanbanColumn.tsx  droppable column
+src/lib/projects.ts                 load project with ordered columns/cards
+src/components/projects/ProjectKanban.tsx   DnD context, queue, commit
+src/components/projects/KanbanColumn.tsx  droppable column
 src/components/cards/SortableCard.tsx   draggable card
 ```
 

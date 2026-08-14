@@ -7,7 +7,7 @@
 // - Reorders a card within the same column and persists the new order
 // - Renumbers the column with clean integers when midpoint precision is exhausted
 // - Renumbers when prepend/append extremes are exhausted
-// - Rejects moving to a column on another board (ownership / same-board)
+// - Rejects moving to a column on another project (ownership / same-project)
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 //
@@ -45,14 +45,14 @@ const { moveCard } = await import('@/actions/moveCard');
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada' };
 
 async function seedTwoColumns() {
-  const board = await db.board.create({
+  const project = await db.project.create({
     data: { title: 'Sprint board', ownerId: sessionUser.id },
   });
   const todo = await db.column.create({
-    data: { title: 'To do', order: 1, boardId: board.id },
+    data: { title: 'To do', order: 1, projectId: project.id },
   });
   const doing = await db.column.create({
-    data: { title: 'Doing', order: 2, boardId: board.id },
+    data: { title: 'Doing', order: 2, projectId: project.id },
   });
   const cardA = await db.card.create({
     data: { title: 'Card A', description: null, order: 1, columnId: todo.id },
@@ -63,7 +63,7 @@ async function seedTwoColumns() {
   const cardC = await db.card.create({
     data: { title: 'Card C', description: null, order: 1, columnId: doing.id },
   });
-  return { board, todo, doing, cardA, cardB, cardC };
+  return { project, todo, doing, cardA, cardB, cardC };
 }
 
 describe('moveCard', () => {
@@ -74,7 +74,7 @@ describe('moveCard', () => {
   });
 
   it('moves a card to another column and persists order between neighbors', async () => {
-    const { board, doing, cardA, cardC } = await seedTwoColumns();
+    const { project, doing, cardA, cardC } = await seedTwoColumns();
 
     const result = await moveCard({
       cardId: cardA.id,
@@ -93,11 +93,11 @@ describe('moveCard', () => {
     expect(db.card.rows.find((row) => row.id === cardA.id)).toEqual(
       expect.objectContaining({ columnId: doing.id, order: 0.5 }),
     );
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('reorders a card within the same column and persists the new order', async () => {
-    const { board, todo, cardA, cardB } = await seedTwoColumns();
+    const { project, todo, cardA, cardB } = await seedTwoColumns();
 
     const result = await moveCard({
       cardId: cardA.id,
@@ -116,11 +116,11 @@ describe('moveCard', () => {
     expect(db.card.rows.find((row) => row.id === cardA.id)).toEqual(
       expect.objectContaining({ columnId: todo.id, order: 3 }),
     );
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('renumbers the column when midpoint precision is exhausted and keeps stable order', async () => {
-    const { board, doing, cardA, cardC } = await seedTwoColumns();
+    const { project, doing, cardA, cardC } = await seedTwoColumns();
     const left = await db.card.create({
       data: {
         title: 'Left',
@@ -167,11 +167,11 @@ describe('moveCard', () => {
       orderBy: { order: 'asc' },
     });
     expect(reloaded.map((card) => card.id)).toEqual([cardC.id, left.id, cardA.id, right.id]);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('renumbers when prepend precision is exhausted at Number.MIN_VALUE', async () => {
-    const { board, doing, cardA, cardC } = await seedTwoColumns();
+    const { project, doing, cardA, cardC } = await seedTwoColumns();
     await db.card.update({
       where: { id: cardC.id },
       data: { order: Number.MIN_VALUE },
@@ -198,11 +198,11 @@ describe('moveCard', () => {
     });
     expect(doingCards.map((card) => card.id)).toEqual([cardA.id, cardC.id]);
     expect(doingCards.map((card) => card.order)).toEqual([1, 2]);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
   it('renumbers when append precision is exhausted at 2**53', async () => {
-    const { board, doing, cardA, cardC } = await seedTwoColumns();
+    const { project, doing, cardA, cardC } = await seedTwoColumns();
     await db.card.update({
       where: { id: cardC.id },
       data: { order: 2 ** 53 },
@@ -229,16 +229,16 @@ describe('moveCard', () => {
     });
     expect(doingCards.map((card) => card.id)).toEqual([cardC.id, cardA.id]);
     expect(doingCards.map((card) => card.order)).toEqual([1, 2]);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
-  it('rejects moving to a column on another board', async () => {
+  it('rejects moving to a column on another project', async () => {
     const { todo, cardA } = await seedTwoColumns();
-    const otherBoard = await db.board.create({
+    const otherProject = await db.project.create({
       data: { title: 'Other board', ownerId: sessionUser.id },
     });
     const otherColumn = await db.column.create({
-      data: { title: 'Elsewhere', order: 1, boardId: otherBoard.id },
+      data: { title: 'Elsewhere', order: 1, projectId: otherProject.id },
     });
 
     const result = await moveCard({
@@ -257,11 +257,11 @@ describe('moveCard', () => {
 
   it('rejects moving to a column the user does not own', async () => {
     const { cardA } = await seedTwoColumns();
-    const foreignBoard = await db.board.create({
+    const foreignProject = await db.project.create({
       data: { title: 'Foreign', ownerId: 'user-other' },
     });
     const foreignColumn = await db.column.create({
-      data: { title: 'Stolen', order: 1, boardId: foreignBoard.id },
+      data: { title: 'Stolen', order: 1, projectId: foreignProject.id },
     });
 
     const result = await moveCard({

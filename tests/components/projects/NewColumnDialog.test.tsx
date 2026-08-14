@@ -1,4 +1,4 @@
-// tests/components/boards/NewColumnDialog.test.tsx
+// tests/components/projects/NewColumnDialog.test.tsx
 //
 // Tests for the new column dialog.
 //
@@ -9,9 +9,9 @@
 // What is covered:
 // - Open and submit happy path, stale form error on invalid resubmit
 //
-// Run with: pnpm test:run tests/components/boards/NewColumnDialog.test.tsx
+// Run with: pnpm test:run tests/components/projects/NewColumnDialog.test.tsx
 //
-// SEE: src/components/boards/NewColumnDialog.tsx
+// SEE: src/components/projects/NewColumnDialog.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -23,7 +23,7 @@ vi.mock('@/actions/createColumn', () => ({
   createColumn,
 }));
 
-const { default: NewColumnDialog } = await import('@/components/boards/NewColumnDialog');
+const { default: NewColumnDialog } = await import('@/components/projects/NewColumnDialog');
 
 describe('NewColumnDialog', () => {
   beforeEach(() => {
@@ -33,14 +33,14 @@ describe('NewColumnDialog', () => {
         id: 'column-1',
         title: 'To do',
         order: 1,
-        boardId: 'board-1',
+        projectId: 'project-1',
       },
     });
   });
 
   it('opens the dialog and submits a title to createColumn', async () => {
     const user = userEvent.setup();
-    render(<NewColumnDialog boardId="board-1" />);
+    render(<NewColumnDialog projectId="project-1" />);
 
     await user.click(screen.getByRole('button', { name: 'New column' }));
 
@@ -49,13 +49,13 @@ describe('NewColumnDialog', () => {
     await user.type(screen.getByLabelText('Title'), 'To do');
     await user.click(screen.getByRole('button', { name: 'Create column' }));
 
-    expect(createColumn).toHaveBeenCalledWith({ boardId: 'board-1', title: 'To do' });
+    expect(createColumn).toHaveBeenCalledWith({ projectId: 'project-1', title: 'To do' });
   });
 
   it('clears a stale form-level API error when resubmitting with invalid input', async () => {
     createColumn.mockResolvedValue({ error: 'Unauthorized' });
     const user = userEvent.setup();
-    render(<NewColumnDialog boardId="board-1" />);
+    render(<NewColumnDialog projectId="project-1" />);
 
     await user.click(screen.getByRole('button', { name: 'New column' }));
     await user.type(screen.getByLabelText('Title'), 'To do');

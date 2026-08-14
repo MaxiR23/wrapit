@@ -28,7 +28,7 @@ They live in `.env` (never committed) and are listed in `.env.example`:
 Auth-related paths only. The full app map is in `docs/architecture.md`.
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public; BOARDS_PATH, boardPath
+    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, projectPath
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
     src/lib/email.ts                    Resend helper for the password-reset email
@@ -44,7 +44,7 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/ResetPasswordForm.tsx   the reset-password form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
     src/components/auth/LandingHero.tsx full-viewport hero on /
-    src/app/page.tsx                    / shows the hero; a session redirects to /boards
+    src/app/page.tsx                    / shows the hero; a session redirects to /projects
     src/app/(auth)/layout.tsx           split layout for auth screens; form column is a light island
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
     src/app/(auth)/sign-in/page.tsx     the /sign-in page
@@ -81,7 +81,7 @@ the current origin, which is where the API routes live.
 `/sign-up` renders `SignUpForm`, a client component with username, name, email
 and password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
 input never reaches the network, then calls `authClient.signUp.email(...)`. On
-success Better Auth sets the session cookie and the form redirects to `/boards`.
+success Better Auth sets the session cookie and the form redirects to `/projects`.
 
 The rules live in `src/lib/validation/signUp.ts` as a single zod schema
 (`signUpSchema`). The form and `validateSignUp` both use that schema; do not
@@ -113,7 +113,7 @@ server-side would need a `databaseHooks` guard in `src/lib/auth.ts`.
 `/sign-in` renders `SignInForm`, a client component with email and password. It
 follows the same shape as sign up: react-hook-form with
 `zodResolver(signInSchema)` so invalid input never reaches the network, then
-`authClient.signIn.email(...)`. On success the form redirects to `/boards` and calls
+`authClient.signIn.email(...)`. On success the form redirects to `/projects` and calls
 `router.refresh()` so the nav re-reads the session.
 
 The rules live in `src/lib/validation/signIn.ts` as `signInSchema`. The form and
@@ -208,11 +208,11 @@ Two rules:
 
 - No session on a private route redirects to `/sign-in`.
 - A session on an auth path (`/sign-in`, `/sign-up`, `/forgot-password`,
-  `/reset-password`) redirects to `/boards`.
+  `/reset-password`) redirects to `/projects`.
 
 `/` is public so a visitor without a session can see the landing hero. A real
-session on `/` is redirected to `/boards` by the page itself, before the hero
-renders. Post-login destinations are consistent on `BOARDS_PATH` (`/boards`) —
+session on `/` is redirected to `/projects` by the page itself, before the hero
+renders. Post-login destinations are consistent on `PROJECTS_PATH` (`/projects`) —
 proxy, sign-in/up forms, and the home page.
 
 Everything else is served untouched.
@@ -252,7 +252,7 @@ user data must still load the real session on the server with
 proxy as navigation, not as a guard.
 
 There is no `?redirect=` parameter yet: a visitor bounced from a private route
-lands on `/sign-in` and then on `/boards`, not on the page they asked for.
+lands on `/sign-in` and then on `/projects`, not on the page they asked for.
 
 Server actions always call `auth.api.getSession({ headers: await headers() })`
 and scope work to that user. The proxy cookie check alone is not enough. How
@@ -262,7 +262,7 @@ reads, writes and ownership fit together: `docs/architecture.md`.
 
 Better Auth owns four models in `prisma/schema.prisma`:
 
-- `User` — identity and profile. It already existed for `Board` ownership and
+- `User` — identity and profile. It already existed for `Project` ownership and
   was reconciled with what Better Auth expects.
 - `Session` — one row per active session, looked up by a unique `token`.
 - `Account` — one row per login method for a user. Email and password sign up
@@ -278,7 +278,7 @@ Two things differ from what `auth generate` emits, on purpose:
 
 - No `@@map`. The generator maps to lowercase table names. The adapter talks to
   Prisma models rather than tables, so the mapping is irrelevant to Better Auth,
-  and leaving it out keeps table names in PascalCase like `Board` and `Card`.
+  and leaving it out keeps table names in PascalCase like `Project` and `Card`.
 - `@default(cuid())` on the ids. Better Auth always supplies an id, so the
   default only applies to rows created outside of it. It keeps these models
   consistent with the rest of the schema.

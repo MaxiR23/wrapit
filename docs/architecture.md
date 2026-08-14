@@ -12,7 +12,7 @@ import from `components/`, `actions/` and `lib/`; `components/` may import from
 
 - `src/app/` — **routes only**. A page composes; it does not implement domain
   logic. Keep it thin so a second route can reuse the same pieces.
-- `src/components/` — React UI grouped by domain (`auth/`, `boards/`, `cards/`).
+- `src/components/` — React UI grouped by domain (`auth/`, `projects/`, `cards/`).
   `ui/` is the exception: shadcn/ui primitives. Feature UI never lands in `ui/`.
 - `src/actions/` — server actions, one file each, each starting with
   `'use server'`. Mutations that need the real session and Prisma live here.
@@ -32,10 +32,10 @@ Reads and writes take different paths on purpose.
 
 **Reads** happen in Server Components. A page loads the session with
 `auth.api.getSession({ headers: await headers() })`, then calls a lib helper
-that scopes Prisma to that user — for example `listBoardsForUser` /
-`getBoardForUser` in `src/lib/boards.ts`. Missing or foreign boards return
+that scopes Prisma to that user — for example `listProjectsForUser` /
+`getProjectForUser` in `src/lib/projects.ts`. Missing or foreign projects return
 `null`; the page turns that into `notFound()`. The client never talks to Prisma
-for board data.
+for project data.
 
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input, checks ownership, then mutates. Failures that
@@ -52,8 +52,8 @@ data must still load the real session on the server. See `docs/auth.md`.
 
 ## Ownership
 
-Every board belongs to one user (`ownerId`). Columns belong to boards; cards
-belong to columns. Mutations walk that chain — card → column → board → user —
+Every project belongs to one user (`ownerId`). Columns belong to projects; cards
+belong to columns. Mutations walk that chain — card → column → project → user —
 so a forged id for someone else's card cannot succeed.
 
 `src/lib/ownership.ts` centralizes the lookups (`getColumnForUser`,
@@ -61,7 +61,7 @@ so a forged id for someone else's card cannot succeed.
 missing or not owned. That is deliberate: pages hide existence with `notFound()`;
 mutations refuse without confirming whether the row exists for another user.
 
-Extra rules for moving cards (same board, neighbors in the target column) live
+Extra rules for moving cards (same project, neighbors in the target column) live
 in `docs/kanban.md`.
 
 ## Where things live
@@ -69,7 +69,7 @@ in `docs/kanban.md`.
 - **Validation** — zod schemas in `src/lib/validation/`, shared by forms and
   actions so browser and server cannot drift. `fieldErrors.ts` turns a zod
   failure into the first error per field.
-- **Domain reads** — `src/lib/boards.ts` and ownership helpers, not pages.
+- **Domain reads** — `src/lib/projects.ts` and ownership helpers, not pages.
 - **Kanban DnD math** — pure helpers in `src/lib/` (`order.ts`, `kanbanItems.ts`,
   `kanbanPersist.ts`) so they can be tested without React. Behavior:
   `docs/kanban.md`.
@@ -78,12 +78,12 @@ in `docs/kanban.md`.
 ## File map
 
     src/proxy.ts                        route protection (cookie check only)
-    src/lib/routes.ts                   public routes; BOARDS_PATH, boardPath
+    src/lib/routes.ts                   public routes; PROJECTS_PATH, projectPath
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/boards.ts                   list/load boards (with columns and cards)
+    src/lib/projects.ts                 list/load projects (with columns and cards)
     src/lib/ownership.ts                column/card ownership chain
     src/lib/messages.ts                 generic user-facing error string
     src/lib/order.ts                    Float order between neighbors
@@ -94,21 +94,21 @@ in `docs/kanban.md`.
     src/lib/validation/signIn.ts        sign in rules
     src/lib/validation/forgotPassword.ts  forgot-password rules
     src/lib/validation/resetPassword.ts reset-password rules
-    src/lib/validation/board.ts         board title rules
+    src/lib/validation/project.ts       project title rules
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
-    src/actions/createBoard.ts          create a board for the signed-in user
-    src/actions/createColumn.ts         create a column on an owned board
-    src/actions/deleteColumn.ts         delete a column from an owned board
+    src/actions/createProject.ts        create a project for the signed-in user
+    src/actions/createColumn.ts         create a column on an owned project
+    src/actions/deleteColumn.ts         delete a column from an owned project
     src/actions/createCard.ts           create a card on an owned column
     src/actions/updateCard.ts           update an owned card
     src/actions/deleteCard.ts           delete an owned card
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
-    src/app/page.tsx                    / landing hero; session redirects to /boards
-    src/app/boards/page.tsx             boards list
-    src/app/boards/[boardId]/page.tsx   board detail (owner only; else 404)
+    src/app/page.tsx                    / landing hero; session redirects to /projects
+    src/app/projects/page.tsx           projects list
+    src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404)
     src/app/(auth)/layout.tsx           auth split: two-panel, stacked, mobile
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(auth)/sign-in/page.tsx     /sign-in
@@ -116,7 +116,7 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, landing, AuthNav
-    src/components/boards/              boards list, BoardKanban, column dialogs
+    src/components/projects/            projects list, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

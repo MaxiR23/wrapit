@@ -13,7 +13,7 @@ enum Role {
   MEMBER
 }
 
-enum BoardStatus {
+enum ProjectStatus {
   NEW
   IN_PROGRESS
   PAUSED
@@ -36,7 +36,7 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  boards               Board[]
+  projects             Project[]
   sessions             Session[]
   accounts             Account[]
   memberships          Membership[]
@@ -91,11 +91,11 @@ model Verification {
   @@index([identifier])
 }
 
-model Board {
-  id        String      @id @default(cuid())
+model Project {
+  id        String        @id @default(cuid())
   title     String
-  status    BoardStatus @default(NEW)
-  createdAt DateTime    @default(now())
+  status    ProjectStatus @default(NEW)
+  createdAt DateTime      @default(now())
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -110,8 +110,8 @@ model Column {
   title String
   order Float
 
-  boardId String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   cards Card[]
 }
@@ -137,12 +137,12 @@ model Membership {
   starred   Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  userId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  boardId String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, boardId])
+  @@unique([userId, projectId])
 }
 
 model Invitation {
@@ -151,14 +151,14 @@ model Invitation {
   status    InvitationStatus @default(PENDING)
   createdAt DateTime         @default(now())
 
-  boardId   String
-  board     Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   inviterId String
-  inviter   User   @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviter   User    @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
   inviteeId String
-  invitee   User   @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  invitee   User    @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
 
-  @@unique([boardId, inviteeId])
+  @@unique([projectId, inviteeId])
 }
 
 model Notification {

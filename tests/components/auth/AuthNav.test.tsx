@@ -48,7 +48,7 @@ describe('AuthNav', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useSession.mockReturnValue({ data: null, isPending: false });
-    usePathname.mockReturnValue('/boards');
+    usePathname.mockReturnValue('/projects');
     signOut.mockResolvedValue({ data: { success: true }, error: null });
   });
 

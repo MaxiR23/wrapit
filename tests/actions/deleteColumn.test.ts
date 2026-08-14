@@ -3,8 +3,8 @@
 // Tests for the deleteColumn server action.
 //
 // Tested:
-// - Deletes a column that belongs to the signed-in user's board
-// - Rejects deleting a column on another user's board
+// - Deletes a column that belongs to the signed-in user's project
+// - Rejects deleting a column on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 //
@@ -48,27 +48,27 @@ describe('deleteColumn', () => {
     getSession.mockResolvedValue({ user: sessionUser });
   });
 
-  it('deletes a column that belongs to the signed-in user board', async () => {
-    const board = await db.board.create({
+  it('deletes a column that belongs to the signed-in user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     const result = await deleteColumn({ columnId: column.id });
 
     expect(result).toEqual({ data: { id: column.id } });
     expect(db.column.rows).toHaveLength(0);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
-  it('rejects deleting a column on another user board', async () => {
-    const board = await db.board.create({
+  it('rejects deleting a column on another user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     const result = await deleteColumn({ columnId: column.id });
@@ -80,11 +80,11 @@ describe('deleteColumn', () => {
 
   it('rejects the call when there is no session', async () => {
     getSession.mockResolvedValue(null);
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
 
     const result = await deleteColumn({ columnId: column.id });
@@ -95,11 +95,11 @@ describe('deleteColumn', () => {
   });
 
   it('returns a generic error when Prisma fails unexpectedly', async () => {
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const leakyMessage =
       'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused for user "wrapit"';

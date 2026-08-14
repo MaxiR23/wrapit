@@ -1,4 +1,4 @@
-// tests/components/boards/BoardKanban.test.tsx
+// tests/components/projects/ProjectKanban.test.tsx
 //
 // Tests for the kanban board drag-and-drop surface.
 //
@@ -17,9 +17,9 @@
 // What is covered:
 // - Render layout, confirm-delete, optimistic rollback, serialized persist races, and card order
 //
-// Run with: pnpm test:run tests/components/boards/BoardKanban.test.tsx
+// Run with: pnpm test:run tests/components/projects/ProjectKanban.test.tsx
 //
-// SEE: src/components/boards/BoardKanban.tsx
+// SEE: src/components/projects/ProjectKanban.tsx
 
 import { createRef } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -27,7 +27,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import type { BoardKanbanHandle } from '@/components/boards/BoardKanban';
+import type { ProjectKanbanHandle } from '@/components/projects/ProjectKanban';
 
 const moveCard = vi.fn();
 const deleteColumn = vi.fn();
@@ -64,7 +64,7 @@ vi.mock('@/components/cards/DeleteCardDialog', () => ({
   ),
 }));
 
-const { default: BoardKanban } = await import('@/components/boards/BoardKanban');
+const { default: ProjectKanban } = await import('@/components/projects/ProjectKanban');
 
 const columns = [
   {
@@ -99,14 +99,14 @@ function cardTitlesInColumn(title: string): string[] {
   });
 }
 
-describe('BoardKanban', () => {
+describe('ProjectKanban', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deleteColumn.mockResolvedValue({ data: { id: 'column-todo' } });
   });
 
   it('renders column titles and cards in their columns', () => {
-    render(<BoardKanban columns={columns} />);
+    render(<ProjectKanban columns={columns} />);
 
     expect(screen.getByRole('heading', { name: 'To do', level: 2 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Doing', level: 2 })).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('BoardKanban', () => {
   });
 
   it('labels each delete button with the column title', () => {
-    render(<BoardKanban columns={columns} />);
+    render(<ProjectKanban columns={columns} />);
 
     expect(screen.getByRole('button', { name: 'Delete column To do' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete column Doing' })).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe('BoardKanban', () => {
 
   it('requires confirmation before calling deleteColumn', async () => {
     const user = userEvent.setup();
-    render(<BoardKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
+    render(<ProjectKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
 
     await user.click(screen.getByRole('button', { name: 'Delete column To do' }));
 
@@ -140,7 +140,7 @@ describe('BoardKanban', () => {
 
   it('does not delete when Cancel is clicked', async () => {
     const user = userEvent.setup();
-    render(<BoardKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
+    render(<ProjectKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
 
     await user.click(screen.getByRole('button', { name: 'Delete column To do' }));
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
@@ -158,7 +158,7 @@ describe('BoardKanban', () => {
     );
 
     const user = userEvent.setup();
-    render(<BoardKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
+    render(<ProjectKanban columns={[{ id: 'column-todo', title: 'To do', cards: [] }]} />);
 
     await user.click(screen.getByRole('button', { name: 'Delete column To do' }));
 
@@ -191,8 +191,8 @@ describe('BoardKanban', () => {
         }),
     );
 
-    const ref = createRef<BoardKanbanHandle>();
-    render(<BoardKanban ref={ref} columns={columns} />);
+    const ref = createRef<ProjectKanbanHandle>();
+    render(<ProjectKanban ref={ref} columns={columns} />);
     expect(ref.current).not.toBeNull();
 
     expect(within(columnRegion('To do')).getByText('Card A')).toBeInTheDocument();
@@ -243,8 +243,8 @@ describe('BoardKanban', () => {
         }),
     );
 
-    const ref = createRef<BoardKanbanHandle>();
-    render(<BoardKanban ref={ref} columns={columns} />);
+    const ref = createRef<ProjectKanbanHandle>();
+    render(<ProjectKanban ref={ref} columns={columns} />);
 
     let commitPromise: Promise<void> = Promise.resolve();
     await act(async () => {
@@ -282,8 +282,8 @@ describe('BoardKanban', () => {
         }),
     );
 
-    const ref = createRef<BoardKanbanHandle>();
-    render(<BoardKanban ref={ref} columns={columns} />);
+    const ref = createRef<ProjectKanbanHandle>();
+    render(<ProjectKanban ref={ref} columns={columns} />);
     expect(ref.current).not.toBeNull();
 
     let firstCommit: Promise<void> = Promise.resolve();
@@ -366,8 +366,8 @@ describe('BoardKanban', () => {
         }),
     );
 
-    const ref = createRef<BoardKanbanHandle>();
-    render(<BoardKanban ref={ref} columns={columns} />);
+    const ref = createRef<ProjectKanbanHandle>();
+    render(<ProjectKanban ref={ref} columns={columns} />);
     expect(ref.current).not.toBeNull();
 
     let firstCommit: Promise<void> = Promise.resolve();
@@ -429,8 +429,8 @@ describe('BoardKanban', () => {
         }),
     );
 
-    const ref = createRef<BoardKanbanHandle>();
-    const { rerender } = render(<BoardKanban ref={ref} columns={columns} />);
+    const ref = createRef<ProjectKanbanHandle>();
+    const { rerender } = render(<ProjectKanban ref={ref} columns={columns} />);
     expect(ref.current).not.toBeNull();
 
     let firstCommit: Promise<void> = Promise.resolve();
@@ -498,7 +498,7 @@ describe('BoardKanban', () => {
     ];
 
     await act(async () => {
-      rerender(<BoardKanban ref={ref} columns={columnsAfterFirstPersist} />);
+      rerender(<ProjectKanban ref={ref} columns={columnsAfterFirstPersist} />);
     });
 
     // Pending jobs B and C remain layered on the new server baseline.

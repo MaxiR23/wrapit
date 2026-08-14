@@ -9,7 +9,7 @@
 // - Failure keeps the old baseline and still applies remaining pending jobs
 //
 // What is covered:
-// - Persist queue reductions used by BoardKanban.commitMove
+// - Persist queue reductions used by ProjectKanban.commitMove
 //
 // Run with: pnpm test:run tests/lib/kanbanPersist.test.ts
 //

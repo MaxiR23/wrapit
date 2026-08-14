@@ -5,7 +5,7 @@
 // Tested:
 // - A private route without a session redirects to /sign-in
 // - A public route is served without a session
-// - /sign-in, /sign-up, /forgot-password and /reset-password with a session redirect to /boards
+// - /sign-in, /sign-up, /forgot-password and /reset-password with a session redirect to /projects
 // - A private route with a session is served
 // - The Better Auth API is reachable in both states
 //
@@ -41,7 +41,7 @@ function redirectTarget(response: Response): string | null {
 
 describe('proxy without a session', () => {
   it('redirects a private route to the sign in page', () => {
-    const response = proxy(request('/boards'));
+    const response = proxy(request('/projects'));
 
     expect(response.status).toBe(307);
     expect(redirectTarget(response)).toBe('/sign-in');
@@ -64,27 +64,29 @@ describe('proxy without a session', () => {
 });
 
 describe('proxy with a session', () => {
-  it('redirects the sign in page to /boards', () => {
+  it('redirects the sign in page to /projects', () => {
     const response = proxy(request('/sign-in', { signedIn: true }));
 
     expect(response.status).toBe(307);
-    expect(redirectTarget(response)).toBe('/boards');
+    expect(redirectTarget(response)).toBe('/projects');
   });
 
-  it('redirects the sign up page to /boards', () => {
-    expect(redirectTarget(proxy(request('/sign-up', { signedIn: true })))).toBe('/boards');
+  it('redirects the sign up page to /projects', () => {
+    expect(redirectTarget(proxy(request('/sign-up', { signedIn: true })))).toBe('/projects');
   });
 
-  it('redirects the forgot-password page to /boards', () => {
-    expect(redirectTarget(proxy(request('/forgot-password', { signedIn: true })))).toBe('/boards');
+  it('redirects the forgot-password page to /projects', () => {
+    expect(redirectTarget(proxy(request('/forgot-password', { signedIn: true })))).toBe(
+      '/projects',
+    );
   });
 
-  it('redirects the reset-password page to /boards', () => {
-    expect(redirectTarget(proxy(request('/reset-password', { signedIn: true })))).toBe('/boards');
+  it('redirects the reset-password page to /projects', () => {
+    expect(redirectTarget(proxy(request('/reset-password', { signedIn: true })))).toBe('/projects');
   });
 
   it('serves a private route', () => {
-    expect(redirectTarget(proxy(request('/boards', { signedIn: true })))).toBeNull();
+    expect(redirectTarget(proxy(request('/projects', { signedIn: true })))).toBeNull();
   });
 
   it('serves the Better Auth API, so signing out stays possible', () => {

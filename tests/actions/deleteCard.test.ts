@@ -3,8 +3,8 @@
 // Tests for the deleteCard server action.
 //
 // Tested:
-// - Deletes a card that belongs to the signed-in user's board
-// - Rejects deleting a card on another user's board
+// - Deletes a card that belongs to the signed-in user's project
+// - Rejects deleting a card on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 //
@@ -48,12 +48,12 @@ describe('deleteCard', () => {
     getSession.mockResolvedValue({ user: sessionUser });
   });
 
-  it('deletes a card that belongs to the signed-in user board', async () => {
-    const board = await db.board.create({
+  it('deletes a card that belongs to the signed-in user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Write tests', order: 1, columnId: column.id },
@@ -63,15 +63,15 @@ describe('deleteCard', () => {
 
     expect(result).toEqual({ data: { id: card.id } });
     expect(db.card.rows).toHaveLength(0);
-    expect(revalidatePath).toHaveBeenCalledWith(`/boards/${board.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
-  it('rejects deleting a card on another user board', async () => {
-    const board = await db.board.create({
+  it('rejects deleting a card on another user project', async () => {
+    const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Stolen', order: 1, columnId: column.id },
@@ -86,11 +86,11 @@ describe('deleteCard', () => {
 
   it('rejects the call when there is no session', async () => {
     getSession.mockResolvedValue(null);
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Write tests', order: 1, columnId: column.id },
@@ -104,11 +104,11 @@ describe('deleteCard', () => {
   });
 
   it('returns a generic error when Prisma fails unexpectedly', async () => {
-    const board = await db.board.create({
+    const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
     const column = await db.column.create({
-      data: { title: 'To do', order: 1, boardId: board.id },
+      data: { title: 'To do', order: 1, projectId: project.id },
     });
     const card = await db.card.create({
       data: { title: 'Write tests', order: 1, columnId: column.id },

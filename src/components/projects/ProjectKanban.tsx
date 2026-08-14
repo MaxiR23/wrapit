@@ -24,7 +24,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 
 import { moveCard } from '@/actions/moveCard';
-import KanbanColumn, { type KanbanCardData } from '@/components/boards/KanbanColumn';
+import KanbanColumn, { type KanbanCardData } from '@/components/projects/KanbanColumn';
 import {
   findContainer,
   transitionDragEnd,
@@ -40,13 +40,13 @@ import {
   reducePersistFinish,
 } from '@/lib/kanbanPersist';
 
-export type BoardKanbanColumn = {
+export type ProjectKanbanColumn = {
   id: string;
   title: string;
   cards: KanbanCardData[];
 };
 
-export type BoardKanbanHandle = {
+export type ProjectKanbanHandle = {
   /**
    * Applies an optimistic board update, persists via moveCard, and rolls back
    * on failure. Shared by drag-end and tests.
@@ -54,11 +54,11 @@ export type BoardKanbanHandle = {
   commitMove: (args: MoveCommit & { nextItems: ItemsByColumn }) => Promise<void>;
 };
 
-type BoardKanbanProps = {
-  columns: BoardKanbanColumn[];
+type ProjectKanbanProps = {
+  columns: ProjectKanbanColumn[];
 };
 
-function buildInitialState(columns: BoardKanbanColumn[]) {
+function buildInitialState(columns: ProjectKanbanColumn[]) {
   const itemsByColumn: ItemsByColumn = {};
   const cardsById: Record<string, KanbanCardData> = {};
   const columnTitles: Record<string, string> = {};
@@ -76,7 +76,7 @@ function buildInitialState(columns: BoardKanbanColumn[]) {
 
 const MemoKanbanColumn = memo(KanbanColumn);
 
-const BoardKanban = forwardRef<BoardKanbanHandle, BoardKanbanProps>(function BoardKanban(
+const ProjectKanban = forwardRef<ProjectKanbanHandle, ProjectKanbanProps>(function ProjectKanban(
   { columns },
   ref,
 ) {
@@ -283,4 +283,4 @@ const BoardKanban = forwardRef<BoardKanbanHandle, BoardKanbanProps>(function Boa
   );
 });
 
-export default BoardKanban;
+export default ProjectKanban;

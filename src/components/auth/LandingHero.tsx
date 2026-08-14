@@ -72,7 +72,7 @@ export default function LandingHero() {
           Your team&apos;s work, in columns.
         </h1>
         <p className="max-w-brand-lede text-brand-lede text-muted-foreground max-[360px]:text-[14.5px]">
-          Shared boards, cards with an owner and a due date, and one view of what&apos;s in
+          Shared projects, cards with an owner and a due date, and one view of what&apos;s in
           progress.
         </p>
       </div>
