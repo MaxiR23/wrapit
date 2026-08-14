@@ -1,20 +1,19 @@
 // tests/home.test.tsx
 //
-// Tests for the home page: landing hero for visitors, redirect for sessions.
+// Tests for the home page: redirect-only, no UI.
 //
 // Tested:
 // - Redirects a signed-in user to /projects
-// - Renders the landing hero for a signed-out visitor
+// - Redirects a signed-out visitor to /sign-in
 //
 // What is covered:
-// - Both session states
+// - Both session states; no landing UI
 //
 // Run with: pnpm test:run tests/home.test.tsx
 //
 // SEE: src/app/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
 
 const getSession = vi.fn();
 const redirect = vi.fn((path: string) => {
@@ -31,7 +30,6 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect,
-  useRouter: () => ({ push: vi.fn() }),
 }));
 
 const { default: Home } = await import('@/app/page');
@@ -48,16 +46,10 @@ describe('Home page', () => {
     expect(redirect).toHaveBeenCalledWith('/projects');
   });
 
-  it('renders the landing hero for a signed-out visitor', async () => {
+  it('redirects a signed-out visitor to /sign-in', async () => {
     getSession.mockResolvedValue(null);
 
-    render(await Home());
-
-    expect(redirect).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole('heading', { name: "Your team's work, in columns." }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
-    expect(document.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+    await expect(Home()).rejects.toThrow('NEXT_REDIRECT:/sign-in');
+    expect(redirect).toHaveBeenCalledWith('/sign-in');
   });
 });

@@ -1,9 +1,14 @@
+'use client';
+
 import { Bell } from 'lucide-react';
 
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
+import { useSignOut } from '@/components/projects/useSignOut';
 import { cn } from '@/lib/utils';
 
 export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
+  const { signOut, error, isSigningOut } = useSignOut();
+
   return (
     <header
       className={cn(
@@ -39,9 +44,17 @@ export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
         <Bell className="size-[18px] lg:size-[17px]" strokeWidth={1.8} />
       </button>
 
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
       <button
         type="button"
         aria-label="Account"
+        onClick={signOut}
+        disabled={isSigningOut}
         className={cn(
           shellFocusClassName,
           'flex items-center gap-2.5 border-l border-border pl-3.5',

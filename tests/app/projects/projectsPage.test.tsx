@@ -41,6 +41,7 @@ vi.mock('next/headers', () => ({
 
 vi.mock('next/navigation', () => ({
   redirect,
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
 const { default: ProjectsPage } = await import('@/app/projects/page');
