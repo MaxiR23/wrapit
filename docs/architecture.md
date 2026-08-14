@@ -33,14 +33,17 @@ Reads and writes take different paths on purpose.
 **Reads** happen in Server Components. A page loads the session with
 `auth.api.getSession({ headers: await headers() })`, then calls a lib helper
 that scopes Prisma to that user — for example `listProjectsForUser` /
-`listProjectSummariesForUser` / `getProjectForUser` in `src/lib/projects.ts`. Missing or foreign projects return
-`null`; the page turns that into `notFound()`. The client never talks to Prisma
-for project data.
+`listProjectSummariesForUser` / `getProjectForUser` in `src/lib/projects.ts`,
+and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or foreign
+projects return `null`; the page turns that into `notFound()`. A missing
+preferences row is not an error: the helper returns GRID defaults. The client
+never talks to Prisma for project data.
 
 **Writes** go through server actions under `src/actions/`. Each action checks
-the real session, validates input, checks ownership, then mutates. Failures that
-should not leak internals return a fixed generic message (`GENERIC_ERROR_MESSAGE`
-in `src/lib/messages.ts`).
+the real session, validates input, checks ownership, then mutates. Preferences
+writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
+Failures that should not leak internals return a fixed generic message
+(`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
 **Auth in the browser** is the exception: sign up, sign in and sign out call
 `authClient` against `/api/auth/*`. Everything else that changes domain data uses
@@ -84,6 +87,7 @@ in `docs/kanban.md`.
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries)
+    src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/projectGrid.ts              progress, members, count and updated labels
     src/lib/initials.ts                 two-letter initials from name / username
     src/lib/ownership.ts                column/card ownership chain
@@ -100,7 +104,9 @@ in `docs/kanban.md`.
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
+    src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/actions/createProject.ts        create a project for the signed-in user
+    src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
     src/actions/createColumn.ts         create a column on an owned project
     src/actions/deleteColumn.ts         delete a column from an owned project
     src/actions/createCard.ts           create a card on an owned column

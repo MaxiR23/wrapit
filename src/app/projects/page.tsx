@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import { initials } from '@/lib/initials';
 import { listProjectSummariesForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
+import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
   return typeof user.username === 'string' ? user.username : '';
@@ -19,7 +20,10 @@ export default async function ProjectsPage() {
     redirect(SIGN_IN_PATH);
   }
 
-  const projects = await listProjectSummariesForUser(session.user.id);
+  const [projects, preferences] = await Promise.all([
+    listProjectSummariesForUser(session.user.id),
+    getUserPreferences(session.user.id),
+  ]);
   const username = sessionUsername(session.user);
 
   return (
@@ -31,7 +35,7 @@ export default async function ProjectsPage() {
       }}
     >
       <ProjectsMobileSearch />
-      <ProjectsView projects={projects} />
+      <ProjectsView projects={projects} initialView={preferences.viewMode} />
     </ProjectsShell>
   );
 }
