@@ -30,7 +30,9 @@ See: https://hub.docker.com/_/postgres
 Defined in `prisma/schema.prisma`. The models and their relations:
 
 - `User` has many `Project`, many `RecentProject`, and at most one `UserPreferences`.
-- `Project` belongs to a `User` and has many `Column` and `RecentProject`.
+- `Project` belongs to a `User` and has many `Column` and `RecentProject`. It
+  has an optional `description` and a `status` (`ProjectStatus`: `NEW`,
+  `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`).
 - `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that

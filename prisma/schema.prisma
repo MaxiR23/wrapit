@@ -99,10 +99,11 @@ model Verification {
 }
 
 model Project {
-  id        String        @id @default(cuid())
-  title     String
-  status    ProjectStatus @default(NEW)
-  createdAt DateTime      @default(now())
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  status      ProjectStatus @default(NEW)
+  createdAt   DateTime      @default(now())
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
