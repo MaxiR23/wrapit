@@ -6,10 +6,13 @@
 // - Renders the user's real project titles in the grid
 // - Shows the pluralized project count
 // - Renders the saved list view on first paint
+// - Renders recents chips in query order, mapping ids to loaded summaries
+// - Does not render a chip for a foreign or membership-based recent
 // - Redirects when there is no session
 //
 // What is covered:
-// - Grid from the data layer, saved viewMode, count label, unauthenticated redirect
+// - Grid from the data layer, saved viewMode, count label, recents chips,
+//   unauthenticated redirect
 //
 // Run with: pnpm test:run tests/app/projects/projectsPage.test.tsx
 //
@@ -20,6 +23,7 @@ import { render, screen } from '@testing-library/react';
 
 const getSession = vi.fn();
 const listProjectSummariesForUser = vi.fn();
+const listRecentProjectsForUser = vi.fn();
 const getUserPreferences = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -31,6 +35,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/projects', () => ({
   listProjectSummariesForUser,
+  listRecentProjectsForUser,
 }));
 
 vi.mock('@/lib/userPreferences', () => ({
@@ -43,6 +48,10 @@ vi.mock('@/actions/createProject', () => ({
 
 vi.mock('@/actions/updateViewMode', () => ({
   updateViewMode: vi.fn(),
+}));
+
+vi.mock('@/actions/setProjectStarred', () => ({
+  setProjectStarred: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -76,6 +85,7 @@ describe('Projects page', () => {
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
     getUserPreferences.mockResolvedValue({ viewMode: 'grid' });
+    listRecentProjectsForUser.mockResolvedValue([]);
   });
 
   it('renders the user projects in the grid and pluralizes the count', async () => {
@@ -131,5 +141,88 @@ describe('Projects page', () => {
     expect(redirect).toHaveBeenCalledWith('/sign-in');
     expect(listProjectSummariesForUser).not.toHaveBeenCalled();
     expect(getUserPreferences).not.toHaveBeenCalled();
+    expect(listRecentProjectsForUser).not.toHaveBeenCalled();
+  });
+
+  it('renders recents chips from the data layer, most recent first', async () => {
+    const emptyBoard = {
+      ...sprintBoard,
+      id: 'project-2',
+      title: 'Empty board',
+      status: 'NEW' as const,
+      statusLabel: 'New',
+      taskCount: 0,
+      doneCount: 0,
+      percent: 0,
+    };
+    listProjectSummariesForUser.mockResolvedValue([sprintBoard, emptyBoard]);
+    listRecentProjectsForUser.mockResolvedValue([
+      { projectId: 'project-2' },
+      { projectId: 'gone-project' },
+      { projectId: 'project-1' },
+    ]);
+
+    render(await ProjectsPage());
+
+    expect(listRecentProjectsForUser).toHaveBeenCalledWith('user-ada');
+    const recents = screen.getByText('Recents').parentElement;
+    const chips = recents?.querySelectorAll('a') ?? [];
+    expect([...chips].map((chip) => chip.getAttribute('href'))).toEqual([
+      '/projects/project-2',
+      '/projects/project-1',
+    ]);
+  });
+
+  it('renders four recents chips when the data layer already applied the access cap', async () => {
+    const boards = [1, 2, 3, 4, 5].map((n) => ({
+      ...sprintBoard,
+      id: `project-${n}`,
+      title: `Board ${n}`,
+    }));
+    listProjectSummariesForUser.mockResolvedValue(boards);
+    listRecentProjectsForUser.mockResolvedValue([
+      { projectId: 'project-5' },
+      { projectId: 'project-4' },
+      { projectId: 'project-3' },
+      { projectId: 'project-2' },
+    ]);
+
+    render(await ProjectsPage());
+
+    const recents = screen.getByText('Recents').parentElement;
+    const chips = recents?.querySelectorAll('a') ?? [];
+    expect([...chips].map((chip) => chip.getAttribute('href'))).toEqual([
+      '/projects/project-5',
+      '/projects/project-4',
+      '/projects/project-3',
+      '/projects/project-2',
+    ]);
+  });
+
+  it('does not render a chip for a foreign or membership-based recent', async () => {
+    const emptyBoard = {
+      ...sprintBoard,
+      id: 'project-2',
+      title: 'Empty board',
+      status: 'NEW' as const,
+      statusLabel: 'New',
+      taskCount: 0,
+      doneCount: 0,
+      percent: 0,
+    };
+    listProjectSummariesForUser.mockResolvedValue([sprintBoard, emptyBoard]);
+    listRecentProjectsForUser.mockResolvedValue([
+      { projectId: 'membership-project' },
+      { projectId: 'foreign-project' },
+      { projectId: 'project-1' },
+    ]);
+
+    render(await ProjectsPage());
+
+    const recents = screen.getByText('Recents').parentElement;
+    const chips = recents?.querySelectorAll('a') ?? [];
+    expect([...chips].map((chip) => chip.getAttribute('href'))).toEqual(['/projects/project-1']);
+    expect(screen.queryByText('membership-project')).not.toBeInTheDocument();
+    expect(screen.queryByText('foreign-project')).not.toBeInTheDocument();
   });
 });

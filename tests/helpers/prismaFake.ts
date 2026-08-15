@@ -30,11 +30,58 @@ function matchesValue(actual: unknown, condition: unknown): boolean {
   });
 }
 
-function matches(row: Row, where: Row | undefined): boolean {
+const SCALAR_WHERE_OPS = new Set(['equals', 'not', 'in']);
+
+function isCompoundUniqueWhere(key: string, condition: unknown): condition is Row {
+  return (
+    key.includes('_') &&
+    condition !== null &&
+    typeof condition === 'object' &&
+    !Array.isArray(condition)
+  );
+}
+
+function isRelationCondition(condition: unknown): condition is Row {
+  if (condition === null || typeof condition !== 'object' || Array.isArray(condition)) {
+    return false;
+  }
+  const keys = Object.keys(condition);
+  if (keys.length === 0) return false;
+  if (keys.some((key) => key === 'some' || key === 'none' || key === 'every')) return true;
+  return keys.every((key) => !SCALAR_WHERE_OPS.has(key));
+}
+
+function matches(
+  row: Row,
+  where: Row | undefined,
+  getRelated: (field: string, row: Row) => Row[] = () => [],
+): boolean {
   if (!where) return true;
   return Object.entries(where).every(([key, condition]) => {
-    if (key === 'AND') return (condition as Row[]).every((c) => matches(row, c));
-    if (key === 'OR') return (condition as Row[]).some((c) => matches(row, c));
+    if (key === 'AND') {
+      return (condition as Row[]).every((nested) => matches(row, nested, getRelated));
+    }
+    if (key === 'OR') {
+      return (condition as Row[]).some((nested) => matches(row, nested, getRelated));
+    }
+    // Prisma compound unique: { userId_projectId: { userId, projectId } }
+    if (isCompoundUniqueWhere(key, condition)) return matches(row, condition, getRelated);
+    if (isRelationCondition(condition)) {
+      const related = getRelated(key, row);
+      if ('some' in condition) {
+        return related.some((item) => matches(item, condition.some as Row, getRelated));
+      }
+      if ('none' in condition) {
+        return related.every((item) => !matches(item, condition.none as Row, getRelated));
+      }
+      if ('every' in condition) {
+        return (
+          related.length > 0 &&
+          related.every((item) => matches(item, condition.every as Row, getRelated))
+        );
+      }
+      return related.some((item) => matches(item, condition, getRelated));
+    }
     return matchesValue(row[key], condition);
   });
 }
@@ -49,19 +96,23 @@ function createRow(rows: Row[], data: Row) {
   return { ...row };
 }
 
-function findRow(rows: Row[], where?: Row) {
-  const row = rows.find((r) => matches(r, where));
+function findRow(
+  rows: Row[],
+  where?: Row,
+  getRelated: (field: string, row: Row) => Row[] = () => [],
+) {
+  const row = rows.find((r) => matches(r, where, getRelated));
   return row ? { ...row } : null;
 }
 
-function createModel() {
+function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) {
   const rows: Row[] = [];
 
   return {
     rows,
     create: vi.fn(async ({ data }: { data: Row }) => createRow(rows, data)),
-    findFirst: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where)),
-    findUnique: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where)),
+    findFirst: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where, getRelated)),
+    findUnique: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where, getRelated)),
     findMany: vi.fn(
       async ({
         where,
@@ -74,7 +125,7 @@ function createModel() {
         take?: number;
         orderBy?: Row | Row[];
       } = {}) => {
-        let matched = rows.filter((r) => matches(r, where));
+        let matched = rows.filter((r) => matches(r, where, getRelated));
 
         const order = Array.isArray(orderBy) ? orderBy[0] : orderBy;
         if (order && typeof order === 'object') {
@@ -96,27 +147,28 @@ function createModel() {
       },
     ),
     update: vi.fn(async ({ where, data }: { where?: Row; data: Row }) => {
-      const row = rows.find((r) => matches(r, where));
+      const row = rows.find((r) => matches(r, where, getRelated));
       if (!row) throw new Error('record not found');
       Object.assign(row, data);
       return { ...row };
     }),
     delete: vi.fn(async ({ where }: { where?: Row }) => {
-      const index = rows.findIndex((r) => matches(r, where));
+      const index = rows.findIndex((r) => matches(r, where, getRelated));
       if (index === -1) throw new Error('record not found');
       return { ...rows.splice(index, 1)[0] };
     }),
     deleteMany: vi.fn(async ({ where }: { where?: Row } = {}) => {
-      const kept = rows.filter((r) => !matches(r, where));
+      const kept = rows.filter((r) => !matches(r, where, getRelated));
       const count = rows.length - kept.length;
       rows.splice(0, rows.length, ...kept);
       return { count };
     }),
     count: vi.fn(
-      async ({ where }: { where?: Row } = {}) => rows.filter((r) => matches(r, where)).length,
+      async ({ where }: { where?: Row } = {}) =>
+        rows.filter((r) => matches(r, where, getRelated)).length,
     ),
     upsert: vi.fn(async ({ where, create, update }: { where?: Row; create: Row; update: Row }) => {
-      const row = rows.find((r) => matches(r, where));
+      const row = rows.find((r) => matches(r, where, getRelated));
       if (row) {
         Object.assign(row, update);
         return { ...row };
@@ -127,17 +179,35 @@ function createModel() {
 }
 
 export function createPrismaFake() {
-  const fake = {
-    user: createModel(),
-    session: createModel(),
-    account: createModel(),
-    verification: createModel(),
-    project: createModel(),
-    column: createModel(),
-    card: createModel(),
-    membership: createModel(),
-    userPreferences: createModel(),
+  const models: Record<string, ReturnType<typeof createModel>> = {};
+  const getRelated = (field: string, row: Row): Row[] => {
+    switch (field) {
+      case 'project':
+        return (models.project?.rows ?? []).filter((project) => project.id === row.projectId);
+      case 'memberships':
+        return (models.membership?.rows ?? []).filter(
+          (membership) => membership.projectId === row.id,
+        );
+      case 'owner':
+        return (models.user?.rows ?? []).filter((user) => user.id === row.ownerId);
+      default:
+        return [];
+    }
   };
+
+  const fake = {
+    user: createModel(getRelated),
+    session: createModel(getRelated),
+    account: createModel(getRelated),
+    verification: createModel(getRelated),
+    project: createModel(getRelated),
+    column: createModel(getRelated),
+    card: createModel(getRelated),
+    membership: createModel(getRelated),
+    userPreferences: createModel(getRelated),
+    recentProject: createModel(getRelated),
+  };
+  Object.assign(models, fake);
 
   return {
     ...fake,

@@ -33,18 +33,34 @@ Reads and writes take different paths on purpose.
 **Reads** happen in Server Components. A page loads the session with
 `auth.api.getSession({ headers: await headers() })`, then calls a lib helper
 that scopes Prisma to that user — for example `listProjectsForUser` /
-`listProjectSummariesForUser` / `getProjectForUser` in `src/lib/projects.ts`,
+`listProjectSummariesForUser` / `listRecentProjectsForUser` /
+`getProjectForUser` in `src/lib/projects.ts`,
 and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or foreign
-projects return `null`; the page turns that into `notFound()`. A missing
+projects return `null`; the page turns that into `notFound()`. Recents are the
+latest four owned projects the user opened; that cap is applied in the query
+after the owner-only access filter. A missing
 preferences row is not an error: the helper returns GRID defaults. The client
 never talks to Prisma for project data. The projects list search filters those
 already-loaded summaries in the client by title (case-insensitive includes).
+Starred summaries sit in a Starred section above the main grid/list; recents
+render as chips near the top.
 
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input, checks ownership, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
-Failures that should not leak internals return a fixed generic message
-(`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
+`setProjectStarred` writes `Membership.starred` to the given value (it does not
+read-then-invert). If the owner has no membership row it upserts one with role
+`OWNER` and that starred value. `ProjectsView` shows those writes immediately
+with `useOptimistic` inside `startTransition`, and serializes them per project
+with the same coalescing loop as view-mode changes: keep the latest desired
+value and an in-flight flag, write sequentially until persisted matches that
+intent, and skip starting a second loop when a write is already running.
+Rapid toggles on one project never overlap; different projects stay independent.
+On error the loop rolls the optimistic star back to the last persisted value
+and `router.refresh()` reconciles to server data. `recordRecentProject`
+upserts `openedAt` when the session user owns the project and no-ops otherwise,
+so opening a project cannot fail navigation. Failures that should not leak internals
+return a fixed generic message (`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
 **Auth in the browser** is the exception: sign up, sign in and sign out call
 `authClient` against `/api/auth/*`. Everything else that changes domain data uses
@@ -87,9 +103,9 @@ in `docs/kanban.md`.
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/projects.ts                 list/load projects (detail + grid/list summaries)
+    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
-    src/lib/projectGrid.ts              progress, members, count, updated labels, title filter
+    src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username
     src/lib/ownership.ts                column/card ownership chain
     src/lib/messages.ts                 generic user-facing error string
@@ -107,6 +123,8 @@ in `docs/kanban.md`.
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/actions/createProject.ts        create a project for the signed-in user
+    src/actions/setProjectStarred.ts    write Membership.starred (owner may get an OWNER row)
+    src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
     src/actions/createColumn.ts         create a column on an owned project
     src/actions/deleteColumn.ts         delete a column from an owned project
@@ -116,8 +134,8 @@ in `docs/kanban.md`.
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
-    src/app/projects/page.tsx           projects shell, grid and list
-    src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404)
+    src/app/projects/page.tsx           projects shell, recents, starred, grid and list
+    src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404; records recent)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm

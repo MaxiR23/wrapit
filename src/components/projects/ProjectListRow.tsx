@@ -1,13 +1,19 @@
-import { Star } from 'lucide-react';
 import Link from 'next/link';
 
 import { projectListGridClassName } from '@/components/projects/projectListGrid';
+import ProjectStarButton, { type OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { projectStatusBarClass, taskCountLabel, type ProjectSummary } from '@/lib/projectGrid';
 import { projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
-export default function ProjectListRow({ project }: { project: ProjectSummary }) {
+export default function ProjectListRow({
+  project,
+  onToggle,
+}: {
+  project: ProjectSummary;
+  onToggle?: OnToggleStar;
+}) {
   return (
     <div className="relative border-b border-border transition-[background] duration-[160ms] ease-in-out hover:bg-card-hover">
       <Link
@@ -21,19 +27,12 @@ export default function ProjectListRow({ project }: { project: ProjectSummary })
           'pointer-events-none relative z-[1] px-3.5 py-[13px] tabular-nums lg:px-4',
         )}
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'pointer-events-auto justify-self-start',
-            project.starred ? 'text-foreground' : 'text-subtle',
-          )}
-        >
-          <Star
-            className="size-[15px]"
-            strokeWidth={1.7}
-            fill={project.starred ? 'currentColor' : 'none'}
-          />
-        </span>
+        <ProjectStarButton
+          projectId={project.id}
+          starred={project.starred}
+          onToggle={onToggle}
+          className="pointer-events-auto justify-self-start"
+        />
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-sm font-medium">{project.title}</span>
           <span className="text-xs text-muted-foreground">

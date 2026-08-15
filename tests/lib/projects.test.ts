@@ -10,10 +10,13 @@
 // - Returns each column with its cards in order
 // - Returns null for a non-owner or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
+// - Recents are at most 4 after owner-only access filtering, most recent first,
+//   and scoped to the user. Inaccessible and membership-only rows do not
+//   consume the cap and are not returned.
 //
 // What is covered:
 // - Happy path, ownership isolation, empty list, project detail with cards,
-//   grid summaries
+//   grid summaries, recents owner-only access filter
 //
 // Run with: pnpm test:run tests/lib/projects.test.ts
 //
@@ -26,8 +29,12 @@ import { createPrismaFake } from '../helpers/prismaFake';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { listProjectsForUser, getProjectForUser, listProjectSummariesForUser } =
-  await import('@/lib/projects');
+const {
+  listProjectsForUser,
+  getProjectForUser,
+  listProjectSummariesForUser,
+  listRecentProjectsForUser,
+} = await import('@/lib/projects');
 
 describe('listProjectsForUser', () => {
   beforeEach(() => {
@@ -223,5 +230,118 @@ describe('listProjectSummariesForUser', () => {
     });
 
     expect(await listProjectSummariesForUser('user-ada')).toEqual([]);
+  });
+});
+
+describe('listRecentProjectsForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  async function ownedRecent(title: string, openedAt: string, ownerId = 'user-ada') {
+    const project = await db.project.create({
+      data: { title, ownerId },
+    });
+    await db.recentProject.create({
+      data: { userId: 'user-ada', projectId: project.id, openedAt: new Date(openedAt) },
+    });
+    return project;
+  }
+
+  it('returns at most 4 recents for the user, most recent first', async () => {
+    await ownedRecent('Sprint board', '2026-01-01');
+    const second = await ownedRecent('Second', '2026-02-01');
+    const third = await ownedRecent('Third', '2026-03-01');
+    const fourth = await ownedRecent('Fourth', '2026-04-01');
+    const fifth = await ownedRecent('Fifth', '2026-05-01');
+
+    const recents = await listRecentProjectsForUser('user-ada');
+
+    expect(recents).toHaveLength(4);
+    expect(recents.map((recent) => recent.projectId)).toEqual([
+      fifth.id,
+      fourth.id,
+      third.id,
+      second.id,
+    ]);
+  });
+
+  it('does not include another user recents', async () => {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    await db.recentProject.create({
+      data: { userId: 'user-other', projectId: project.id, openedAt: new Date('2026-06-01') },
+    });
+
+    expect(await listRecentProjectsForUser('user-ada')).toEqual([]);
+  });
+
+  it('fills the cap with older accessible recents when a newer row is inaccessible', async () => {
+    const first = await ownedRecent('First', '2026-01-01');
+    const second = await ownedRecent('Second', '2026-02-01');
+    const third = await ownedRecent('Third', '2026-03-01');
+    const fourth = await ownedRecent('Fourth', '2026-04-01');
+    const fifth = await ownedRecent('Fifth', '2026-05-01');
+    const gone = await db.project.create({
+      data: { title: 'Gone board', ownerId: 'user-other' },
+    });
+    await db.recentProject.create({
+      data: {
+        userId: 'user-ada',
+        projectId: gone.id,
+        openedAt: new Date('2026-06-01'),
+      },
+    });
+
+    const recents = await listRecentProjectsForUser('user-ada');
+
+    expect(recents).toHaveLength(4);
+    expect(recents.map((recent) => recent.projectId)).toEqual([
+      fifth.id,
+      fourth.id,
+      third.id,
+      second.id,
+    ]);
+    expect(recents.map((recent) => recent.projectId)).not.toContain(gone.id);
+    expect(recents.map((recent) => recent.projectId)).not.toContain(first.id);
+  });
+
+  it('never returns inaccessible recents', async () => {
+    const owned = await ownedRecent('Sprint board', '2026-01-01');
+    const gone = await db.project.create({
+      data: { title: 'Gone board', ownerId: 'user-other' },
+    });
+    await db.recentProject.create({
+      data: {
+        userId: 'user-ada',
+        projectId: gone.id,
+        openedAt: new Date('2026-06-01'),
+      },
+    });
+
+    const recents = await listRecentProjectsForUser('user-ada');
+
+    expect(recents.map((recent) => recent.projectId)).toEqual([owned.id]);
+  });
+
+  it('does not return a recent for a project the user only has membership on', async () => {
+    const memberProject = await db.project.create({
+      data: { title: 'Shared board', ownerId: 'user-other' },
+    });
+    await db.membership.create({
+      data: { userId: 'user-ada', projectId: memberProject.id, role: 'MEMBER' },
+    });
+    await db.recentProject.create({
+      data: {
+        userId: 'user-ada',
+        projectId: memberProject.id,
+        openedAt: new Date('2026-06-01'),
+      },
+    });
+
+    const recents = await listRecentProjectsForUser('user-ada');
+
+    expect(recents).toEqual([]);
   });
 });

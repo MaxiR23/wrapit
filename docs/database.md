@@ -29,10 +29,12 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Project` and at most one `UserPreferences`.
-- `Project` belongs to a `User` and has many `Column`.
+- `User` has many `Project`, many `RecentProject`, and at most one `UserPreferences`.
+- `Project` belongs to a `User` and has many `Column` and `RecentProject`.
 - `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
+- `RecentProject` belongs to a `User` and a `Project`. It records when that
+  user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings. Today
   that is `viewMode` (`GRID` or `LIST`, default `GRID`). The table is meant to
   grow with more columns (for example language) on the same 1:1 row, without a

@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
 import NewColumnDialog from '@/components/projects/NewColumnDialog';
 import ProjectKanban from '@/components/projects/ProjectKanban';
+import RecordRecentProject from '@/components/projects/RecordRecentProject';
 import { auth } from '@/lib/auth';
 import { getProjectForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
@@ -26,6 +27,7 @@ export default async function ProjectDetailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+      <RecordRecentProject projectId={project.id} />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">{project.title}</h1>
         <NewColumnDialog projectId={project.id} />

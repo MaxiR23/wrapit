@@ -85,6 +85,39 @@ export function filterProjectsByTitle(projects: ProjectSummary[], query: string)
   return projects.filter((project) => project.title.toLowerCase().includes(needle));
 }
 
+/**
+ * Recents in the given order, mapped to already-loaded summaries.
+ * Access filtering happens in `listRecentProjectsForUser`; ids without a
+ * summary are skipped because there is no chip payload, not as a second
+ * access check.
+ */
+export function filterRecentProjects(
+  recents: Array<{ projectId: string }>,
+  accessible: ProjectSummary[],
+): ProjectSummary[] {
+  const byId = new Map(accessible.map((project) => [project.id, project]));
+  return recents.flatMap((recent) => {
+    const project = byId.get(recent.projectId);
+    return project ? [project] : [];
+  });
+}
+
+export type StarredMap = Record<string, boolean>;
+
+export function starredMapFromProjects(
+  projects: Array<{ id: string; starred: boolean }>,
+): StarredMap {
+  return Object.fromEntries(projects.map((project) => [project.id, project.starred]));
+}
+
+/** Pure useOptimistic reducer: next map, never mutates `current`. */
+export function applyOptimisticStarred(
+  current: StarredMap,
+  update: { projectId: string; starred: boolean },
+): StarredMap {
+  return { ...current, [update.projectId]: update.starred };
+}
+
 export function projectStatusLabel(status: ProjectGridStatus): string {
   return STATUS_LABEL[status];
 }

@@ -49,6 +49,7 @@ model User {
   receivedInvitations  Invitation[]    @relation("InvitationInvitee")
   notifications        Notification[]
   preferences          UserPreferences?
+  recentProjects       RecentProject[]
 }
 
 model Session {
@@ -106,9 +107,10 @@ model Project {
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  columns      Column[]
-  memberships  Membership[]
-  invitations  Invitation[]
+  columns         Column[]
+  memberships     Membership[]
+  invitations     Invitation[]
+  recentProjects  RecentProject[]
 }
 
 model Column {
@@ -183,4 +185,16 @@ model UserPreferences {
   userId   String   @unique
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   viewMode ViewMode @default(GRID)
+}
+
+model RecentProject {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  openedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId, openedAt])
 }

@@ -27,10 +27,18 @@ has no such column, the last column by `order` is treated as done. No cards mean
 `0 of 0` and `0%`. The percentage is `round(done / total * 100)`.
 
 The projects page presents those summaries as a card grid or a list table. Both
-views share the same payload; only the layout changes. Search filters that
-payload in the client by title (case-insensitive includes) and does not
-re-query the server. The grid/list choice is client-side for now and may reset
-on reload.
+views share the same payload; only the layout of the unstarred list changes.
+Starred projects sit in a Starred section of cards above that list (hidden when
+none are starred). The Starred/rest split lives in `ProjectsView`, which applies
+`useOptimistic` to the server starred map so a toggle moves the project between
+sections immediately. Star writes reuse the view-mode coalescing loop, keyed by
+`projectId`: the latest desired value is persisted sequentially so rapid toggles
+never overlap and the last intent always wins. `ProjectStarButton` is
+presentational: it receives the current starred value and an `onToggle`
+callback, and holds no state of its own. Recents are the latest four owned
+projects the user opened, as chips. Search filters
+that payload in the client by title (case-insensitive includes) and does not
+re-query the server. The grid/list choice is stored in `UserPreferences.viewMode`.
 
 `Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
 `project.createdAt` when there are no cards.

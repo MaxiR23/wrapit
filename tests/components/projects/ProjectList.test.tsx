@@ -55,12 +55,11 @@ describe('ProjectList', () => {
   });
 
   it('keeps the star outside the row link so it does not navigate', () => {
-    const { container } = render(<ProjectList projects={[project]} />);
+    render(<ProjectList projects={[project]} />);
 
     const link = screen.getByRole('link', { name: /Sprint board/ });
-    const star = container.querySelector('svg');
+    const star = screen.getByRole('button', { name: 'Star project' });
 
-    expect(star).not.toBeNull();
     expect(link.contains(star)).toBe(false);
   });
 
