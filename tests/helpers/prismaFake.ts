@@ -209,11 +209,32 @@ export function createPrismaFake() {
   };
   Object.assign(models, fake);
 
-  return {
+  const client = {
     ...fake,
-    $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
+    $transaction: vi.fn(async (arg: unknown) => {
+      if (typeof arg === 'function') {
+        const snapshot = Object.fromEntries(
+          Object.entries(fake).map(([name, model]) => [
+            name,
+            model.rows.map((row) => ({ ...row })),
+          ]),
+        );
+        try {
+          return await arg(client);
+        } catch (error) {
+          for (const [name, model] of Object.entries(fake)) {
+            model.rows.length = 0;
+            model.rows.push(...(snapshot[name] ?? []));
+          }
+          throw error;
+        }
+      }
+      return Promise.all(arg as Promise<unknown>[]);
+    }),
     reset() {
       for (const model of Object.values(fake)) model.rows.length = 0;
     },
   };
+
+  return client;
 }

@@ -9,6 +9,13 @@ import {
 } from '@/lib/projectGrid';
 import { prisma } from '@/lib/prisma';
 
+/** Seeded on project create: To do, In progress, Done. */
+export const DEFAULT_PROJECT_COLUMNS = [
+  { title: 'To do', order: 0 },
+  { title: 'In progress', order: 1 },
+  { title: 'Done', order: 2 },
+] as const;
+
 /** Projects owned by the given user, newest first. */
 export function listProjectsForUser(ownerId: string) {
   return prisma.project.findMany({

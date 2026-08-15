@@ -48,7 +48,7 @@ describe('ProjectsHeader', () => {
     await user.click(screen.getByRole('button', { name: 'New project' }));
 
     expect(await screen.findByRole('heading', { name: 'New project' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Title')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
   });
 
   it('enables the list option and reports the selected view', async () => {

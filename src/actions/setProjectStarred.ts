@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
+import { upsertOwnerMembershipStarred } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH } from '@/lib/routes';
@@ -40,18 +41,7 @@ export async function setProjectStarred(
       return { error: 'Unauthorized' };
     }
 
-    await prisma.membership.upsert({
-      where: {
-        userId_projectId: { userId: session.user.id, projectId: owned.id },
-      },
-      update: { starred },
-      create: {
-        userId: session.user.id,
-        projectId: owned.id,
-        role: 'OWNER',
-        starred,
-      },
-    });
+    await upsertOwnerMembershipStarred(prisma, session.user.id, owned.id, starred);
     revalidatePath(PROJECTS_PATH);
     return { data: { starred } };
   } catch {

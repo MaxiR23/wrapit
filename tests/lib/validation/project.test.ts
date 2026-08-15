@@ -6,9 +6,13 @@
 // - Reports no errors for a non-empty title
 // - Reports an error when the title is empty
 // - Reports an error when the title is only whitespace
+// - Allows a missing or empty description
+// - Accepts NEW, IN_PROGRESS, and PAUSED as status
+// - Rejects DONE and unknown status values
+// - Allows omitting featured; rejects a non-boolean featured value
 //
 // What is covered:
-// - Happy path, invalid input
+// - Happy path, invalid title, optional description/status/featured
 //
 // Run with: pnpm test:run tests/lib/validation/project.test.ts
 //
@@ -29,5 +33,50 @@ describe('validateProject', () => {
 
   it('reports an error when the title is only whitespace', () => {
     expect(validateProject({ title: '   ' }).title).toBe('Title is required');
+  });
+
+  it('allows a missing description', () => {
+    expect(validateProject({ title: 'Sprint board' })).toEqual({});
+  });
+
+  it('allows an empty description', () => {
+    expect(validateProject({ title: 'Sprint board', description: '' })).toEqual({});
+  });
+
+  it('allows a whitespace-only description', () => {
+    expect(validateProject({ title: 'Sprint board', description: '   ' })).toEqual({});
+  });
+
+  it('accepts NEW, IN_PROGRESS, and PAUSED as status', () => {
+    expect(validateProject({ title: 'Sprint board', status: 'NEW' })).toEqual({});
+    expect(validateProject({ title: 'Sprint board', status: 'IN_PROGRESS' })).toEqual({});
+    expect(validateProject({ title: 'Sprint board', status: 'PAUSED' })).toEqual({});
+  });
+
+  it('rejects DONE as status', () => {
+    expect(
+      validateProject({ title: 'Sprint board', status: 'DONE' } as { title: string }).status,
+    ).toBe('Status must be New, In progress, or Paused');
+  });
+
+  it('rejects an unknown status value', () => {
+    expect(
+      validateProject({ title: 'Sprint board', status: 'GARBAGE' } as { title: string }).status,
+    ).toBe('Status must be New, In progress, or Paused');
+  });
+
+  it('allows omitting featured', () => {
+    expect(validateProject({ title: 'Sprint board' })).toEqual({});
+  });
+
+  it('allows featured true or false', () => {
+    expect(validateProject({ title: 'Sprint board', featured: true })).toEqual({});
+    expect(validateProject({ title: 'Sprint board', featured: false })).toEqual({});
+  });
+
+  it('rejects a non-boolean featured value', () => {
+    expect(
+      validateProject({ title: 'Sprint board', featured: 'yes' } as { title: string }).featured,
+    ).toBeTruthy();
   });
 });

@@ -10,6 +10,12 @@ Hierarchy: **Project → Column → Card**. A project has one owner (`User`). De
 project or column cascades to its children, so mutations do not need orphan
 cleanup.
 
+`createProject` seeds three columns in order: **To do**, **In progress**,
+**Done** (`order` 0, 1, 2), in the same transaction as the project. A
+create-time `featured` flag stars the board in that same transaction by
+upserting the owner's `Membership` with `starred: true` (the same OWNER upsert
+`setProjectStarred` uses when the owner has no membership row).
+
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. Only **cards** are reordered in the UI today;
 columns keep creation order.
@@ -146,9 +152,12 @@ src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card ownership chain
 src/lib/validation/moveCard.ts      moveCard input rules
 src/actions/moveCard.ts             persist columnId + order (or renumber)
-src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
+src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries; default columns
+src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
+src/actions/createProject.ts        create a project, default columns, optional featured star
 src/lib/projectGrid.ts              done/total progress for the projects grid and list
 src/components/projects/ProjectsView.tsx  grid/list toggle (client)
+src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured)
 src/components/projects/ProjectList.tsx   projects table
 src/components/projects/ProjectKanban.tsx   DnD context, queue, commit
 src/components/projects/KanbanColumn.tsx  droppable column

@@ -48,13 +48,19 @@ render as chips near the top.
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input, checks ownership, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
+`createProject` creates a project for the session user (optional description,
+status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds the default
+columns in one transaction. When `featured` is true it upserts the owner's
+membership with `starred: true` in that same transaction via
+`upsertOwnerMembershipStarred`.
 `setProjectStarred` writes `Membership.starred` to the given value (it does not
 read-then-invert). If the owner has no membership row it upserts one with role
-`OWNER` and that starred value. `ProjectsView` shows those writes immediately
-with `useOptimistic` inside `startTransition`, and serializes them per project
-with the same coalescing loop as view-mode changes: keep the latest desired
-value and an in-flight flag, write sequentially until persisted matches that
-intent, and skip starting a second loop when a write is already running.
+`OWNER` and that starred value through the same helper. `ProjectsView` shows
+those writes immediately with `useOptimistic` inside `startTransition`, and
+serializes them per project with the same coalescing loop as view-mode changes:
+keep the latest desired value and an in-flight flag, write sequentially until
+persisted matches that intent, and skip starting a second loop when a write is
+already running.
 Rapid toggles on one project never overlap; different projects stay independent.
 On error the loop rolls the optimistic star back to the last persisted value
 and `router.refresh()` reconciles to server data. `recordRecentProject`
@@ -103,7 +109,8 @@ in `docs/kanban.md`.
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
+    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents); default columns
+    src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username
@@ -117,12 +124,12 @@ in `docs/kanban.md`.
     src/lib/validation/signIn.ts        sign in rules
     src/lib/validation/forgotPassword.ts  forgot-password rules
     src/lib/validation/resetPassword.ts reset-password rules
-    src/lib/validation/project.ts       project title rules
+    src/lib/validation/project.ts       project title, optional description/status/featured
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
     src/lib/validation/viewMode.ts      projects grid/list viewMode
-    src/actions/createProject.ts        create a project for the signed-in user
+    src/actions/createProject.ts        create a project, default columns, optional featured star
     src/actions/setProjectStarred.ts    write Membership.starred (owner may get an OWNER row)
     src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
@@ -145,7 +152,7 @@ in `docs/kanban.md`.
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, ProjectKanban, column dialogs
+    src/components/projects/            projects shell, grid, list, NewProjectDialog, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 
