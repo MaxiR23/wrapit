@@ -1,12 +1,18 @@
-import { Star } from 'lucide-react';
 import Link from 'next/link';
 
+import ProjectStarButton, { type OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { projectStatusBarClass, taskProgressLabel, type ProjectSummary } from '@/lib/projectGrid';
 import { projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
-export default function ProjectCard({ project }: { project: ProjectSummary }) {
+export default function ProjectCard({
+  project,
+  onToggle,
+}: {
+  project: ProjectSummary;
+  onToggle?: OnToggleStar;
+}) {
   return (
     <article className="relative rounded-xl border border-border bg-card tabular-nums transition-[background,border-color] duration-[160ms] ease-in-out hover:border-border-strong hover:bg-card-hover">
       <Link
@@ -58,19 +64,12 @@ export default function ProjectCard({ project }: { project: ProjectSummary }) {
         </div>
       </Link>
 
-      <span
-        aria-hidden="true"
-        className={cn(
-          'pointer-events-none absolute top-[18px] right-[18px]',
-          project.starred ? 'text-foreground' : 'text-subtle',
-        )}
-      >
-        <Star
-          className="size-[15px]"
-          strokeWidth={1.7}
-          fill={project.starred ? 'currentColor' : 'none'}
-        />
-      </span>
+      <ProjectStarButton
+        projectId={project.id}
+        starred={project.starred}
+        onToggle={onToggle}
+        className="absolute top-[18px] right-[18px] z-10"
+      />
     </article>
   );
 }

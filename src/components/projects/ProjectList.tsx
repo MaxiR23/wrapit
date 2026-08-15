@@ -1,4 +1,5 @@
 import ProjectListRow from '@/components/projects/ProjectListRow';
+import type { OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { projectListGridClassName } from '@/components/projects/projectListGrid';
 import type { ProjectSummary } from '@/lib/projectGrid';
 import { cn } from '@/lib/utils';
@@ -6,9 +7,11 @@ import { cn } from '@/lib/utils';
 export default function ProjectList({
   projects,
   className,
+  onToggle,
 }: {
   projects: ProjectSummary[];
   className?: string;
+  onToggle?: OnToggleStar;
 }) {
   return (
     <div className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
@@ -26,7 +29,7 @@ export default function ProjectList({
         <span className="hidden lg:block">Updated</span>
       </div>
       {projects.map((project) => (
-        <ProjectListRow key={project.id} project={project} />
+        <ProjectListRow key={project.id} project={project} onToggle={onToggle} />
       ))}
     </div>
   );

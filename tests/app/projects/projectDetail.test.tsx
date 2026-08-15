@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Renders the project title for the owner
+// - Mounts the recents recorder after access is confirmed
 // - Calls notFound when the project belongs to someone else
 // - Calls notFound when the project id is unknown
 //
@@ -15,10 +16,11 @@
 // SEE: src/app/projects/[projectId]/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
+const recordRecentProject = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
 });
@@ -32,6 +34,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/projects', () => ({
   getProjectForUser,
+}));
+
+vi.mock('@/actions/recordRecentProject', () => ({
+  recordRecentProject,
 }));
 
 vi.mock('next/headers', () => ({
@@ -61,6 +67,7 @@ describe('Project detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSession.mockResolvedValue({ user: { id: 'user-ada' } });
+    recordRecentProject.mockResolvedValue(undefined);
   });
 
   it('renders the project title for the owner', async () => {
@@ -77,6 +84,9 @@ describe('Project detail page', () => {
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(notFound).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(recordRecentProject).toHaveBeenCalledWith('project-1');
+    });
   });
 
   it('calls notFound when the project belongs to someone else', async () => {

@@ -6,7 +6,8 @@ import ProjectsShell from '@/components/projects/ProjectsShell';
 import ProjectsView from '@/components/projects/ProjectsView';
 import { auth } from '@/lib/auth';
 import { initials } from '@/lib/initials';
-import { listProjectSummariesForUser } from '@/lib/projects';
+import { filterRecentProjects } from '@/lib/projectGrid';
+import { listProjectSummariesForUser, listRecentProjectsForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
 import { getUserPreferences } from '@/lib/userPreferences';
 
@@ -20,10 +21,14 @@ export default async function ProjectsPage() {
     redirect(SIGN_IN_PATH);
   }
 
-  const [projects, preferences] = await Promise.all([
+  const [projects, preferences, recents] = await Promise.all([
     listProjectSummariesForUser(session.user.id),
     getUserPreferences(session.user.id),
+    listRecentProjectsForUser(session.user.id),
   ]);
+  // Recents are already access-filtered and capped in the query; this maps ids
+  // to loaded summaries for chip rendering.
+  const recentProjects = filterRecentProjects(recents, projects);
   const username = sessionUsername(session.user);
 
   return (
@@ -35,7 +40,11 @@ export default async function ProjectsPage() {
       }}
     >
       <ProjectsMobileSearch />
-      <ProjectsView projects={projects} initialView={preferences.viewMode} />
+      <ProjectsView
+        projects={projects}
+        recentProjects={recentProjects}
+        initialView={preferences.viewMode}
+      />
     </ProjectsShell>
   );
 }

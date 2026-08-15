@@ -6,16 +6,19 @@
 // - Renders the project name, progress copy, status and updated label
 // - Links to the project detail page
 // - Shows 0 of 0 tasks and 0% when the project has no cards
+// - Star button calls onToggle with the next starred value
+// - Clicking the star does not activate the project link
 //
 // What is covered:
-// - Happy path and empty-progress case
+// - Happy path, empty-progress case, presentational star toggle
 //
 // Run with: pnpm test:run tests/components/projects/ProjectCard.test.tsx
 //
 // SEE: src/components/projects/ProjectCard.tsx
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import ProjectCard from '@/components/projects/ProjectCard';
 import type { ProjectSummary } from '@/lib/projectGrid';
@@ -65,5 +68,30 @@ describe('ProjectCard', () => {
 
     expect(screen.getByText('0 of 0 tasks')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
+  });
+
+  it('calls onToggle with the next starred value', async () => {
+    const onToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<ProjectCard project={project} onToggle={onToggle} />);
+
+    await user.click(screen.getByRole('button', { name: 'Star project' }));
+
+    expect(onToggle).toHaveBeenCalledWith('project-1', true);
+  });
+
+  it('does not navigate when the star is clicked', async () => {
+    const onToggle = vi.fn();
+    const user = userEvent.setup();
+    render(<ProjectCard project={project} onToggle={onToggle} />);
+
+    const link = screen.getByRole('link', { name: /Sprint board/ });
+    const onLinkClick = vi.fn();
+    link.addEventListener('click', onLinkClick);
+
+    await user.click(screen.getByRole('button', { name: 'Star project' }));
+
+    expect(onLinkClick).not.toHaveBeenCalled();
+    expect(onToggle).toHaveBeenCalledWith('project-1', true);
   });
 });

@@ -13,6 +13,8 @@
 // - Pluralizes the list-view task count label
 // - Formats the updated label from a known now
 // - Filters projects by title: empty query, case-insensitive includes, no match, trim
+// - Recents map to summaries in the given order and skip ids without a payload
+// - Optimistic starred reducer returns a new map and does not mutate
 //
 // What is covered:
 // - Done-title vs last-column fallback, empty project, rounding, avatars, copy,
@@ -25,7 +27,9 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  applyOptimisticStarred,
   filterProjectsByTitle,
+  filterRecentProjects,
   formatUpdatedAt,
   latestActivityAt,
   projectCountLabel,
@@ -207,6 +211,37 @@ describe('filterProjectsByTitle', () => {
 
   it('trims the query before matching', () => {
     expect(filterProjectsByTitle(projects, '  empty  ')).toEqual([emptyBoard]);
+  });
+});
+
+describe('filterRecentProjects', () => {
+  it('keeps recents in the given order and skips ids without a summary', () => {
+    expect(
+      filterRecentProjects(
+        [
+          { projectId: emptyBoard.id },
+          { projectId: 'gone-project' },
+          { projectId: sprintBoard.id },
+        ],
+        [sprintBoard, emptyBoard],
+      ),
+    ).toEqual([emptyBoard, sprintBoard]);
+  });
+
+  it('returns an empty list when none of the recents have a summary', () => {
+    expect(filterRecentProjects([{ projectId: 'gone-project' }], [sprintBoard])).toEqual([]);
+  });
+});
+
+describe('applyOptimisticStarred', () => {
+  it('returns a new map with the given starred value and does not mutate', () => {
+    const current = { 'project-1': false, 'project-2': true };
+
+    const next = applyOptimisticStarred(current, { projectId: 'project-1', starred: true });
+
+    expect(next).toEqual({ 'project-1': true, 'project-2': true });
+    expect(next).not.toBe(current);
+    expect(current).toEqual({ 'project-1': false, 'project-2': true });
   });
 });
 

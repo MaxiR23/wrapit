@@ -140,3 +140,15 @@ export async function listProjectSummariesForUser(userId: string): Promise<Proje
     };
   });
 }
+
+/** Latest owned projects the user opened, most recent first. Capped at 4 after access. */
+export function listRecentProjectsForUser(userId: string) {
+  return prisma.recentProject.findMany({
+    where: {
+      userId,
+      project: { ownerId: userId },
+    },
+    orderBy: { openedAt: 'desc' },
+    take: 4,
+  });
+}
