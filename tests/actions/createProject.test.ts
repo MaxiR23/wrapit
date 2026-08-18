@@ -6,6 +6,11 @@
 // - Creates a project owned by the signed-in user on valid input
 // - Title-only create stores a null description, NEW status, no membership,
 //   and the three default columns in order
+// - An explicit column list creates exactly those columns in normalized order,
+//   in one transaction
+// - Client column order values are normalized to 0..n-1 by sorted order
+// - Rejects an empty column list, more than 8 columns, and empty or
+//   whitespace column titles
 // - Trims and stores a description; empty or whitespace description stores null
 // - Accepts NEW, IN_PROGRESS, and PAUSED; rejects DONE and unknown status
 // - featured true creates a starred owner membership; false does not
@@ -15,10 +20,13 @@
 // - Returns a generic error when Prisma fails unexpectedly
 // - Rolls back the project when default column creation fails
 // - Rolls back project and columns when featured membership upsert fails
+// - Rolls back project, columns, and membership when featured upsert fails
+//   with an explicit column list
 //
 // What is covered:
-// - Happy path, default columns, description, status, featured, invalid input,
-//   ownership, unauthorized, unexpected Prisma failure, transaction rollback
+// - Happy path, default columns, explicit columns, order normalization,
+//   description, status, featured, invalid input, ownership, unauthorized,
+//   unexpected Prisma failure, transaction rollback
 //
 // Run with: pnpm test:run tests/actions/createProject.test.ts
 //
@@ -96,6 +104,103 @@ describe('createProject', () => {
       { title: 'Done', order: 2 },
     ]);
     expect(columns.every((column) => column.projectId === db.project.rows[0]?.id)).toBe(true);
+  });
+
+  it('creates the given columns in normalized order in one transaction', async () => {
+    const result = await createProject({
+      title: 'Sprint board',
+      columns: [
+        { title: 'Ideas', order: 0 },
+        { title: 'Production', order: 1 },
+        { title: 'Published', order: 2 },
+      ],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+
+    const columns = columnsInOrder();
+    expect(columns.map((column) => ({ title: column.title, order: column.order }))).toEqual([
+      { title: 'Ideas', order: 0 },
+      { title: 'Production', order: 1 },
+      { title: 'Published', order: 2 },
+    ]);
+    expect(columns.every((column) => column.projectId === db.project.rows[0]?.id)).toBe(true);
+  });
+
+  it('normalizes client column order values to 0..n-1 by sorted order', async () => {
+    const result = await createProject({
+      title: 'Sprint board',
+      columns: [
+        { title: 'In progress', order: 5 },
+        { title: 'To do', order: 2 },
+        { title: 'Done', order: 9 },
+      ],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+
+    const columns = columnsInOrder();
+    expect(columns.map((column) => ({ title: column.title, order: column.order }))).toEqual([
+      { title: 'To do', order: 0 },
+      { title: 'In progress', order: 1 },
+      { title: 'Done', order: 2 },
+    ]);
+  });
+
+  it('rejects an empty column list', async () => {
+    const result = await createProject({ title: 'Sprint board', columns: [] });
+
+    expect(result).toEqual({
+      fieldErrors: { columns: 'At least one column is required' },
+    });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects more than 8 columns', async () => {
+    const columns = Array.from({ length: 9 }, (_, order) => ({
+      title: `Column ${order + 1}`,
+      order,
+    }));
+
+    const result = await createProject({ title: 'Sprint board', columns });
+
+    expect(result).toEqual({
+      fieldErrors: { columns: 'A project can have at most 8 columns' },
+    });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty column title', async () => {
+    const result = await createProject({
+      title: 'Sprint board',
+      columns: [{ title: '', order: 0 }],
+    });
+
+    expect(result).toEqual({ fieldErrors: { columns: 'Title is required' } });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects a whitespace-only column title', async () => {
+    const result = await createProject({
+      title: 'Sprint board',
+      columns: [{ title: '   ', order: 0 }],
+    });
+
+    expect(result).toEqual({ fieldErrors: { columns: 'Title is required' } });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('trims and stores a description', async () => {
@@ -263,6 +368,27 @@ describe('createProject', () => {
     db.membership.upsert.mockRejectedValueOnce(new Error(leakyMessage));
 
     const result = await createProject({ title: 'Sprint board', featured: true });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back featured create when membership upsert fails with custom columns', async () => {
+    const leakyMessage = 'PrismaClientKnownRequestError: membership upsert failed';
+    db.membership.upsert.mockRejectedValueOnce(new Error(leakyMessage));
+
+    const result = await createProject({
+      title: 'Sprint board',
+      featured: true,
+      columns: [
+        { title: 'Backlog', order: 0 },
+        { title: 'Done', order: 1 },
+      ],
+    });
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));

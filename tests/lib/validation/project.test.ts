@@ -10,9 +10,12 @@
 // - Accepts NEW, IN_PROGRESS, and PAUSED as status
 // - Rejects DONE and unknown status values
 // - Allows omitting featured; rejects a non-boolean featured value
+// - Allows omitting columns; accepts a valid explicit column list
+// - Rejects an empty column list, more than 8 columns, and empty or
+//   whitespace column titles
 //
 // What is covered:
-// - Happy path, invalid title, optional description/status/featured
+// - Happy path, invalid title, optional description/status/featured/columns
 //
 // Run with: pnpm test:run tests/lib/validation/project.test.ts
 //
@@ -78,5 +81,56 @@ describe('validateProject', () => {
     expect(
       validateProject({ title: 'Sprint board', featured: 'yes' } as { title: string }).featured,
     ).toBeTruthy();
+  });
+
+  it('allows omitting columns', () => {
+    expect(validateProject({ title: 'Sprint board' })).toEqual({});
+  });
+
+  it('allows a valid explicit column list', () => {
+    expect(
+      validateProject({
+        title: 'Sprint board',
+        columns: [
+          { title: 'Backlog', order: 2 },
+          { title: 'Done', order: 9 },
+        ],
+      }),
+    ).toEqual({});
+  });
+
+  it('rejects an empty column list', () => {
+    expect(validateProject({ title: 'Sprint board', columns: [] }).columns).toBe(
+      'At least one column is required',
+    );
+  });
+
+  it('rejects more than 8 columns', () => {
+    const columns = Array.from({ length: 9 }, (_, order) => ({
+      title: `Column ${order + 1}`,
+      order,
+    }));
+
+    expect(validateProject({ title: 'Sprint board', columns }).columns).toBe(
+      'A project can have at most 8 columns',
+    );
+  });
+
+  it('rejects an empty column title', () => {
+    expect(
+      validateProject({
+        title: 'Sprint board',
+        columns: [{ title: '', order: 0 }],
+      }).columns,
+    ).toBe('Title is required');
+  });
+
+  it('rejects a whitespace-only column title', () => {
+    expect(
+      validateProject({
+        title: 'Sprint board',
+        columns: [{ title: '   ', order: 0 }],
+      }).columns,
+    ).toBe('Title is required');
   });
 });
