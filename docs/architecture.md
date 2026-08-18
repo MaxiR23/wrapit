@@ -49,10 +49,12 @@ render as chips near the top.
 the real session, validates input, checks ownership, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
 `createProject` creates a project for the session user (optional description,
-status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds the default
-columns in one transaction. When `featured` is true it upserts the owner's
-membership with `starred: true` in that same transaction via
-`upsertOwnerMembershipStarred`.
+status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns in one
+transaction: an optional `columns` list (1–8 titles; client `order` is sorted
+then reassigned to `0..n-1`), or the blank template (**To do**, **In progress**,
+**Done**) from `src/lib/templates.ts` when `columns` is omitted. When `featured`
+is true it upserts the owner's membership with `starred: true` in that same
+transaction via `upsertOwnerMembershipStarred`.
 `setProjectStarred` writes `Membership.starred` to the given value (it does not
 read-then-invert). If the owner has no membership row it upserts one with role
 `OWNER` and that starred value through the same helper. `ProjectsView` shows
@@ -109,7 +111,8 @@ in `docs/kanban.md`.
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents); default columns
+    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
+    src/lib/templates.ts                project template catalog (id, name, ordered column titles)
     src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
@@ -124,12 +127,12 @@ in `docs/kanban.md`.
     src/lib/validation/signIn.ts        sign in rules
     src/lib/validation/forgotPassword.ts  forgot-password rules
     src/lib/validation/resetPassword.ts reset-password rules
-    src/lib/validation/project.ts       project title, optional description/status/featured
+    src/lib/validation/project.ts       project title, optional description/status/featured/columns
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
     src/lib/validation/viewMode.ts      projects grid/list viewMode
-    src/actions/createProject.ts        create a project, default columns, optional featured star
+    src/actions/createProject.ts        create a project, optional column list, optional featured star
     src/actions/setProjectStarred.ts    write Membership.starred (owner may get an OWNER row)
     src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
