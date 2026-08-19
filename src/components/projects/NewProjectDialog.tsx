@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X } from 'lucide-react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectStatusLabel } from '@/lib/projectGrid';
+import { getTemplateColumns, type ProjectTemplateId } from '@/lib/templates';
 import { cn } from '@/lib/utils';
 import {
   CREATE_PROJECT_STATUSES,
@@ -31,15 +32,36 @@ import {
 
 const statusToggleClassName = 'h-[30px] flex-1 rounded-[6px] px-3 text-[12.5px] font-medium';
 
+function columnsFromTemplate(templateId: ProjectTemplateId) {
+  const titles = getTemplateColumns(templateId) ?? getTemplateColumns('blank');
+  if (!titles) {
+    throw new Error('Blank template is missing');
+  }
+  return titles.map((title, order) => ({ title, order }));
+}
+
 const defaultValues: ProjectInput = {
   title: '',
   description: '',
   status: 'NEW',
   featured: false,
+  columns: columnsFromTemplate('blank'),
 };
 
-export default function NewProjectDialog({ children }: { children?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export default function NewProjectDialog({
+  children,
+  templateId = 'blank',
+  open: openProp,
+  onOpenChange,
+}: {
+  children?: ReactNode;
+  templateId?: ProjectTemplateId;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const isControlled = openProp !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? openProp : uncontrolledOpen;
   const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<ProjectInput>({
@@ -48,7 +70,20 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
   });
 
   const titleValue = useWatch({ control: form.control, name: 'title', defaultValue: '' });
+  const columns = useWatch({ control: form.control, name: 'columns' }) ?? [];
   const canCreate = titleValue.trim().length > 0 && !form.formState.isSubmitting;
+
+  useEffect(() => {
+    if (!open) return;
+    form.setValue('columns', columnsFromTemplate(templateId));
+  }, [form, open, templateId]);
+
+  function setOpen(nextOpen: boolean) {
+    if (!isControlled) {
+      setUncontrolledOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  }
 
   async function onSubmit(values: ProjectInput) {
     const result = await createProject({
@@ -56,6 +91,7 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
       description: values.description,
       status: values.status ?? 'NEW',
       featured: values.featured ?? false,
+      columns: (values.columns ?? []).map((column, order) => ({ title: column.title, order })),
     });
 
     if ('fieldErrors' in result) {
@@ -71,6 +107,9 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
       }
       if (fieldErrors.featured) {
         form.setError('featured', { message: fieldErrors.featured });
+      }
+      if (fieldErrors.columns) {
+        form.setError('columns', { message: fieldErrors.columns });
       }
       return;
     }
@@ -92,19 +131,28 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
         if (!nextOpen) {
           form.reset(defaultValues);
           setFormError(null);
+        } else {
+          form.reset({
+            ...defaultValues,
+            columns: columnsFromTemplate(templateId),
+          });
         }
       }}
     >
-      <DialogTrigger asChild>
-        {children ?? <Button type="button">New project</Button>}
-      </DialogTrigger>
+      {children ? (
+        <DialogTrigger asChild>{children}</DialogTrigger>
+      ) : isControlled ? null : (
+        <DialogTrigger asChild>
+          <Button type="button">New project</Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent
         showCloseButton={false}
         aria-modal="true"
-        overlayClassName="bg-black/62"
+        overlayClassName="z-[80] bg-black/62"
         onClick={(event) => event.stopPropagation()}
-        className="flex max-h-full w-full max-w-[540px] flex-col gap-0 overflow-hidden rounded-[14px] border border-border-strong bg-surface p-0 text-foreground shadow-[0_30px_70px_oklch(0_0_0/0.6)] sm:max-w-[540px]"
+        className="z-[80] flex max-h-full w-full max-w-[540px] flex-col gap-0 overflow-hidden rounded-[14px] border border-border-strong bg-surface p-0 text-foreground shadow-[0_30px_70px_oklch(0_0_0/0.6)] sm:max-w-[540px]"
       >
         <form
           noValidate
@@ -120,7 +168,7 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
                 New project
               </DialogTitle>
               <DialogDescription className="text-[12.5px] text-muted-foreground">
-                Created with the board&apos;s default columns
+                You can rename the columns before creating.
               </DialogDescription>
             </div>
             <DialogClose asChild>
@@ -200,6 +248,45 @@ export default function NewProjectDialog({ children }: { children?: ReactNode })
                   </Field>
                 )}
               />
+
+              <Field className="gap-[7px]">
+                <FieldLabel className="text-xs font-medium text-muted-foreground">
+                  Columns
+                </FieldLabel>
+                {columns.map((_, index) => (
+                  <Controller
+                    key={index}
+                    name={`columns.${index}.title`}
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid} className="gap-[7px]">
+                        <Input
+                          {...field}
+                          id={`new-project-column-${index}`}
+                          aria-label={`Column ${index + 1}`}
+                          autoComplete="off"
+                          aria-invalid={fieldState.invalid}
+                          aria-describedby={
+                            fieldState.invalid ? `new-project-column-${index}-error` : undefined
+                          }
+                          className="h-[38px] rounded-md bg-background px-3 text-[13.5px]"
+                        />
+                        {fieldState.invalid && (
+                          <FieldError
+                            id={`new-project-column-${index}-error`}
+                            errors={[fieldState.error]}
+                          />
+                        )}
+                      </Field>
+                    )}
+                  />
+                ))}
+                {form.formState.errors.columns &&
+                'message' in form.formState.errors.columns &&
+                form.formState.errors.columns.message ? (
+                  <FieldError>{form.formState.errors.columns.message}</FieldError>
+                ) : null}
+              </Field>
 
               <Controller
                 name="status"

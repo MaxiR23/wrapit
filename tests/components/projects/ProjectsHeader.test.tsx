@@ -7,9 +7,13 @@
 // - Shows "N projects" for zero and many
 // - Opens the existing new-project dialog from the New project button
 // - Enables the list option and reports the pressed view
+// - With no projects the toggle is faded on mobile and hidden from md up
+// - With no projects the view buttons are disabled and keyboard activation
+//   does not change the view
 //
 // What is covered:
-// - Pluralization of the count label, create-project trigger, grid/list toggle
+// - Pluralization of the count label, create-project trigger, grid/list toggle,
+//   empty-state toggle treatment
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsHeader.test.tsx
 //
@@ -65,5 +69,39 @@ describe('ProjectsHeader', () => {
 
     await user.click(list);
     expect(onViewChange).toHaveBeenCalledWith('list');
+  });
+
+  it('fades the mobile toggle and hides it from md up when there are no projects', () => {
+    render(<ProjectsHeader count={0} view="grid" onViewChange={vi.fn()} hasProjects={false} />);
+
+    const toggle = screen.getByRole('button', { name: 'Grid' }).parentElement;
+    expect(toggle).toHaveClass('opacity-35');
+    expect(toggle).toHaveClass('md:hidden');
+    expect(screen.getByRole('button', { name: 'New project' })).toBeInTheDocument();
+  });
+
+  it('disables the view buttons when there are no projects so keyboard cannot change the view', async () => {
+    const user = userEvent.setup();
+    const onViewChange = vi.fn();
+    render(
+      <ProjectsHeader count={0} view="grid" onViewChange={onViewChange} hasProjects={false} />,
+    );
+
+    const grid = screen.getByRole('button', { name: 'Grid' });
+    const list = screen.getByRole('button', { name: 'List' });
+
+    expect(grid).toBeDisabled();
+    expect(list).toBeDisabled();
+    expect(grid).toHaveAttribute('aria-disabled', 'true');
+    expect(list).toHaveAttribute('aria-disabled', 'true');
+
+    grid.focus();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+    list.focus();
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+
+    expect(onViewChange).not.toHaveBeenCalled();
   });
 });

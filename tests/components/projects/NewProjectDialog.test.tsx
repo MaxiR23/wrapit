@@ -5,16 +5,24 @@
 // Tested:
 // - Create project is disabled when the name is empty or whitespace, enabled
 //   when it has content
-// - Submitting sends title, description, chosen status, and featured to
-//   createProject
+// - Submitting sends title, description, chosen status, featured, and the
+//   blank template columns to createProject
+// - A preselected template sends that template's columns to createProject
+// - Opening with a template shows those columns as editable inputs in order
+// - Renaming a column sends the edited titles with order 0..n-1
+// - A blank or whitespace column name blocks submit and shows the error on
+//   that row
+// - The default (blank) template shows To do, In progress, and Done
+// - Changing templateId while the dialog is open resets the column list
 // - Status options map to NEW / IN_PROGRESS / PAUSED; default is NEW
 // - Escape and backdrop click close the modal; a click inside does not
 // - Opens from the default trigger and from a provided trigger
 // - On success the modal closes; on a field error the message shows
 //
 // What is covered:
-// - Submit payload, status mapping, featured flag, close behavior, both
-//   triggers, success and field-error paths
+// - Submit payload including template columns, rename, per-row column
+//   validation, status mapping, featured flag, close behavior, both triggers,
+//   success and field-error paths
 //
 // Run with: pnpm test:run tests/components/projects/NewProjectDialog.test.tsx
 //
@@ -85,8 +93,116 @@ describe('NewProjectDialog', () => {
         description: 'Ship the kanban slice',
         status: 'IN_PROGRESS',
         featured: true,
+        columns: [
+          { title: 'To do', order: 0 },
+          { title: 'In progress', order: 1 },
+          { title: 'Done', order: 2 },
+        ],
       });
     });
+  });
+
+  it('sends the preselected template columns to createProject', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog templateId="product" />);
+    await openDialog(user);
+
+    await user.type(screen.getByLabelText('Name'), 'Launch board');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => {
+      expect(createProject).toHaveBeenCalledWith({
+        title: 'Launch board',
+        description: '',
+        status: 'NEW',
+        featured: false,
+        columns: [
+          { title: 'Backlog', order: 0 },
+          { title: 'In progress', order: 1 },
+          { title: 'In review', order: 2 },
+          { title: 'Done', order: 3 },
+        ],
+      });
+    });
+  });
+
+  it('shows the product template columns as editable inputs in order', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog templateId="product" />);
+    await openDialog(user);
+
+    expect(screen.getByLabelText('Column 1')).toHaveValue('Backlog');
+    expect(screen.getByLabelText('Column 2')).toHaveValue('In progress');
+    expect(screen.getByLabelText('Column 3')).toHaveValue('In review');
+    expect(screen.getByLabelText('Column 4')).toHaveValue('Done');
+  });
+
+  it('sends renamed columns with order 0..n-1 to createProject', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog templateId="product" />);
+    await openDialog(user);
+
+    await user.type(screen.getByLabelText('Name'), 'Launch board');
+    await user.clear(screen.getByLabelText('Column 1'));
+    await user.type(screen.getByLabelText('Column 1'), 'Ideas');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => {
+      expect(createProject).toHaveBeenCalledWith({
+        title: 'Launch board',
+        description: '',
+        status: 'NEW',
+        featured: false,
+        columns: [
+          { title: 'Ideas', order: 0 },
+          { title: 'In progress', order: 1 },
+          { title: 'In review', order: 2 },
+          { title: 'Done', order: 3 },
+        ],
+      });
+    });
+  });
+
+  it('blocks submit and shows an error on a blank column name', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog templateId="product" />);
+    await openDialog(user);
+
+    await user.type(screen.getByLabelText('Name'), 'Launch board');
+    await user.clear(screen.getByLabelText('Column 2'));
+    await user.type(screen.getByLabelText('Column 2'), '   ');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    expect(await screen.findByText('Title is required')).toBeInTheDocument();
+    expect(screen.getByLabelText('Column 2')).toHaveAttribute('aria-invalid', 'true');
+    expect(createProject).not.toHaveBeenCalled();
+  });
+
+  it('shows the blank template columns as editable inputs', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog />);
+    await openDialog(user);
+
+    expect(screen.getByLabelText('Column 1')).toHaveValue('To do');
+    expect(screen.getByLabelText('Column 2')).toHaveValue('In progress');
+    expect(screen.getByLabelText('Column 3')).toHaveValue('Done');
+    expect(screen.queryByLabelText('Column 4')).not.toBeInTheDocument();
+  });
+
+  it('resets the column list when templateId changes while open', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<NewProjectDialog templateId="product" />);
+    await openDialog(user);
+
+    expect(screen.getByLabelText('Column 1')).toHaveValue('Backlog');
+    expect(screen.getByLabelText('Column 4')).toHaveValue('Done');
+
+    rerender(<NewProjectDialog templateId="sprint" />);
+
+    expect(screen.getByLabelText('Column 1')).toHaveValue('Backlog');
+    expect(screen.getByLabelText('Column 3')).toHaveValue('Review');
+    expect(screen.getByLabelText('Column 4')).toHaveValue('Demo');
+    expect(screen.getByLabelText('Column 5')).toHaveValue('Done');
   });
 
   it('maps status options to the createProject enums and defaults to NEW', async () => {

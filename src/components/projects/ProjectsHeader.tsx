@@ -16,10 +16,12 @@ export default function ProjectsHeader({
   count,
   view,
   onViewChange,
+  hasProjects = true,
 }: {
   count: number;
   view: ProjectsViewMode;
   onViewChange: (view: ProjectsViewMode) => void;
+  hasProjects?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-3 md:gap-2.5 lg:gap-3">
@@ -32,10 +34,17 @@ export default function ProjectsHeader({
         </span>
       </div>
 
-      <div className="flex gap-[3px] rounded-md border border-border bg-surface p-[3px]">
+      <div
+        className={cn(
+          'flex gap-[3px] rounded-md border border-border bg-surface p-[3px]',
+          !hasProjects && 'opacity-35 md:hidden',
+        )}
+      >
         <button
           type="button"
           aria-pressed={view === 'grid'}
+          aria-disabled={hasProjects ? undefined : true}
+          disabled={!hasProjects}
           onClick={() => onViewChange('grid')}
           className={cn(
             shellFocusClassName,
@@ -48,6 +57,8 @@ export default function ProjectsHeader({
         <button
           type="button"
           aria-pressed={view === 'list'}
+          aria-disabled={hasProjects ? undefined : true}
+          disabled={!hasProjects}
           onClick={() => onViewChange('list')}
           className={cn(
             shellFocusClassName,

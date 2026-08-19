@@ -93,6 +93,11 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --animate-fadebob: fadebob 1.8s ease-in-out infinite;
+  --animate-empty-demo-col: empty-demo-col 6s ease-in-out infinite;
+  --animate-empty-demo-card: empty-demo-card-move 6s linear infinite;
+  --animate-empty-demo-slot: empty-demo-slot 6s ease-in-out infinite;
+  --animate-empty-demo-ring: empty-demo-ring 6s ease-out infinite;
+  --animate-empty-demo-check: empty-demo-check 6s ease-out infinite;
 }
 
 @keyframes fadebob {
@@ -107,6 +112,118 @@
   100% {
     opacity: 0.35;
     transform: translateY(-4px);
+  }
+}
+
+.empty-demo-board {
+  /*
+   * Inner track is 326px (358 frame - 2 border - 28 padding) across 3 columns with gap 8px.
+   * Recompute --demo-card-width, --demo-col-step, and --demo-ring-left together if frame or padding changes.
+   */
+  --demo-card-width: 103.33px;
+  --demo-col-step: 111.33px;
+  --demo-ring-left: 236.67px; /* 14 + 2 * step */
+}
+
+@keyframes empty-demo-col {
+  0% {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  10%,
+  84% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes empty-demo-card-move {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  24%,
+  33% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  41%,
+  55% {
+    opacity: 1;
+    transform: translateX(var(--demo-col-step));
+  }
+  63%,
+  86% {
+    opacity: 1;
+    transform: translateX(calc(2 * var(--demo-col-step)));
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateX(calc(2 * var(--demo-col-step)));
+  }
+}
+
+@keyframes empty-demo-slot {
+  0%,
+  36% {
+    opacity: 0;
+  }
+  44%,
+  86% {
+    opacity: 0.6;
+  }
+  92%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes empty-demo-ring {
+  0%,
+  60% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  67% {
+    opacity: 0.45;
+    transform: scale(1.04);
+  }
+  79%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes empty-demo-check {
+  0%,
+  64% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  71%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-demo-board,
+  .empty-demo-board * {
+    animation: none !important;
   }
 }
 
