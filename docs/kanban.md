@@ -50,6 +50,21 @@ projects the user opened, as chips. Search filters
 that payload in the client by title (case-insensitive includes) and does not
 re-query the server. The grid/list choice is stored in `UserPreferences.viewMode`.
 
+Zero projects is a distinct empty state from an empty search. `ProjectsView`
+renders `ProjectsEmptyState` instead of Recents, Starred, and the grid/list.
+The grid/list toggle is hidden from tablet up and left disabled (faded, not
+in the tab order) on mobile. The empty state lists the nine templates from `listProjectTemplates()`:
+desktop and tablet show them in the dashed box; mobile opens a pushed Templates
+screen using the same dialog primitive as `NewProjectDialog` (focus trap, Escape,
+inert background, focus restored to View templates). On mobile, a CSS-only demo
+board sits below the dashed card (`md:hidden`); `prefers-reduced-motion: reduce`
+leaves it assembled with the traveling card in To do. Picking a template and
+pressing the CTA opens `NewProjectDialog` with that template's columns as
+rename-only inputs (no add, remove, or reorder). The header New project and
+mobile + triggers still open it on Blank. Submit sends the edited titles to
+`createProject` as `{ title, order }[]` with order `0..n-1`. Blank column names
+are rejected on that row with the same title required message as the server.
+
 `Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
 `project.createdAt` when there are no cards.
 
@@ -161,8 +176,11 @@ src/lib/templates.ts                project template catalog (id, name, ordered 
 src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress for the projects grid and list
-src/components/projects/ProjectsView.tsx  grid/list toggle (client)
-src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured)
+src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
+src/components/projects/ProjectsEmptyState.tsx  dashed empty box, template picker, mobile Templates screen
+src/components/projects/EmptyDemoBoard.tsx  mobile empty-state CSS demo board
+src/components/projects/ProjectTemplateRow.tsx  single-select template row
+src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured, rename-only columns)
 src/components/projects/ProjectList.tsx   projects table
 src/components/projects/ProjectKanban.tsx   DnD context, queue, commit
 src/components/projects/KanbanColumn.tsx  droppable column

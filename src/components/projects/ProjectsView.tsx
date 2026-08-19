@@ -7,6 +7,7 @@ import { setProjectStarred } from '@/actions/setProjectStarred';
 import { updateViewMode } from '@/actions/updateViewMode';
 import ProjectGrid from '@/components/projects/ProjectGrid';
 import ProjectList from '@/components/projects/ProjectList';
+import ProjectsEmptyState from '@/components/projects/ProjectsEmptyState';
 import ProjectsHeader, { type ProjectsViewMode } from '@/components/projects/ProjectsHeader';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import RecentProjects from '@/components/projects/RecentProjects';
@@ -53,7 +54,8 @@ export default function ProjectsView({
   }));
   const starred = visible.filter((project) => project.starred);
   const rest = visible.filter((project) => !project.starred);
-  const noMatches = visible.length === 0 && query.trim() !== '';
+  const isEmpty = projects.length === 0;
+  const noMatches = !isEmpty && visible.length === 0 && query.trim() !== '';
 
   function starWriteFor(projectId: string): StarWrite {
     let entry = starWritesRef.current.get(projectId);
@@ -132,30 +134,45 @@ export default function ProjectsView({
 
   return (
     <>
-      <ProjectsHeader count={visible.length} view={view} onViewChange={handleViewChange} />
+      <ProjectsHeader
+        count={visible.length}
+        view={view}
+        onViewChange={handleViewChange}
+        hasProjects={!isEmpty}
+      />
       {starError ? (
         <p role="alert" className="text-sm text-destructive">
           {starError}
         </p>
       ) : null}
-      {recentProjects.length > 0 ? <RecentProjects projects={recentProjects} /> : null}
-      {noMatches ? (
-        <p className="text-sm text-muted-foreground">No projects match your search.</p>
+      {isEmpty ? (
+        <ProjectsEmptyState />
       ) : (
         <>
-          <StarredProjects projects={starred} onToggle={handleToggle} />
-          {rest.length > 0 ? (
-            view === 'list' ? (
-              <>
-                <div className="md:hidden">
+          {recentProjects.length > 0 ? <RecentProjects projects={recentProjects} /> : null}
+          {noMatches ? (
+            <p className="text-sm text-muted-foreground">No projects match your search.</p>
+          ) : (
+            <>
+              <StarredProjects projects={starred} onToggle={handleToggle} />
+              {rest.length > 0 ? (
+                view === 'list' ? (
+                  <>
+                    <div className="md:hidden">
+                      <ProjectGrid projects={rest} onToggle={handleToggle} />
+                    </div>
+                    <ProjectList
+                      projects={rest}
+                      className="hidden md:block"
+                      onToggle={handleToggle}
+                    />
+                  </>
+                ) : (
                   <ProjectGrid projects={rest} onToggle={handleToggle} />
-                </div>
-                <ProjectList projects={rest} className="hidden md:block" onToggle={handleToggle} />
-              </>
-            ) : (
-              <ProjectGrid projects={rest} onToggle={handleToggle} />
-            )
-          ) : null}
+                )
+              ) : null}
+            </>
+          )}
         </>
       )}
     </>

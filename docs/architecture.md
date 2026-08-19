@@ -43,7 +43,8 @@ preferences row is not an error: the helper returns GRID defaults. The client
 never talks to Prisma for project data. The projects list search filters those
 already-loaded summaries in the client by title (case-insensitive includes).
 Starred summaries sit in a Starred section above the main grid/list; recents
-render as chips near the top.
+render as chips near the top. Zero projects render `ProjectsEmptyState` instead
+of that list (distinct from an empty search).
 
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input, checks ownership, then mutates. Preferences
@@ -144,7 +145,7 @@ in `docs/kanban.md`.
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
-    src/app/projects/page.tsx           projects shell, recents, starred, grid and list
+    src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
     src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404; records recent)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
@@ -155,7 +156,7 @@ in `docs/kanban.md`.
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, NewProjectDialog, ProjectKanban, column dialogs
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

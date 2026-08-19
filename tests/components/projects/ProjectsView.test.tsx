@@ -1,8 +1,11 @@
 // tests/components/projects/ProjectsView.test.tsx
 //
-// Tests for the projects grid/list toggle, mobile list fallback, and search.
+// Tests for the projects grid/list toggle, mobile list fallback, search, and empty state.
 //
 // Tested:
+// - Zero projects render the empty state and hide Recents, Starred, and the
+//   usable grid/list toggle
+// - One or more projects render the grid and not the empty state
 // - Defaults to the card grid
 // - Seeds the list from the initialView prop on first paint
 // - Switching to list shows the table on md+ and cards below md
@@ -27,7 +30,7 @@
 // What is covered:
 // - Client-side view toggle, initial seed, persistence, last-write-wins,
 //   mobile card fallback, in-memory title search, starred section, recents,
-//   per-project star write coalescing, optimistic star rollback
+//   per-project star write coalescing, optimistic star rollback, empty state
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsView.test.tsx
 //
@@ -519,5 +522,28 @@ describe('ProjectsView', () => {
     renderView(<ProjectsView projects={[project]} recentProjects={[]} />);
 
     expect(screen.queryByText('Recents')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty state and hides Recents, Starred, and the usable toggle when there are no projects', () => {
+    renderView(<ProjectsView projects={[]} recentProjects={[project]} />);
+
+    expect(screen.getByText('No projects yet')).toBeInTheDocument();
+    expect(screen.queryByText('Recents')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Starred' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Sprint board/ })).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: 'Grid' }).parentElement;
+    expect(toggle).toHaveClass('opacity-35');
+    expect(toggle).toHaveClass('md:hidden');
+  });
+
+  it('renders the grid and not the empty state when there is at least one project', () => {
+    renderView(<ProjectsView projects={[project]} />);
+
+    expect(screen.queryByText('No projects yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Sprint board/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Grid' }).parentElement).not.toHaveClass(
+      'opacity-35',
+    );
   });
 });
