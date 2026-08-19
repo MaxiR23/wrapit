@@ -4,7 +4,6 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
-import { upsertOwnerMembershipStarred } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH } from '@/lib/routes';
@@ -84,9 +83,14 @@ export async function createProject(input: {
         });
       }
 
-      if (parsed.data.featured) {
-        await upsertOwnerMembershipStarred(tx, session.user.id, created.id, true);
-      }
+      await tx.membership.create({
+        data: {
+          userId: session.user.id,
+          projectId: created.id,
+          role: 'OWNER',
+          starred: parsed.data.featured === true,
+        },
+      });
 
       return created;
     });

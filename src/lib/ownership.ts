@@ -1,17 +1,18 @@
+import { accessibleByUser } from '@/lib/membership';
 import { prisma } from '@/lib/prisma';
 
 /**
- * A column that sits on a project owned by the given user.
- * Returns null when the column is missing or belongs to someone else.
+ * A column that sits on a project the given user can access.
+ * Returns null when the column is missing or the user has no membership.
  */
-export async function getColumnForUser(columnId: string, ownerId: string) {
+export async function getColumnForUser(columnId: string, userId: string) {
   const column = await prisma.column.findFirst({
     where: { id: columnId },
   });
   if (!column) return null;
 
   const project = await prisma.project.findFirst({
-    where: { id: column.projectId, ownerId },
+    where: { id: column.projectId, ...accessibleByUser(userId) },
   });
   if (!project) return null;
 
@@ -19,16 +20,16 @@ export async function getColumnForUser(columnId: string, ownerId: string) {
 }
 
 /**
- * A card reached through column and project ownership for the given user.
- * Returns null when any link in the chain is missing or not owned.
+ * A card reached through column and project membership for the given user.
+ * Returns null when any link in the chain is missing or not accessible.
  */
-export async function getCardForUser(cardId: string, ownerId: string) {
+export async function getCardForUser(cardId: string, userId: string) {
   const card = await prisma.card.findFirst({
     where: { id: cardId },
   });
   if (!card) return null;
 
-  const owned = await getColumnForUser(card.columnId, ownerId);
+  const owned = await getColumnForUser(card.columnId, userId);
   if (!owned) return null;
 
   return { card, column: owned.column, project: owned.project };

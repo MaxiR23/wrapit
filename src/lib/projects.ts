@@ -1,3 +1,4 @@
+import { accessibleByUser } from '@/lib/membership';
 import {
   formatUpdatedAt,
   latestActivityAt,
@@ -9,21 +10,21 @@ import {
 } from '@/lib/projectGrid';
 import { prisma } from '@/lib/prisma';
 
-/** Projects owned by the given user, newest first. */
-export function listProjectsForUser(ownerId: string) {
+/** Projects the user is a member of, newest first. */
+export function listProjectsForUser(userId: string) {
   return prisma.project.findMany({
-    where: { ownerId },
+    where: accessibleByUser(userId),
     orderBy: { createdAt: 'desc' },
   });
 }
 
 /**
- * A single project owned by the given user, with its columns and cards in order.
- * Returns null when the project does not exist or belongs to someone else.
+ * A single project the user is a member of, with its columns and cards in order.
+ * Returns null when the project does not exist or the user has no membership.
  */
-export async function getProjectForUser(projectId: string, ownerId: string) {
+export async function getProjectForUser(projectId: string, userId: string) {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, ownerId },
+    where: { id: projectId, ...accessibleByUser(userId) },
   });
   if (!project) return null;
 
@@ -62,12 +63,12 @@ function asUserRow(
 }
 
 /**
- * Owned projects for the grid: progress, members, relative updated time.
- * Newest first. Does not include projects the user only belongs to as a member.
+ * Accessible projects for the grid: progress, members, relative updated time.
+ * Newest first. Includes any project the user has a Membership on.
  */
 export async function listProjectSummariesForUser(userId: string): Promise<ProjectSummary[]> {
   const projects = await prisma.project.findMany({
-    where: { ownerId: userId },
+    where: accessibleByUser(userId),
     orderBy: { createdAt: 'desc' },
   });
   if (projects.length === 0) return [];
@@ -141,12 +142,12 @@ export async function listProjectSummariesForUser(userId: string): Promise<Proje
   });
 }
 
-/** Latest owned projects the user opened, most recent first. Capped at 4 after access. */
+/** Latest accessible projects the user opened, most recent first. Capped at 4 after access. */
 export function listRecentProjectsForUser(userId: string) {
   return prisma.recentProject.findMany({
     where: {
       userId,
-      project: { ownerId: userId },
+      project: accessibleByUser(userId),
     },
     orderBy: { openedAt: 'desc' },
     take: 4,

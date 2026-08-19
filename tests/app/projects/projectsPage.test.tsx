@@ -7,7 +7,7 @@
 // - Shows the pluralized project count
 // - Renders the saved list view on first paint
 // - Renders recents chips in query order, mapping ids to loaded summaries
-// - Does not render a chip for a foreign or membership-based recent
+// - Does not render a chip for a recent that is not in the loaded summaries
 // - Redirects when there is no session
 //
 // What is covered:
@@ -199,7 +199,7 @@ describe('Projects page', () => {
     ]);
   });
 
-  it('does not render a chip for a foreign or membership-based recent', async () => {
+  it('does not render a chip for a recent that is not in the loaded summaries', async () => {
     const emptyBoard = {
       ...sprintBoard,
       id: 'project-2',

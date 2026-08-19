@@ -4,7 +4,6 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
-import { upsertOwnerMembershipStarred } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH } from '@/lib/routes';
@@ -24,24 +23,14 @@ export async function setProjectStarred(
     const membership = await prisma.membership.findFirst({
       where: { userId: session.user.id, projectId },
     });
-
-    if (membership) {
-      await prisma.membership.update({
-        where: { id: membership.id },
-        data: { starred },
-      });
-      revalidatePath(PROJECTS_PATH);
-      return { data: { starred } };
-    }
-
-    const owned = await prisma.project.findFirst({
-      where: { id: projectId, ownerId: session.user.id },
-    });
-    if (!owned) {
+    if (!membership) {
       return { error: 'Unauthorized' };
     }
 
-    await upsertOwnerMembershipStarred(prisma, session.user.id, owned.id, starred);
+    await prisma.membership.update({
+      where: { id: membership.id },
+      data: { starred },
+    });
     revalidatePath(PROJECTS_PATH);
     return { data: { starred } };
   } catch {

@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -43,8 +44,9 @@ const { updateCard } = await import('@/actions/updateCard');
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada' };
 
 async function seedOwnedCard() {
-  const project = await db.project.create({
-    data: { title: 'Sprint board', ownerId: sessionUser.id },
+  const project = await seedAccessibleProject(db, {
+    title: 'Sprint board',
+    userId: sessionUser.id,
   });
   const column = await db.column.create({
     data: { title: 'To do', order: 1, projectId: project.id },

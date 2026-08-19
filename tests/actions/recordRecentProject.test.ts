@@ -5,7 +5,8 @@
 // Tested:
 // - Creates a RecentProject row the first time the user opens a project
 // - Updates openedAt when the row already exists
-// - No-ops when the user is not the owner, even with a membership
+// - No-ops when the user is not a member
+// - Records a recent when the user is a member but not the creator
 // - No-ops when there is no session
 // - No-ops when getSession rejects
 // - No-ops when Prisma fails unexpectedly
@@ -21,6 +22,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -47,8 +49,9 @@ describe('recordRecentProject', () => {
   });
 
   it('creates a RecentProject row the first time the user opens a project they own', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
 
     await recordRecentProject(project.id);
@@ -64,8 +67,9 @@ describe('recordRecentProject', () => {
   });
 
   it('updates openedAt when the RecentProject row already exists', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const openedAt = new Date('2026-01-01T00:00:00.000Z');
     await db.recentProject.create({
@@ -84,22 +88,23 @@ describe('recordRecentProject', () => {
     expect((nextOpenedAt as Date).getTime()).toBeGreaterThan(openedAt.getTime());
   });
 
-  it('does nothing when the user has a membership but is not the owner', async () => {
-    const project = await db.project.create({
-      data: { title: 'Shared board', ownerId: 'user-other' },
-    });
-    await db.membership.create({
-      data: {
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'MEMBER',
-        starred: false,
-      },
+  it('records a recent when the user is a member but not the creator', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: sessionUser.id,
+      ownerId: 'user-other',
+      role: 'MEMBER',
     });
 
     await recordRecentProject(project.id);
 
-    expect(db.recentProject.rows).toHaveLength(0);
+    expect(db.recentProject.rows).toHaveLength(1);
+    expect(db.recentProject.rows[0]).toEqual(
+      expect.objectContaining({
+        userId: sessionUser.id,
+        projectId: project.id,
+      }),
+    );
   });
 
   it('does nothing when the user cannot access the project', async () => {
@@ -133,8 +138,9 @@ describe('recordRecentProject', () => {
   });
 
   it('does nothing when Prisma fails unexpectedly', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const leakyMessage =
       'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused for user "wrapit"';

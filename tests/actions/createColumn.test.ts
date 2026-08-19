@@ -5,7 +5,8 @@
 // Tested:
 // - Creates a column on the owner's project with an appending order
 // - Rejects an empty title with a clear field error
-// - Rejects creating on a project the user does not own
+// - Creates a column when the user is a MEMBER, not the creator
+// - Rejects creating on a project the user is not a member of
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 //
@@ -19,6 +20,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -50,8 +52,9 @@ describe('createColumn', () => {
   });
 
   it('creates a column on the owner project with an appending order', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -71,8 +74,9 @@ describe('createColumn', () => {
   });
 
   it('assigns order 1 when the project has no columns yet', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
 
     const result = await createColumn({ projectId: project.id, title: 'To do' });
@@ -97,7 +101,25 @@ describe('createColumn', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('rejects creating on a project the user does not own', async () => {
+  it('creates a column when the user is a MEMBER, not the creator', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: sessionUser.id,
+      ownerId: 'user-other',
+      role: 'MEMBER',
+    });
+
+    const result = await createColumn({ projectId: project.id, title: 'To do' });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        title: 'To do',
+        projectId: project.id,
+      }),
+    });
+  });
+
+  it('rejects creating on a project the user is not a member of', async () => {
     const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
@@ -123,8 +145,9 @@ describe('createColumn', () => {
   });
 
   it('returns a generic error when Prisma fails unexpectedly', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const leakyMessage =
       'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused for user "wrapit"';
