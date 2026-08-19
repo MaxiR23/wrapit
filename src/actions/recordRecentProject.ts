@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 
 import { auth } from '@/lib/auth';
+import { accessibleByUser } from '@/lib/membership';
 import { prisma } from '@/lib/prisma';
 
 export async function recordRecentProject(projectId: string): Promise<void> {
@@ -13,7 +14,7 @@ export async function recordRecentProject(projectId: string): Promise<void> {
     }
 
     const project = await prisma.project.findFirst({
-      where: { id: projectId, ownerId: session.user.id },
+      where: { id: projectId, ...accessibleByUser(session.user.id) },
     });
     if (!project) {
       return;

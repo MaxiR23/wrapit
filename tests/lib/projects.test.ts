@@ -3,20 +3,21 @@
 // Tests for listing projects and loading a single project for a user.
 //
 // Tested:
-// - Returns only projects owned by the given user
+// - Returns only projects the user is a member of
+// - Includes a project the user is a MEMBER of, not the creator
 // - Returns projects newest first
-// - Returns an empty list when the user has no projects
-// - Returns the project with columns in order for the owner
+// - Returns an empty list when the user has no memberships
+// - Returns the project with columns in order for a member
 // - Returns each column with its cards in order
-// - Returns null for a non-owner or unknown project id
+// - Returns null for a non-member or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
-// - Recents are at most 4 after owner-only access filtering, most recent first,
-//   and scoped to the user. Inaccessible and membership-only rows do not
-//   consume the cap and are not returned.
+// - Recents are at most 4 after membership access filtering, most recent first,
+//   and scoped to the user. Inaccessible rows do not consume the cap.
+//   Membership-only recents are returned.
 //
 // What is covered:
-// - Happy path, ownership isolation, empty list, project detail with cards,
-//   grid summaries, recents owner-only access filter
+// - Happy path, membership isolation, empty list, project detail with cards,
+//   grid summaries, recents membership access filter
 //
 // Run with: pnpm test:run tests/lib/projects.test.ts
 //
@@ -25,6 +26,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
@@ -41,9 +43,11 @@ describe('listProjectsForUser', () => {
     db.reset();
   });
 
-  it('returns only projects owned by the given user', async () => {
-    await db.project.create({
-      data: { title: 'Ada board', ownerId: 'user-ada', createdAt: new Date('2026-01-01') },
+  it('returns only projects the user is a member of', async () => {
+    await seedAccessibleProject(db, {
+      title: 'Ada board',
+      userId: 'user-ada',
+      createdAt: new Date('2026-01-01'),
     });
     await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other', createdAt: new Date('2026-01-02') },
@@ -56,12 +60,31 @@ describe('listProjectsForUser', () => {
     expect(projects.every((project) => project.ownerId === 'user-ada')).toBe(true);
   });
 
-  it('returns projects newest first', async () => {
-    await db.project.create({
-      data: { title: 'Older', ownerId: 'user-ada', createdAt: new Date('2026-01-01') },
+  it('includes a project the user is a MEMBER of, not the creator', async () => {
+    await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: 'user-ada',
+      ownerId: 'user-other',
+      role: 'MEMBER',
     });
-    await db.project.create({
-      data: { title: 'Newer', ownerId: 'user-ada', createdAt: new Date('2026-06-01') },
+
+    const projects = await listProjectsForUser('user-ada');
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.title).toBe('Shared board');
+    expect(projects[0]?.ownerId).toBe('user-other');
+  });
+
+  it('returns projects newest first', async () => {
+    await seedAccessibleProject(db, {
+      title: 'Older',
+      userId: 'user-ada',
+      createdAt: new Date('2026-01-01'),
+    });
+    await seedAccessibleProject(db, {
+      title: 'Newer',
+      userId: 'user-ada',
+      createdAt: new Date('2026-06-01'),
     });
 
     const projects = await listProjectsForUser('user-ada');
@@ -83,9 +106,10 @@ describe('getProjectForUser', () => {
     db.reset();
   });
 
-  it('returns the project with columns in order for the owner', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: 'user-ada' },
+  it('returns the project with columns in order for a member', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
     });
     await db.column.create({
       data: { title: 'Done', order: 2, projectId: project.id },
@@ -108,8 +132,9 @@ describe('getProjectForUser', () => {
   });
 
   it('returns each column with its cards in order', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
     });
     const todo = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -133,7 +158,7 @@ describe('getProjectForUser', () => {
     expect(result?.columns[1]?.cards.map((card) => card.title)).toEqual(['Finished']);
   });
 
-  it('returns null for a non-owner', async () => {
+  it('returns null for a non-member', async () => {
     const project = await db.project.create({
       data: { title: 'Ada board', ownerId: 'user-ada' },
     });
@@ -151,20 +176,18 @@ describe('listProjectSummariesForUser', () => {
     db.reset();
   });
 
-  it('returns computed progress, members, and status for owned projects', async () => {
+  it('returns computed progress, members, and status for accessible projects', async () => {
     await db.user.create({
       data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
     await db.user.create({
       data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
     });
-    const project = await db.project.create({
-      data: {
-        title: 'Sprint board',
-        ownerId: 'user-ada',
-        status: 'IN_PROGRESS',
-        createdAt: new Date('2026-01-01'),
-      },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+      status: 'IN_PROGRESS',
+      createdAt: new Date('2026-01-01'),
     });
     const todo = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -204,8 +227,10 @@ describe('listProjectSummariesForUser', () => {
     await db.user.create({
       data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
-    await db.project.create({
-      data: { title: 'Empty board', ownerId: 'user-ada', status: 'NEW' },
+    await seedAccessibleProject(db, {
+      title: 'Empty board',
+      userId: 'user-ada',
+      status: 'NEW',
     });
 
     const summaries = await listProjectSummariesForUser('user-ada');
@@ -224,7 +249,7 @@ describe('listProjectSummariesForUser', () => {
     ]);
   });
 
-  it('does not include projects owned by someone else', async () => {
+  it('does not include projects the user is not a member of', async () => {
     await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
@@ -239,8 +264,10 @@ describe('listRecentProjectsForUser', () => {
   });
 
   async function ownedRecent(title: string, openedAt: string, ownerId = 'user-ada') {
-    const project = await db.project.create({
-      data: { title, ownerId },
+    const project = await seedAccessibleProject(db, {
+      title,
+      userId: 'user-ada',
+      ownerId,
     });
     await db.recentProject.create({
       data: { userId: 'user-ada', projectId: project.id, openedAt: new Date(openedAt) },
@@ -267,8 +294,9 @@ describe('listRecentProjectsForUser', () => {
   });
 
   it('does not include another user recents', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
     });
     await db.recentProject.create({
       data: { userId: 'user-other', projectId: project.id, openedAt: new Date('2026-06-01') },
@@ -325,12 +353,12 @@ describe('listRecentProjectsForUser', () => {
     expect(recents.map((recent) => recent.projectId)).toEqual([owned.id]);
   });
 
-  it('does not return a recent for a project the user only has membership on', async () => {
-    const memberProject = await db.project.create({
-      data: { title: 'Shared board', ownerId: 'user-other' },
-    });
-    await db.membership.create({
-      data: { userId: 'user-ada', projectId: memberProject.id, role: 'MEMBER' },
+  it('returns a recent for a project the user only has membership on', async () => {
+    const memberProject = await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: 'user-ada',
+      ownerId: 'user-other',
+      role: 'MEMBER',
     });
     await db.recentProject.create({
       data: {
@@ -342,6 +370,6 @@ describe('listRecentProjectsForUser', () => {
 
     const recents = await listRecentProjectsForUser('user-ada');
 
-    expect(recents).toEqual([]);
+    expect(recents.map((recent) => recent.projectId)).toEqual([memberProject.id]);
   });
 });

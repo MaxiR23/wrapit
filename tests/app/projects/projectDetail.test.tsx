@@ -1,11 +1,11 @@
 // tests/app/projects/projectDetail.test.tsx
 //
-// Tests for the project detail page ownership gates.
+// Tests for the project detail page access gates.
 //
 // Tested:
-// - Renders the project title for the owner
+// - Renders the project title for a member
 // - Mounts the recents recorder after access is confirmed
-// - Calls notFound when the project belongs to someone else
+// - Calls notFound when getProjectForUser returns null
 // - Calls notFound when the project id is unknown
 //
 // What is covered:
@@ -70,7 +70,7 @@ describe('Project detail page', () => {
     recordRecentProject.mockResolvedValue(undefined);
   });
 
-  it('renders the project title for the owner', async () => {
+  it('renders the project title for a member', async () => {
     getProjectForUser.mockResolvedValue({
       id: 'project-1',
       title: 'Sprint board',

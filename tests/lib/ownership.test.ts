@@ -1,15 +1,16 @@
 // tests/lib/ownership.test.ts
 //
-// Tests for column and card ownership helpers.
+// Tests for column and card access helpers.
 //
 // Tested:
-// - Resolves a column that belongs to the given user
-// - Returns null for a column on another user's project
-// - Resolves a card through column and project ownership
-// - Returns null for a card on another user's project
+// - Resolves a column on a project the user is a member of
+// - Resolves a column when the user is a MEMBER, not the creator
+// - Returns null for a column the user is not a member of
+// - Resolves a card through column and project membership
+// - Returns null for a card on a project the user is not a member of
 //
 // What is covered:
-// - Full ownership chain for columns and cards
+// - Membership chain for columns and cards
 //
 // Run with: pnpm test:run tests/lib/ownership.test.ts
 //
@@ -18,6 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
@@ -29,9 +31,10 @@ describe('getColumnForUser', () => {
     db.reset();
   });
 
-  it('resolves a column that belongs to the given user', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: 'user-ada' },
+  it('resolves a column that belongs to a project the user can access', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
     });
     const column = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -45,7 +48,24 @@ describe('getColumnForUser', () => {
     });
   });
 
-  it('returns null for a column on another user project', async () => {
+  it('resolves a column when the user is a MEMBER, not the creator', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: 'user-ada',
+      ownerId: 'user-other',
+      role: 'MEMBER',
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+
+    const result = await getColumnForUser(column.id, 'user-ada');
+
+    expect(result?.column.id).toBe(column.id);
+    expect(result?.project.id).toBe(project.id);
+  });
+
+  it('returns null for a column on a project the user is not a member of', async () => {
     const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });
@@ -66,9 +86,10 @@ describe('getCardForUser', () => {
     db.reset();
   });
 
-  it('resolves a card through column and project ownership', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: 'user-ada' },
+  it('resolves a card through column and project membership', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
     });
     const column = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -86,7 +107,7 @@ describe('getCardForUser', () => {
     });
   });
 
-  it('returns null for a card on another user project', async () => {
+  it('returns null for a card on a project the user is not a member of', async () => {
     const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
     });

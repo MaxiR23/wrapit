@@ -18,6 +18,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -49,8 +50,9 @@ describe('deleteColumn', () => {
   });
 
   it('deletes a column that belongs to the signed-in user project', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const column = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },
@@ -95,8 +97,9 @@ describe('deleteColumn', () => {
   });
 
   it('returns a generic error when Prisma fails unexpectedly', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const column = await db.column.create({
       data: { title: 'To do', order: 1, projectId: project.id },

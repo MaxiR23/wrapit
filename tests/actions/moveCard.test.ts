@@ -21,6 +21,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -45,8 +46,9 @@ const { moveCard } = await import('@/actions/moveCard');
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada' };
 
 async function seedTwoColumns() {
-  const project = await db.project.create({
-    data: { title: 'Sprint board', ownerId: sessionUser.id },
+  const project = await seedAccessibleProject(db, {
+    title: 'Sprint board',
+    userId: sessionUser.id,
   });
   const todo = await db.column.create({
     data: { title: 'To do', order: 1, projectId: project.id },
@@ -234,8 +236,9 @@ describe('moveCard', () => {
 
   it('rejects moving to a column on another project', async () => {
     const { todo, cardA } = await seedTwoColumns();
-    const otherProject = await db.project.create({
-      data: { title: 'Other board', ownerId: sessionUser.id },
+    const otherProject = await seedAccessibleProject(db, {
+      title: 'Other board',
+      userId: sessionUser.id,
     });
     const otherColumn = await db.column.create({
       data: { title: 'Elsewhere', order: 1, projectId: otherProject.id },

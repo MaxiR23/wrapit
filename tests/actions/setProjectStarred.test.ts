@@ -5,15 +5,14 @@
 // Tested:
 // - Writes the given starred value without inverting
 // - Setting true when already true stays true
-// - Creates an OWNER membership with the given starred value when the owner
-//   has no membership row
 // - Does not create a membership for a non-member
+// - Rejects starring when the user has no membership, even as creator
 // - Rejects the call when there is no session
 // - Returns a generic error when getSession rejects
 // - Returns a generic error when Prisma fails unexpectedly
 //
 // What is covered:
-// - Idempotent write, owner without membership, unauthorized, session lookup
+// - Idempotent write, missing membership, unauthorized, session lookup
 //   failure, unexpected Prisma failure
 //
 // Run with: pnpm test:run tests/actions/setProjectStarred.test.ts
@@ -23,6 +22,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { createPrismaFake } from '../helpers/prismaFake';
+import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 
 const db = createPrismaFake();
 const getSession = vi.fn();
@@ -54,16 +54,10 @@ describe('setProjectStarred', () => {
   });
 
   it('writes starred true without inverting an unstarred membership', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
-    });
-    await db.membership.create({
-      data: {
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'OWNER',
-        starred: false,
-      },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      starred: false,
     });
 
     const result = await setProjectStarred(project.id, true);
@@ -74,16 +68,10 @@ describe('setProjectStarred', () => {
   });
 
   it('writes starred false without inverting a starred membership', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
-    });
-    await db.membership.create({
-      data: {
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'OWNER',
-        starred: true,
-      },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      starred: true,
     });
 
     const result = await setProjectStarred(project.id, false);
@@ -94,16 +82,10 @@ describe('setProjectStarred', () => {
   });
 
   it('is idempotent: setting true when already true stays true', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
-    });
-    await db.membership.create({
-      data: {
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'OWNER',
-        starred: true,
-      },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      starred: true,
     });
 
     const first = await setProjectStarred(project.id, true);
@@ -115,24 +97,16 @@ describe('setProjectStarred', () => {
     expect(db.membership.rows[0]?.starred).toBe(true);
   });
 
-  it('creates a starred OWNER membership when the owner has no membership row', async () => {
+  it('rejects starring when the creator has no membership row', async () => {
     const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: sessionUser.id },
     });
 
     const result = await setProjectStarred(project.id, true);
 
-    expect(result).toEqual({ data: { starred: true } });
-    expect(db.membership.rows).toHaveLength(1);
-    expect(db.membership.rows[0]).toEqual(
-      expect.objectContaining({
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'OWNER',
-        starred: true,
-      }),
-    );
-    expect(revalidatePath).toHaveBeenCalledWith('/projects');
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.membership.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('does not create a membership for a user who is not a member', async () => {
@@ -174,16 +148,9 @@ describe('setProjectStarred', () => {
   });
 
   it('returns a generic error when Prisma fails unexpectedly', async () => {
-    const project = await db.project.create({
-      data: { title: 'Sprint board', ownerId: sessionUser.id },
-    });
-    await db.membership.create({
-      data: {
-        userId: sessionUser.id,
-        projectId: project.id,
-        role: 'OWNER',
-        starred: false,
-      },
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
     });
     const leakyMessage =
       'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused for user "wrapit"';

@@ -4,8 +4,8 @@
 //
 // Tested:
 // - Creates a project owned by the signed-in user on valid input
-// - Title-only create stores a null description, NEW status, no membership,
-//   and the three default columns in order
+// - Title-only create stores a null description, NEW status, an unstarred
+//   OWNER membership, and the three default columns in order
 // - An explicit column list creates exactly those columns in normalized order,
 //   in one transaction
 // - Client column order values are normalized to 0..n-1 by sorted order
@@ -13,14 +13,14 @@
 //   whitespace column titles
 // - Trims and stores a description; empty or whitespace description stores null
 // - Accepts NEW, IN_PROGRESS, and PAUSED; rejects DONE and unknown status
-// - featured true creates a starred owner membership; false does not
+// - featured true stars the OWNER membership; false leaves it unstarred
 // - Rejects an empty or whitespace title with a clear field error
 // - Ignores a forged ownerId and always uses the session user
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 // - Rolls back the project when default column creation fails
-// - Rolls back project and columns when featured membership upsert fails
-// - Rolls back project, columns, and membership when featured upsert fails
+// - Rolls back the project and columns when membership create fails
+// - Rolls back project, columns, and membership when membership create fails
 //   with an explicit column list
 //
 // What is covered:
@@ -84,7 +84,7 @@ describe('createProject', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/projects');
   });
 
-  it('stores a null description, NEW status, no membership, and default columns for title only', async () => {
+  it('stores a null description, NEW status, an unstarred OWNER membership, and default columns for title only', async () => {
     const result = await createProject({ title: 'Sprint board' });
 
     expect(result).toEqual({
@@ -95,7 +95,15 @@ describe('createProject', () => {
         ownerId: sessionUser.id,
       }),
     });
-    expect(db.membership.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows[0]).toEqual(
+      expect.objectContaining({
+        userId: sessionUser.id,
+        projectId: db.project.rows[0]?.id,
+        role: 'OWNER',
+        starred: false,
+      }),
+    );
 
     const columns = columnsInOrder();
     expect(columns.map((column) => ({ title: column.title, order: column.order }))).toEqual([
@@ -287,10 +295,16 @@ describe('createProject', () => {
     );
   });
 
-  it('does not create a membership when featured is false', async () => {
+  it('creates an unstarred OWNER membership when featured is false', async () => {
     await createProject({ title: 'Sprint board', featured: false });
 
-    expect(db.membership.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows[0]).toEqual(
+      expect.objectContaining({
+        role: 'OWNER',
+        starred: false,
+      }),
+    );
   });
 
   it('rejects an empty title with a clear field error', async () => {
@@ -363,11 +377,11 @@ describe('createProject', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('rolls back project and columns when featured membership upsert fails', async () => {
-    const leakyMessage = 'PrismaClientKnownRequestError: membership upsert failed';
-    db.membership.upsert.mockRejectedValueOnce(new Error(leakyMessage));
+  it('rolls back project and columns when membership create fails', async () => {
+    const leakyMessage = 'PrismaClientKnownRequestError: membership insert failed';
+    db.membership.create.mockRejectedValueOnce(new Error(leakyMessage));
 
-    const result = await createProject({ title: 'Sprint board', featured: true });
+    const result = await createProject({ title: 'Sprint board' });
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
@@ -377,9 +391,9 @@ describe('createProject', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it('rolls back featured create when membership upsert fails with custom columns', async () => {
-    const leakyMessage = 'PrismaClientKnownRequestError: membership upsert failed';
-    db.membership.upsert.mockRejectedValueOnce(new Error(leakyMessage));
+  it('rolls back membership create when it fails with custom columns', async () => {
+    const leakyMessage = 'PrismaClientKnownRequestError: membership insert failed';
+    db.membership.create.mockRejectedValueOnce(new Error(leakyMessage));
 
     const result = await createProject({
       title: 'Sprint board',

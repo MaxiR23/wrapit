@@ -29,10 +29,14 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Project`, many `RecentProject`, and at most one `UserPreferences`.
-- `Project` belongs to a `User` and has many `Column` and `RecentProject`. It
+- `User` has many `Project`, many `Membership`, many `RecentProject`, and at most one `UserPreferences`.
+- `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
+  `Membership`, `Invitation`, and `RecentProject`. It
   has an optional `description` and a `status` (`ProjectStatus`: `NEW`,
-  `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`).
+  `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`). Access is through
+  `Membership` (roles `OWNER`, `ADMIN`, `MEMBER`); `ownerId` is creator metadata.
+- `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
+  It holds `role` and `starred`. Every project must have at least one OWNER.
 - `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that

@@ -276,14 +276,14 @@ lands on `/sign-in` and then on `/projects`, not on the page they asked for.
 
 Server actions always call `auth.api.getSession({ headers: await headers() })`
 and scope work to that user. The proxy cookie check alone is not enough. How
-reads, writes and ownership fit together: `docs/architecture.md`.
+reads, writes and membership access fit together: `docs/architecture.md`.
 
 ## Database schema
 
 Better Auth owns four models in `prisma/schema.prisma`:
 
-- `User` — identity and profile. It already existed for `Project` ownership and
-  was reconciled with what Better Auth expects.
+- `User` — identity and profile. It already existed for `Project` creator metadata
+  (`ownerId`) and was reconciled with what Better Auth expects.
 - `Session` — one row per active session, looked up by a unique `token`.
 - `Account` — one row per login method for a user. Email and password sign up
   creates a row with `providerId` set to `"credential"`.

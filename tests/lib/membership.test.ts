@@ -1,0 +1,201 @@
+// tests/lib/membership.test.ts
+//
+// Tests for membership access helpers, the last-OWNER invariant, and the
+// owner-membership backfill.
+//
+// Tested:
+// - accessibleByUser returns the membership some-userId where clause
+// - assertNotLastOwner throws LastOwnerError when deleting the last OWNER
+// - assertNotLastOwner throws LastOwnerError when demoting the last OWNER
+// - assertNotLastOwner does not throw when another OWNER remains
+// - assertNotLastOwner does not throw for a non-OWNER membership
+// - assertNotLastOwner does not mutate memberships when it throws
+// - backfill inserts a missing OWNER row for Project.ownerId
+// - backfill is idempotent
+// - backfill promotes a creator MEMBER row to OWNER without duplicating
+// - backfill leaves an extra OWNER on another user untouched
+//
+// What is covered:
+// - Access where clause, last-OWNER guard, backfill promote-then-insert
+//
+// Run with: pnpm test:run tests/lib/membership.test.ts
+//
+// SEE: src/lib/membership.ts
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { createPrismaFake } from '../helpers/prismaFake';
+
+const db = createPrismaFake();
+vi.mock('@/lib/prisma', () => ({ prisma: db }));
+
+const { LastOwnerError, accessibleByUser, assertNotLastOwner, backfillOwnerMemberships } =
+  await import('@/lib/membership');
+
+describe('accessibleByUser', () => {
+  it('returns a membership some-filter for the given user id', () => {
+    expect(accessibleByUser('user-ada')).toEqual({
+      memberships: { some: { userId: 'user-ada' } },
+    });
+  });
+});
+
+describe('assertNotLastOwner', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  async function seedLastOwner() {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    const owner = await db.membership.create({
+      data: {
+        userId: 'user-ada',
+        projectId: project.id,
+        role: 'OWNER',
+      },
+    });
+    return { project, owner };
+  }
+
+  it('throws LastOwnerError when removing the last OWNER and does not mutate', async () => {
+    const { project, owner } = await seedLastOwner();
+
+    await expect(
+      assertNotLastOwner(db, { projectId: project.id, membershipId: owner.id }),
+    ).rejects.toEqual(expect.any(LastOwnerError));
+
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows[0]).toEqual(expect.objectContaining({ id: owner.id, role: 'OWNER' }));
+  });
+
+  it('throws LastOwnerError when demoting the last OWNER and does not mutate', async () => {
+    const { project, owner } = await seedLastOwner();
+
+    await expect(
+      assertNotLastOwner(db, { projectId: project.id, membershipId: owner.id }),
+    ).rejects.toThrow('Cannot remove the last OWNER');
+
+    expect(db.membership.rows[0]?.role).toBe('OWNER');
+  });
+
+  it('does not throw when another OWNER remains', async () => {
+    const { project, owner } = await seedLastOwner();
+    await db.membership.create({
+      data: {
+        userId: 'user-max',
+        projectId: project.id,
+        role: 'OWNER',
+      },
+    });
+
+    await expect(
+      assertNotLastOwner(db, { projectId: project.id, membershipId: owner.id }),
+    ).resolves.toBeUndefined();
+    expect(db.membership.rows).toHaveLength(2);
+  });
+
+  it('does not throw for a MEMBER membership even if it is the only row', async () => {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    const member = await db.membership.create({
+      data: {
+        userId: 'user-max',
+        projectId: project.id,
+        role: 'MEMBER',
+      },
+    });
+
+    await expect(
+      assertNotLastOwner(db, { projectId: project.id, membershipId: member.id }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('backfillOwnerMemberships', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('inserts a missing OWNER membership for the current ownerId', async () => {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+
+    await backfillOwnerMemberships(db);
+
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows[0]).toEqual(
+      expect.objectContaining({
+        userId: 'user-ada',
+        projectId: project.id,
+        role: 'OWNER',
+        starred: false,
+      }),
+    );
+  });
+
+  it('is idempotent: a second run inserts nothing', async () => {
+    await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+
+    await backfillOwnerMemberships(db);
+    const afterFirst = db.membership.rows.map((row) => ({ ...row }));
+    await backfillOwnerMemberships(db);
+
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows).toEqual(afterFirst);
+  });
+
+  it('promotes a creator MEMBER row to OWNER without duplicating', async () => {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    await db.membership.create({
+      data: {
+        userId: 'user-ada',
+        projectId: project.id,
+        role: 'MEMBER',
+        starred: true,
+      },
+    });
+
+    await backfillOwnerMemberships(db);
+
+    expect(db.membership.rows).toHaveLength(1);
+    expect(db.membership.rows[0]).toEqual(
+      expect.objectContaining({
+        userId: 'user-ada',
+        projectId: project.id,
+        role: 'OWNER',
+        starred: true,
+      }),
+    );
+  });
+
+  it('leaves an extra OWNER on another user untouched', async () => {
+    const project = await db.project.create({
+      data: { title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    await db.membership.create({
+      data: {
+        userId: 'user-max',
+        projectId: project.id,
+        role: 'OWNER',
+      },
+    });
+
+    await backfillOwnerMemberships(db);
+
+    expect(db.membership.rows).toHaveLength(2);
+    expect(db.membership.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: 'user-max', role: 'OWNER' }),
+        expect.objectContaining({ userId: 'user-ada', role: 'OWNER' }),
+      ]),
+    );
+  });
+});

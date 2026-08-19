@@ -17,7 +17,7 @@ import from `components/`, `actions/` and `lib/`; `components/` may import from
 - `src/actions/` — server actions, one file each, each starting with
   `'use server'`. Mutations that need the real session and Prisma live here.
 - `src/lib/` — shared non-UI code: Prisma, Better Auth, routes, validation,
-  ownership helpers, kanban math.
+  membership access, ownership chain helpers, kanban math.
 - `src/generated/` — Prisma Client output. Gitignored; never edited by hand.
 - `src/proxy.ts` — route protection. It must sit beside `src/app/`, not inside
   it: Next only detects the convention at the project root or at `src/`.
@@ -35,10 +35,10 @@ Reads and writes take different paths on purpose.
 that scopes Prisma to that user — for example `listProjectsForUser` /
 `listProjectSummariesForUser` / `listRecentProjectsForUser` /
 `getProjectForUser` in `src/lib/projects.ts`,
-and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or foreign
-projects return `null`; the page turns that into `notFound()`. Recents are the
-latest four owned projects the user opened; that cap is applied in the query
-after the owner-only access filter. A missing
+and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or
+inaccessible projects return `null`; the page turns that into `notFound()`. Recents are the
+latest four accessible projects the user opened; that cap is applied in the query
+after the membership access filter. A missing
 preferences row is not an error: the helper returns GRID defaults. The client
 never talks to Prisma for project data. The projects list search filters those
 already-loaded summaries in the client by title (case-insensitive includes).
@@ -47,18 +47,18 @@ render as chips near the top. Zero projects render `ProjectsEmptyState` instead
 of that list (distinct from an empty search).
 
 **Writes** go through server actions under `src/actions/`. Each action checks
-the real session, validates input, checks ownership, then mutates. Preferences
+the real session, validates input, checks membership access, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
 `createProject` creates a project for the session user (optional description,
-status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns in one
-transaction: an optional `columns` list (1–8 titles; client `order` is sorted
+status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
+OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
 then reassigned to `0..n-1`), or the blank template (**To do**, **In progress**,
-**Done**) from `src/lib/templates.ts` when `columns` is omitted. When `featured`
-is true it upserts the owner's membership with `starred: true` in that same
-transaction via `upsertOwnerMembershipStarred`.
+**Done**) from `src/lib/templates.ts` when `columns` is omitted. `Project.ownerId`
+is creator metadata (still the session user). When `featured` is true the OWNER
+row is created with `starred: true`; otherwise it is unstarred.
 `setProjectStarred` writes `Membership.starred` to the given value (it does not
-read-then-invert). If the owner has no membership row it upserts one with role
-`OWNER` and that starred value through the same helper. `ProjectsView` shows
+read-then-invert) and refuses with Unauthorized when the user has no membership.
+`ProjectsView` shows
 those writes immediately with `useOptimistic` inside `startTransition`, and
 serializes them per project with the same coalescing loop as view-mode changes:
 keep the latest desired value and an in-flight flag, write sequentially until
@@ -67,7 +67,7 @@ already running.
 Rapid toggles on one project never overlap; different projects stay independent.
 On error the loop rolls the optimistic star back to the last persisted value
 and `router.refresh()` reconciles to server data. `recordRecentProject`
-upserts `openedAt` when the session user owns the project and no-ops otherwise,
+upserts `openedAt` when the session user has a membership on the project and no-ops otherwise,
 so opening a project cannot fail navigation. Failures that should not leak internals
 return a fixed generic message (`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
@@ -79,16 +79,27 @@ an action.
 looks for a session cookie and redirects. Anything that reads or writes user
 data must still load the real session on the server. See `docs/auth.md`.
 
-## Ownership
+## Access
 
-Every project belongs to one user (`ownerId`). Columns belong to projects; cards
-belong to columns. Mutations walk that chain — card → column → project → user —
-so a forged id for someone else's card cannot succeed.
+A project is accessible when the user has a `Membership` on it, any role
+(`OWNER`, `ADMIN`, `MEMBER`). `Project.ownerId` is creator metadata, not an
+access filter. Columns belong to projects; cards belong to columns. Mutations
+walk that chain — card → column → project → membership — so a forged id for
+someone else's card cannot succeed.
 
-`src/lib/ownership.ts` centralizes the lookups (`getColumnForUser`,
-`getCardForUser`). Actions return `{ error: 'Unauthorized' }` when any link is
-missing or not owned. That is deliberate: pages hide existence with `notFound()`;
-mutations refuse without confirming whether the row exists for another user.
+`src/lib/membership.ts` owns the Prisma where clause (`accessibleByUser`) and the
+last-OWNER invariant (`assertNotLastOwner` / `LastOwnerError`).
+`src/lib/ownership.ts` centralizes the column/card lookups (`getColumnForUser`,
+`getCardForUser`) using that where clause. Actions return `{ error: 'Unauthorized' }`
+when any link is missing or the user is not a member. That is deliberate: pages
+hide existence with `notFound()`; mutations refuse without confirming whether
+the row exists for another user.
+
+A project must keep at least one OWNER membership. `createProject` inserts the
+creator's OWNER row in the same transaction as the project. `assertNotLastOwner`
+throws `LastOwnerError` (`Cannot remove the last OWNER`) and does not write;
+membership delete and role-change actions in a later slice must call it before
+mutating.
 
 Extra rules for moving cards (same project, neighbors in the target column) live
 in `docs/kanban.md`.
@@ -98,7 +109,7 @@ in `docs/kanban.md`.
 - **Validation** — zod schemas in `src/lib/validation/`, shared by forms and
   actions so browser and server cannot drift. `fieldErrors.ts` turns a zod
   failure into the first error per field.
-- **Domain reads** — `src/lib/projects.ts` and ownership helpers, not pages.
+- **Domain reads** — `src/lib/projects.ts` and membership/ownership helpers, not pages.
 - **Kanban DnD math** — pure helpers in `src/lib/` (`order.ts`, `kanbanItems.ts`,
   `kanbanPersist.ts`) so they can be tested without React. Behavior:
   `docs/kanban.md`.
@@ -114,11 +125,11 @@ in `docs/kanban.md`.
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-    src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
+    src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username
-    src/lib/ownership.ts                column/card ownership chain
+    src/lib/ownership.ts                column/card access chain (membership)
     src/lib/messages.ts                 generic user-facing error string
     src/lib/order.ts                    Float order between neighbors
     src/lib/kanbanItems.ts              column→card id lists for DnD
@@ -133,20 +144,20 @@ in `docs/kanban.md`.
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
     src/lib/validation/viewMode.ts      projects grid/list viewMode
-    src/actions/createProject.ts        create a project, optional column list, optional featured star
-    src/actions/setProjectStarred.ts    write Membership.starred (owner may get an OWNER row)
+    src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star
+    src/actions/setProjectStarred.ts    write Membership.starred for a member
     src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
-    src/actions/createColumn.ts         create a column on an owned project
-    src/actions/deleteColumn.ts         delete a column from an owned project
-    src/actions/createCard.ts           create a card on an owned column
-    src/actions/updateCard.ts           update an owned card
-    src/actions/deleteCard.ts           delete an owned card
+    src/actions/createColumn.ts         create a column on an accessible project
+    src/actions/deleteColumn.ts         delete a column from an accessible project
+    src/actions/createCard.ts           create a card on an accessible column
+    src/actions/updateCard.ts           update an accessible card
+    src/actions/deleteCard.ts           delete an accessible card
     src/actions/moveCard.ts             move/reorder a card (columnId + order)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
-    src/app/projects/[projectId]/page.tsx  project detail (owner only; else 404; records recent)
+    src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm

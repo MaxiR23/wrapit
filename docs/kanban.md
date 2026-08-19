@@ -1,12 +1,13 @@
 # Kanban
 
-How projects, columns and cards work: ownership, float ordering, and optimistic
+How projects, columns and cards work: membership access, float ordering, and optimistic
 drag-and-drop. App layering and the general file map: `docs/architecture.md`.
 Schema and Prisma setup: `docs/database.md`.
 
 ## Domain
 
-Hierarchy: **Project → Column → Card**. A project has one owner (`User`). Deleting a
+Hierarchy: **Project → Column → Card**. A project has a creator (`Project.ownerId`)
+and is accessed through `Membership` (any role). Deleting a
 project or column cascades to its children, so mutations do not need orphan
 cleanup.
 
@@ -14,18 +15,17 @@ cleanup.
 `order`). It validates titles (trimmed, non-empty), requires 1–8 columns, then
 sorts by the provided order and reassigns `0..n-1` so client order values are
 never trusted. When `columns` is omitted, it seeds the **blank** template
-(**To do**, **In progress**, **Done**) from `src/lib/templates.ts`. Columns are
-created in the same transaction as the project. A create-time `featured` flag
-stars the board in that same transaction by upserting the owner's `Membership`
-with `starred: true` (the same OWNER upsert `setProjectStarred` uses when the
-owner has no membership row).
+(**To do**, **In progress**, **Done**) from `src/lib/templates.ts`. Columns and an
+OWNER `Membership` for the session user are created in the same transaction as
+the project. A create-time `featured` flag sets `starred: true` on that OWNER
+row; otherwise it is unstarred.
 
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. Only **cards** are reordered in the UI today;
 columns keep creation order.
 
 The project detail page loads ordered columns and cards server-side via
-`getProjectForUser`. Non-owners get `notFound()`. The client receives card id lists
+`getProjectForUser`. Non-members get `notFound()`. The client receives card id lists
 per column for DnD — not the float values. Display order is the id list;
 persistence recomputes floats on the server from neighbor ids.
 
@@ -45,7 +45,7 @@ sections immediately. Star writes reuse the view-mode coalescing loop, keyed by
 `projectId`: the latest desired value is persisted sequentially so rapid toggles
 never overlap and the last intent always wins. `ProjectStarButton` is
 presentational: it receives the current starred value and an `onToggle`
-callback, and holds no state of its own. Recents are the latest four owned
+callback, and holds no state of its own. Recents are the latest four accessible
 projects the user opened, as chips. Search filters
 that payload in the client by title (case-insensitive includes) and does not
 re-query the server. The grid/list choice is stored in `UserPreferences.viewMode`.
@@ -68,15 +68,16 @@ are rejected on that row with the same title required message as the server.
 `Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
 `project.createdAt` when there are no cards.
 
-## Ownership
+## Access
 
-Mutations walk card → column → project → user through `src/lib/ownership.ts`. No
+Mutations walk card → column → project → membership through
+`src/lib/ownership.ts` and `accessibleByUser` in `src/lib/membership.ts`. No
 session or a broken chain returns `{ error: 'Unauthorized' }`. Pattern details:
 `docs/architecture.md`.
 
 `moveCard` adds rules the helpers alone do not cover:
 
-- The target column must sit on the **same project** as the card. Owning two projects
+- The target column must sit on the **same project** as the card. Membership on two projects
   does not allow moving a card between them.
 - Optional `beforeCardId` / `afterCardId` must exist in the **target** column
   (and must not be the moving card).
@@ -168,12 +169,12 @@ wiping them.
 src/lib/order.ts                    midpoint / append / prepend
 src/lib/kanbanItems.ts              place, neighbors, drag transitions
 src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
-src/lib/ownership.ts                column/card ownership chain
+src/lib/ownership.ts                column/card access chain (membership)
 src/lib/validation/moveCard.ts      moveCard input rules
 src/actions/moveCard.ts             persist columnId + order (or renumber)
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-src/lib/membership.ts               upsert owner Membership.starred (OWNER row)
+src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress for the projects grid and list
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
