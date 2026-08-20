@@ -8,10 +8,11 @@
 // - Auth pages are recognized as auth pages, other public routes are not
 // - A trailing slash does not change the answer
 // - accountPath builds /account?tab= hrefs
+// - parseAccountTab defaults to profile and falls back for unknown values
 //
 // What is covered:
 // - Happy path, the private default, edge cases (trailing slash, a path that
-//   only looks like a public prefix), account tab hrefs
+//   only looks like a public prefix), account tab hrefs, tab query fallback
 //
 // Run with: pnpm test:run tests/lib/routes.test.ts
 //
@@ -19,7 +20,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { accountPath, isAuthPath, isPublicPath } from '@/lib/routes';
+import { accountPath, isAccountTab, isAuthPath, isPublicPath, parseAccountTab } from '@/lib/routes';
 
 describe('isPublicPath', () => {
   it('accepts home and the auth pages', () => {
@@ -60,6 +61,32 @@ describe('accountPath', () => {
     expect(accountPath('visibility')).toBe('/account?tab=visibility');
     expect(accountPath('activity')).toBe('/account?tab=activity');
     expect(accountPath('cards')).toBe('/account?tab=cards');
+  });
+});
+
+describe('parseAccountTab', () => {
+  it('returns the tab when the value is one of the four tabs', () => {
+    expect(parseAccountTab('profile')).toBe('profile');
+    expect(parseAccountTab('visibility')).toBe('visibility');
+    expect(parseAccountTab('activity')).toBe('activity');
+    expect(parseAccountTab('cards')).toBe('cards');
+  });
+
+  it('falls back to profile when the value is missing or unknown', () => {
+    expect(parseAccountTab(undefined)).toBe('profile');
+    expect(parseAccountTab('perfil')).toBe('profile');
+    expect(parseAccountTab(['nope'])).toBe('profile');
+    expect(parseAccountTab(['activity', 'cards'])).toBe('activity');
+  });
+});
+
+describe('isAccountTab', () => {
+  it('accepts only the four exact tab strings', () => {
+    expect(isAccountTab('profile')).toBe(true);
+    expect(isAccountTab('cards')).toBe(true);
+    expect(isAccountTab('perfil')).toBe(false);
+    expect(isAccountTab(undefined)).toBe(false);
+    expect(isAccountTab(['profile'])).toBe(false);
   });
 });
 

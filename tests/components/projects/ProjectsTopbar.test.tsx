@@ -9,6 +9,7 @@
 // - Opening Account closes notifications, and opening the bell closes Account
 // - Switching from Account to the bell leaves focus on the notifications button
 // - Renders the Search projects input
+// - Hides the search input when showSearch is false
 //
 // What is covered:
 // - Account menu wiring, OpenPanel exclusion both ways, focus on switch, search field
@@ -46,7 +47,7 @@ const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsS
 const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
 const { NotificationsProvider } = await import('@/components/notifications/NotificationsProvider');
 
-const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
+const user = { name: 'Ada Lovelace', username: 'ada' };
 
 function renderTopbar(ui: ReactElement) {
   return render(
@@ -123,5 +124,11 @@ describe('ProjectsTopbar', () => {
     renderTopbar(<ProjectsTopbar user={user} />);
 
     expect(screen.getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument();
+  });
+
+  it('hides the search input when showSearch is false', () => {
+    renderTopbar(<ProjectsTopbar user={user} showSearch={false} />);
+
+    expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
   });
 });

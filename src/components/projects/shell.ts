@@ -6,7 +6,6 @@ export const shellFocusClassName =
 export type ProjectsShellUser = {
   name: string;
   username: string;
-  initials: string;
 };
 
 export type ShellPanelWidth = '236px' | '352px';

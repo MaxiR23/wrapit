@@ -52,7 +52,7 @@ const sprintBoard: ProjectSummary = {
   percent: 46,
   updatedLabel: 'Updated 2 hours ago',
   starred: false,
-  members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
+  members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 
 const emptyBoard: ProjectSummary = {
@@ -144,7 +144,7 @@ describe('projectMembers', () => {
         owner: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
         memberships: [],
       }),
-    ).toEqual([{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }]);
+    ).toEqual([{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]);
   });
 
   it('appends other members and does not duplicate the owner', () => {
@@ -157,8 +157,8 @@ describe('projectMembers', () => {
         ],
       }),
     ).toEqual([
-      { id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' },
-      { id: 'user-max', name: 'Maxi', initials: 'MA' },
+      { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+      { id: 'user-max', name: 'Maxi', username: 'maxi' },
     ]);
   });
 });

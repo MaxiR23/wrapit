@@ -79,7 +79,7 @@ const project: ProjectSummary = {
   percent: 46,
   updatedLabel: 'Updated 2 hours ago',
   starred: false,
-  members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
+  members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 
 const emptyBoard: ProjectSummary = {

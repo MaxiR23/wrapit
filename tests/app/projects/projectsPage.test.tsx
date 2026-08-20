@@ -87,7 +87,7 @@ const sprintBoard = {
   percent: 50,
   updatedLabel: 'Updated yesterday',
   starred: false,
-  members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
+  members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 
 describe('Projects page', () => {
@@ -113,7 +113,7 @@ describe('Projects page', () => {
         percent: 0,
         updatedLabel: 'Updated just now',
         starred: false,
-        members: [{ id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' }],
+        members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
       },
     ]);
 

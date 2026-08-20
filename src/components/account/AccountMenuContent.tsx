@@ -3,6 +3,7 @@
 import { LogOut, X } from 'lucide-react';
 import Link from 'next/link';
 
+import { useLiveShellUser } from '@/components/account/DisplayNameProvider';
 import { useSignOut } from '@/components/account/useSignOut';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
@@ -29,6 +30,7 @@ export function AccountMenuContent({
   user: ProjectsShellUser;
   onClose?: () => void;
 }) {
+  const liveUser = useLiveShellUser(user);
   const { setOpenPanel } = useOpenPanel();
   const { signOut, error, isSigningOut } = useSignOut();
 
@@ -59,11 +61,11 @@ export function AccountMenuContent({
           className="inline-flex size-[34px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-xs font-semibold leading-none"
           aria-hidden="true"
         >
-          {user.initials}
+          {liveUser.initials}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[13.5px] font-semibold">{user.name}</span>
-          <span className="text-xs text-muted-foreground">@{user.username}</span>
+          <span className="truncate text-[13.5px] font-semibold">{liveUser.name}</span>
+          <span className="text-xs text-muted-foreground">@{liveUser.username}</span>
         </span>
       </div>
 

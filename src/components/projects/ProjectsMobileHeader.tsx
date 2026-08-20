@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountButton, AccountSheet } from '@/components/account/AccountMenu';
+import { useLiveShellUser } from '@/components/account/DisplayNameProvider';
 import {
   NotificationsBell,
   NotificationsSheet,
@@ -9,6 +10,8 @@ import ProjectsBrand from '@/components/projects/ProjectsBrand';
 import { type ProjectsShellUser } from '@/components/projects/shell';
 
 export default function ProjectsMobileHeader({ user }: { user: ProjectsShellUser }) {
+  const liveUser = useLiveShellUser(user);
+
   return (
     <header className="flex h-mobile-header shrink-0 items-center gap-2.5 border-b border-border bg-surface px-4 md:hidden">
       <ProjectsBrand showName={false} />
@@ -19,8 +22,8 @@ export default function ProjectsMobileHeader({ user }: { user: ProjectsShellUser
         iconStrokeWidth={1.6}
       />
       <NotificationsSheet />
-      <AccountButton user={user} avatarClassName="size-9 text-xs" />
-      <AccountSheet user={user} />
+      <AccountButton user={liveUser} avatarClassName="size-9 text-xs" />
+      <AccountSheet user={liveUser} />
     </header>
   );
 }

@@ -12,16 +12,31 @@ export const SIGN_UP_PATH = '/sign-up';
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
 export const RESET_PASSWORD_PATH = '/reset-password';
 
-export type AccountTab = 'profile' | 'visibility' | 'activity' | 'cards';
+export const ACCOUNT_TABS = ['profile', 'visibility', 'activity', 'cards'] as const;
+
+export type AccountTab = (typeof ACCOUNT_TABS)[number];
+
+export const DEFAULT_ACCOUNT_TAB: AccountTab = 'profile';
 
 /** Detail page for a single project. */
 export function projectPath(projectId: string) {
   return `${PROJECTS_PATH}/${projectId}`;
 }
 
-/** Account screen for a tab. The page does not exist yet; the hrefs are wired ahead of it. */
+/** Account screen for a tab. */
 export function accountPath(tab: AccountTab) {
   return `${ACCOUNT_PATH}?tab=${tab}`;
+}
+
+/** Resolves ?tab= to a known account tab. Missing or unknown values fall back to profile. */
+export function parseAccountTab(value: unknown): AccountTab {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return ACCOUNT_TABS.includes(raw as AccountTab) ? (raw as AccountTab) : DEFAULT_ACCOUNT_TAB;
+}
+
+/** True when the query value is exactly one of the four tabs (not a fallback). */
+export function isAccountTab(value: unknown): value is AccountTab {
+  return typeof value === 'string' && ACCOUNT_TABS.includes(value as AccountTab);
 }
 
 /** Pages that show the sign in, sign up, or password-reset forms. */

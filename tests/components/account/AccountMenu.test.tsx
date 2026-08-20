@@ -40,7 +40,7 @@ const { OpenPanelProvider, useOpenPanel } = await import('@/components/projects/
 const { AccountButton, AccountPopover, AccountSheet } =
   await import('@/components/account/AccountMenu');
 
-const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
+const user = { name: 'Ada Lovelace', username: 'ada' };
 
 function renderMenu(ui: ReactElement) {
   return render(<OpenPanelProvider>{ui}</OpenPanelProvider>);
