@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import ProjectStarButton, { type OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { initials } from '@/lib/initials';
 import { projectStatusBarClass, taskProgressLabel, type ProjectSummary } from '@/lib/projectGrid';
 import { projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -57,7 +58,7 @@ export default function ProjectCard({
                 title={member.name}
                 className="inline-flex size-[26px] items-center justify-center rounded-full border border-border-strong bg-muted text-[10px] font-semibold leading-none"
               >
-                {member.initials}
+                {initials(member.name, member.username)}
               </span>
             ))}
           </div>

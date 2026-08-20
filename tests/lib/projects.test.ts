@@ -221,7 +221,7 @@ describe('listProjectSummariesForUser', () => {
         starred: false,
       }),
     );
-    expect(summaries[0]?.members.map((member) => member.initials)).toEqual(['AL', 'MA']);
+    expect(summaries[0]?.members.map((member) => member.username)).toEqual(['ada', 'maxi']);
   });
 
   it('returns 0 of 0 and 0% when the project has no cards', async () => {
@@ -246,7 +246,7 @@ describe('listProjectSummariesForUser', () => {
       }),
     );
     expect(summaries[0]?.members).toEqual([
-      { id: 'user-ada', name: 'Ada Lovelace', initials: 'AL' },
+      { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     ]);
   });
 

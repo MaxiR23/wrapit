@@ -37,6 +37,12 @@ enum NotificationType {
   INVITATION_REJECTED
 }
 
+enum ProfileVisibility {
+  ANYONE
+  TEAM
+  ADMINS_ONLY
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -55,6 +61,7 @@ model User {
   receivedInvitations  Invitation[]    @relation("InvitationInvitee")
   notifications        Notification[]
   preferences          UserPreferences?
+  profile              UserProfile?
   recentProjects       RecentProject[]
 }
 
@@ -199,6 +206,32 @@ model UserPreferences {
   userId   String   @unique
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   viewMode ViewMode @default(GRID)
+}
+
+model UserProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName       String @default("")
+  pronouns       String @default("")
+  jobTitle       String @default("")
+  department     String @default("")
+  organization   String @default("")
+  location       String @default("")
+  workingWithYou String @default("")
+
+  photoVisibility          ProfileVisibility @default(ANYONE)
+  fullNameVisibility       ProfileVisibility @default(ANYONE)
+  publicNameVisibility     ProfileVisibility @default(ANYONE)
+  pronounsVisibility       ProfileVisibility @default(ANYONE)
+  jobTitleVisibility       ProfileVisibility @default(ANYONE)
+  departmentVisibility     ProfileVisibility @default(ANYONE)
+  organizationVisibility   ProfileVisibility @default(ANYONE)
+  locationVisibility       ProfileVisibility @default(ANYONE)
+  localTimeVisibility      ProfileVisibility @default(ANYONE)
+  workingWithYouVisibility ProfileVisibility @default(ANYONE)
+  emailVisibility          ProfileVisibility @default(ADMINS_ONLY)
 }
 
 model RecentProject {

@@ -1,4 +1,3 @@
-import { initials } from '@/lib/initials';
 import { formatRelativeTime } from '@/lib/relativeTime';
 
 export type ProjectGridStatus = 'NEW' | 'IN_PROGRESS' | 'PAUSED' | 'DONE';
@@ -6,7 +5,7 @@ export type ProjectGridStatus = 'NEW' | 'IN_PROGRESS' | 'PAUSED' | 'DONE';
 export type ProjectGridMember = {
   id: string;
   name: string;
-  initials: string;
+  username: string;
 };
 
 export type ProjectSummary = {
@@ -148,7 +147,7 @@ export function projectMembers(input: {
     members.push({
       id: user.id,
       name: user.name,
-      initials: initials(user.name, user.username),
+      username: user.username,
     });
   }
 

@@ -12,7 +12,13 @@ const navItemClassName =
 const collapsedItemClassName =
   'flex w-14 flex-col items-center gap-1 rounded-md px-0 py-[7px] pb-1.5 text-[9.5px] tracking-[0.01em] no-underline';
 
-export default function ProjectsSidebar() {
+export default function ProjectsSidebar({
+  activeNav = 'projects',
+}: {
+  activeNav?: 'projects' | null;
+}) {
+  const projectsActive = activeNav === 'projects';
+
   return (
     <aside
       className={cn(
@@ -31,11 +37,13 @@ export default function ProjectsSidebar() {
       <nav className="flex flex-col gap-1 lg:gap-[3px]" aria-label="Main">
         <Link
           href={PROJECTS_PATH}
-          aria-current="page"
+          aria-current={projectsActive ? 'page' : undefined}
           className={cn(
             shellFocusClassName,
             collapsedItemClassName,
-            'bg-card font-medium text-foreground lg:hidden',
+            projectsActive
+              ? 'bg-card font-medium text-foreground lg:hidden'
+              : 'text-muted-foreground hover:bg-card hover:text-foreground lg:hidden',
           )}
         >
           <LayoutGrid className="size-[19px]" strokeWidth={1.5} />
@@ -43,11 +51,13 @@ export default function ProjectsSidebar() {
         </Link>
         <Link
           href={PROJECTS_PATH}
-          aria-current="page"
+          aria-current={projectsActive ? 'page' : undefined}
           className={cn(
             shellFocusClassName,
             navItemClassName,
-            'hidden bg-card font-medium text-foreground lg:flex',
+            projectsActive
+              ? 'hidden bg-card font-medium text-foreground lg:flex'
+              : 'hidden text-muted-foreground hover:bg-card hover:text-foreground lg:flex',
           )}
         >
           <LayoutGrid className="size-[19px]" strokeWidth={1.5} />

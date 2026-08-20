@@ -36,11 +36,14 @@ Reads and writes take different paths on purpose.
 that scopes Prisma to that user — for example `listProjectsForUser` /
 `listProjectSummariesForUser` / `listRecentProjectsForUser` /
 `getProjectForUser` in `src/lib/projects.ts`,
-and `getUserPreferences` in `src/lib/userPreferences.ts`. Missing or
+and `getUserPreferences` in `src/lib/userPreferences.ts` /
+`getUserProfileForUser` in `src/lib/userProfile.ts`. Missing or
 inaccessible projects return `null`; the page turns that into `notFound()`. Recents are the
 latest four accessible projects the user opened; that cap is applied in the query
 after the membership access filter. A missing
-preferences row is not an error: the helper returns GRID defaults. The client
+preferences row is not an error: the helper returns GRID defaults. A missing
+profile row is the same: empty fields and default visibilities (email
+`admins`, everything else `anyone`). The client
 never talks to Prisma for project data. The projects list search filters those
 already-loaded summaries in the client by title (case-insensitive includes).
 Starred summaries sit in a Starred section above the main grid/list; recents
@@ -51,6 +54,17 @@ of that list (distinct from an empty search).
 the real session, validates input (bounded identifiers with `idSchema` before
 any ownership or membership lookup), checks membership access, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
+Profile writes (`updateProfileField`, `updateProfileVisibility`) upsert the
+session user's 1:1 profile row the same way; they never take a user id from the
+client. `publicName` writes `User.name`. The action returns the stored
+(trimmed) value; `useProfileAutosave` writes that into the input so client
+state matches the database without a reload. Email and local time are not writable
+values in this slice. Rapid field edits use the same coalescing loop as view-mode
+and stars so a slow response cannot overwrite a newer value.
+Current-user avatar initials are derived in `DisplayNameProvider` from the live
+display name and username; pages do not pass a snapshotted initials string.
+Project member and notification avatars derive initials at render from name and
+username.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -159,8 +173,10 @@ in `docs/kanban.md`.
     src/lib/relativeTime.ts             relative English time without a leading verb
     src/lib/log.ts                      server-side info log (never sent to the client)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
+    src/lib/userProfile.ts              get-or-default user profile (fields + visibility)
+    src/lib/localTime.ts                12-hour local time with a GMT offset
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
-    src/lib/initials.ts                 two-letter initials from name / username
+    src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
     src/lib/ownership.ts                column/card access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
@@ -180,6 +196,9 @@ in `docs/kanban.md`.
     src/lib/validation/card.ts          card title and optional description; create/update/delete action ids
     src/lib/validation/moveCard.ts      moveCard card, column, and neighbor ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
+    src/lib/validation/userProfile.ts   profile field values and per-field visibility
+    src/actions/updateProfileField.ts   persist one profile field for the session user
+    src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
     src/actions/createInvitation.ts     invite a user by username (member only; generic deny)
     src/actions/acceptInvitation.ts     invitee accepts: membership MEMBER + notify inviter
@@ -199,6 +218,7 @@ in `docs/kanban.md`.
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
+    src/app/account/page.tsx            account shell, tab routing, profile
     src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent; Members)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
@@ -208,7 +228,7 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
-    src/components/account/             account menu (popover/sheet), sign-out hook
+    src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider

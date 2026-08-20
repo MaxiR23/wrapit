@@ -5,7 +5,6 @@ import ProjectsMobileSearch from '@/components/projects/ProjectsMobileSearch';
 import ProjectsShell from '@/components/projects/ProjectsShell';
 import ProjectsView from '@/components/projects/ProjectsView';
 import { auth } from '@/lib/auth';
-import { initials } from '@/lib/initials';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { filterRecentProjects } from '@/lib/projectGrid';
 import { listProjectSummariesForUser, listRecentProjectsForUser } from '@/lib/projects';
@@ -38,7 +37,6 @@ export default async function ProjectsPage() {
       user={{
         name: session.user.name,
         username,
-        initials: initials(session.user.name, username),
       }}
       initialNotifications={notifications.items}
     >

@@ -29,7 +29,8 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Project`, many `Membership`, many `RecentProject`, and at most one `UserPreferences`.
+- `User` has many `Project`, many `Membership`, many `RecentProject`, at most
+  one `UserPreferences`, and at most one `UserProfile`.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
   `Membership`, `Invitation`, and `RecentProject`. It
   has an optional `description` and a `status` (`ProjectStatus`: `NEW`,
@@ -60,9 +61,18 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   that is `viewMode` (`GRID` or `LIST`, default `GRID`). The table is meant to
   grow with more columns (for example language) on the same 1:1 row, without a
   new model.
+- `UserProfile` belongs to a `User`. It holds optional profile fields
+  (`fullName`, pronouns, job title, and so on) and a `ProfileVisibility`
+  (`ANYONE`, `TEAM`, `ADMINS_ONLY`) per field, including photo, public name,
+  local time, and email. Public name stays `User.name`; email stays `User.email`;
+  local time is not stored. A missing row is not an error: reads return empty
+  fields and the enum defaults (email visibility `ADMINS_ONLY`, everything else
+  `ANYONE`). The first write upserts the session user's row. Visibility values
+  are stored in this slice; they are not yet enforced when other users view a
+  profile.
 
 Deleting a record cascades to its children (deleting a project deletes its columns
-and cards; deleting a user deletes their preferences). `Column` and `Card` use a
+and cards; deleting a user deletes their preferences and profile). `Column` and `Card` use a
 `Float` `order` field so siblings can be reordered without rewriting every row on
 each move. Midpoints, renumbering when precision runs out, and how the UI
 persists moves: `docs/kanban.md`.

@@ -43,7 +43,7 @@ const { default: ProjectsMobileHeader } =
 const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
 const { NotificationsProvider } = await import('@/components/notifications/NotificationsProvider');
 
-const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
+const user = { name: 'Ada Lovelace', username: 'ada' };
 
 function renderHeader(ui: ReactElement) {
   return render(

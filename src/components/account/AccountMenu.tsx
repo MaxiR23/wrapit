@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 import { AccountMenuContent } from '@/components/account/AccountMenuContent';
+import { useLiveShellUser } from '@/components/account/DisplayNameProvider';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import {
   shellFocusClassName,
@@ -22,6 +23,7 @@ export function AccountButton({
   className?: string;
   avatarClassName?: string;
 }) {
+  const liveUser = useLiveShellUser(user);
   const { openPanel, setOpenPanel } = useOpenPanel();
   const open = openPanel === 'account';
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -53,8 +55,8 @@ export function AccountButton({
     >
       {showName ? (
         <span className="hidden flex-col items-end gap-px lg:flex">
-          <span className="text-[13px] font-medium">{user.name}</span>
-          <span className="text-[11.5px] text-muted-foreground">{user.username}</span>
+          <span className="text-[13px] font-medium">{liveUser.name}</span>
+          <span className="text-[11.5px] text-muted-foreground">{liveUser.username}</span>
         </span>
       ) : null}
       <span
@@ -64,7 +66,7 @@ export function AccountButton({
           avatarClassName,
         )}
       >
-        {user.initials}
+        {liveUser.initials}
       </span>
     </button>
   );

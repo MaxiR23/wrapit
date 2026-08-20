@@ -234,6 +234,7 @@ export function createPrismaFake() {
     invitation: createModel(getRelated),
     notification: createModel(getRelated),
     userPreferences: createModel(getRelated),
+    userProfile: createModel(getRelated),
     recentProject: createModel(getRelated),
   };
   Object.assign(models, fake);

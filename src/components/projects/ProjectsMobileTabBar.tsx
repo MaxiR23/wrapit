@@ -8,7 +8,13 @@ import { cn } from '@/lib/utils';
 const tabClassName =
   'flex min-h-11 flex-col items-center justify-center gap-1 text-[10.5px] no-underline';
 
-export default function ProjectsMobileTabBar() {
+export default function ProjectsMobileTabBar({
+  activeNav = 'projects',
+}: {
+  activeNav?: 'projects' | null;
+}) {
+  const projectsActive = activeNav === 'projects';
+
   return (
     <nav
       aria-label="Main"
@@ -16,8 +22,12 @@ export default function ProjectsMobileTabBar() {
     >
       <Link
         href={PROJECTS_PATH}
-        aria-current="page"
-        className={cn(shellFocusClassName, tabClassName, 'font-medium text-foreground')}
+        aria-current={projectsActive ? 'page' : undefined}
+        className={cn(
+          shellFocusClassName,
+          tabClassName,
+          projectsActive ? 'font-medium text-foreground' : 'text-subtle',
+        )}
       >
         <LayoutGrid className="size-5" strokeWidth={1.6} />
         Projects
