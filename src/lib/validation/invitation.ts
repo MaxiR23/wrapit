@@ -8,11 +8,12 @@ import {
 } from '@/lib/validation/signUp';
 
 /**
- * Invite payload. Format failures are mapped to the generic "can't invite"
- * message by the action; this schema is not used to return field errors.
+ * Invite payload. A malformed projectId is Unauthorized. Username format
+ * failures are mapped to the generic "can't invite" message by the action.
+ * This schema is not used to return field errors.
  */
 export const invitationSchema = z.object({
-  projectId: z.string().trim().min(1),
+  projectId: idSchema,
   username: z
     .string()
     .trim()

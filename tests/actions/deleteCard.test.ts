@@ -7,15 +7,18 @@
 // - Rejects deleting a card on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string card id without a lookup
 //
 // What is covered:
-// - Happy path, ownership, unauthorized, unexpected Prisma failure
+// - Happy path, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/deleteCard.test.ts
 //
 // SEE: src/actions/deleteCard.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -126,6 +129,21 @@ describe('deleteCard', () => {
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
     expect(db.card.rows).toHaveLength(1);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid card id without a lookup', async () => {
+    db.card.findFirst.mockClear();
+
+    expect(await deleteCard({ cardId: '' })).toEqual({ error: 'Unauthorized' });
+    expect(await deleteCard({ cardId: '   ' })).toEqual({ error: 'Unauthorized' });
+    expect(await deleteCard({ cardId: 'a'.repeat(MAX_ID_LENGTH + 1) })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await deleteCard({ cardId: 1 as unknown as string })).toEqual({ error: 'Unauthorized' });
+    expect(db.card.findFirst).not.toHaveBeenCalled();
+    expect(db.card.delete).not.toHaveBeenCalled();
+    expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

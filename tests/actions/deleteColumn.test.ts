@@ -7,15 +7,18 @@
 // - Rejects deleting a column on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string column id without a lookup
 //
 // What is covered:
-// - Happy path, ownership, unauthorized, unexpected Prisma failure
+// - Happy path, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/deleteColumn.test.ts
 //
 // SEE: src/actions/deleteColumn.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -113,6 +116,23 @@ describe('deleteColumn', () => {
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
     expect(db.column.rows).toHaveLength(1);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid column id without a lookup', async () => {
+    db.column.findFirst.mockClear();
+
+    expect(await deleteColumn({ columnId: '' })).toEqual({ error: 'Unauthorized' });
+    expect(await deleteColumn({ columnId: '   ' })).toEqual({ error: 'Unauthorized' });
+    expect(await deleteColumn({ columnId: 'a'.repeat(MAX_ID_LENGTH + 1) })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await deleteColumn({ columnId: 1 as unknown as string })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.column.delete).not.toHaveBeenCalled();
+    expect(db.column.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

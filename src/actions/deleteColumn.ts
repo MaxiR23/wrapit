@@ -8,6 +8,7 @@ import { accessibleByUser } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
+import { deleteColumnSchema } from '@/lib/validation/column';
 
 type DeleteColumnResult = { data: { id: string } } | { error: string };
 
@@ -17,8 +18,13 @@ export async function deleteColumn(input: { columnId: string }): Promise<DeleteC
     return { error: 'Unauthorized' };
   }
 
+  const parsed = deleteColumnSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: 'Unauthorized' };
+  }
+
   const column = await prisma.column.findFirst({
-    where: { id: input.columnId },
+    where: { id: parsed.data.columnId },
   });
   if (!column) {
     return { error: 'Unauthorized' };

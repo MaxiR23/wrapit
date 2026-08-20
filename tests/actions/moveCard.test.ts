@@ -10,15 +10,18 @@
 // - Rejects moving to a column on another project (ownership / same-project)
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string card, column, or neighbor id without a lookup
 //
 // What is covered:
-// - Happy path cross-column and same-column, renumber-on-exhaust, ownership, unauthorized, unexpected Prisma failure
+// - Happy path cross-column and same-column, renumber-on-exhaust, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/moveCard.test.ts
 //
 // SEE: src/actions/moveCard.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -308,6 +311,77 @@ describe('moveCard', () => {
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid card or column id without a lookup', async () => {
+    db.card.findFirst.mockClear();
+    db.column.findFirst.mockClear();
+    const neighbors = { beforeCardId: null, afterCardId: null };
+
+    expect(await moveCard({ ...neighbors, cardId: '', targetColumnId: 'col-1' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await moveCard({ ...neighbors, cardId: '   ', targetColumnId: 'col-1' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(
+      await moveCard({
+        ...neighbors,
+        cardId: 'a'.repeat(MAX_ID_LENGTH + 1),
+        targetColumnId: 'col-1',
+      }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(
+      await moveCard({ ...neighbors, cardId: 1 as unknown as string, targetColumnId: 'col-1' }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(await moveCard({ ...neighbors, cardId: 'card-1', targetColumnId: '' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await moveCard({ ...neighbors, cardId: 'card-1', targetColumnId: '   ' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(
+      await moveCard({
+        ...neighbors,
+        cardId: 'card-1',
+        targetColumnId: 'a'.repeat(MAX_ID_LENGTH + 1),
+      }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(
+      await moveCard({ ...neighbors, cardId: 'card-1', targetColumnId: 1 as unknown as string }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(db.card.findFirst).not.toHaveBeenCalled();
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.card.update).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid neighbor card id without a lookup', async () => {
+    const { doing, cardA } = await seedTwoColumns();
+    db.card.findFirst.mockClear();
+    db.column.findFirst.mockClear();
+    const oversized = 'a'.repeat(MAX_ID_LENGTH + 1);
+
+    expect(
+      await moveCard({
+        cardId: cardA.id,
+        targetColumnId: doing.id,
+        beforeCardId: oversized,
+        afterCardId: null,
+      }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(
+      await moveCard({
+        cardId: cardA.id,
+        targetColumnId: doing.id,
+        beforeCardId: null,
+        afterCardId: oversized,
+      }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(db.card.findFirst).not.toHaveBeenCalled();
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.card.update).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

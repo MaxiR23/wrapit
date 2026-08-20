@@ -9,7 +9,7 @@ import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
-import { cardSchema, type CardFieldErrors } from '@/lib/validation/card';
+import { createCardSchema, type CardFieldErrors } from '@/lib/validation/card';
 
 type CreateCardResult =
   | {
@@ -34,15 +34,18 @@ export async function createCard(input: {
     return { error: 'Unauthorized' };
   }
 
-  const parsed = cardSchema.safeParse({
-    title: input.title,
-    description: input.description,
-  });
+  const parsed = createCardSchema.safeParse(input);
   if (!parsed.success) {
-    return { fieldErrors: firstErrorPerField(parsed.error) };
+    const fieldFailed = parsed.error.issues.some(
+      (issue) => issue.path[0] === 'title' || issue.path[0] === 'description',
+    );
+    if (fieldFailed) {
+      return { fieldErrors: firstErrorPerField(parsed.error) as CardFieldErrors };
+    }
+    return { error: 'Unauthorized' };
   }
 
-  const owned = await getColumnForUser(input.columnId, session.user.id);
+  const owned = await getColumnForUser(parsed.data.columnId, session.user.id);
   if (!owned) {
     return { error: 'Unauthorized' };
   }

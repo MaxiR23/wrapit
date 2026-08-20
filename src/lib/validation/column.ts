@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { firstErrorPerField, type FieldErrors } from '@/lib/validation/fieldErrors';
+import { idSchema } from '@/lib/validation/id';
 
 export const columnSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
@@ -9,6 +10,14 @@ export const columnSchema = z.object({
 export type ColumnInput = z.infer<typeof columnSchema>;
 
 export type ColumnFieldErrors = FieldErrors<ColumnInput>;
+
+export const createColumnSchema = columnSchema.extend({
+  projectId: idSchema,
+});
+
+export const deleteColumnSchema = z.object({
+  columnId: idSchema,
+});
 
 /**
  * Validates the column fields and returns the first error for each invalid

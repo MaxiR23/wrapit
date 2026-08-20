@@ -9,15 +9,18 @@
 // - Rejects creating on a project the user is not a member of
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string project id without a lookup
 //
 // What is covered:
-// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure
+// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/createColumn.test.ts
 //
 // SEE: src/actions/createColumn.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -157,6 +160,27 @@ describe('createColumn', () => {
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid project id without a lookup', async () => {
+    db.project.findFirst.mockClear();
+
+    expect(await createColumn({ projectId: '', title: 'To do' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await createColumn({ projectId: '   ', title: 'To do' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(
+      await createColumn({ projectId: 'a'.repeat(MAX_ID_LENGTH + 1), title: 'To do' }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(await createColumn({ projectId: 1 as unknown as string, title: 'To do' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(db.column.create).not.toHaveBeenCalled();
+    expect(db.column.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

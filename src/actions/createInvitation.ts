@@ -36,16 +36,15 @@ export async function createInvitation(input: {
 
   const parsed = invitationSchema.safeParse(input);
   if (!parsed.success) {
-    const usernameIssue = parsed.error.issues.some((issue) => issue.path.includes('username'));
-    if (usernameIssue) {
-      logInfo('invite.denied', {
-        reason: 'unknown_username',
-        projectId: input.projectId,
-        inviterId: session.user.id,
-      });
-      return { error: CANT_INVITE_USER_MESSAGE };
+    const projectIdIssue = parsed.error.issues.some((issue) => issue.path.includes('projectId'));
+    if (projectIdIssue) {
+      return { error: 'Unauthorized' };
     }
-    return { error: 'Unauthorized' };
+    logInfo('invite.denied', {
+      reason: 'unknown_username',
+      inviterId: session.user.id,
+    });
+    return { error: CANT_INVITE_USER_MESSAGE };
   }
 
   const project = await prisma.project.findFirst({

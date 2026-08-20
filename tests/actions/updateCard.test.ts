@@ -8,15 +8,18 @@
 // - Rejects updating a card the user does not own
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string card id without a lookup
 //
 // What is covered:
-// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure
+// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/updateCard.test.ts
 //
 // SEE: src/actions/updateCard.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -158,6 +161,26 @@ describe('updateCard', () => {
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid card id without a lookup', async () => {
+    db.card.findFirst.mockClear();
+
+    expect(await updateCard({ cardId: '', title: 'New title' })).toEqual({ error: 'Unauthorized' });
+    expect(await updateCard({ cardId: '   ', title: 'New title' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await updateCard({ cardId: 'a'.repeat(MAX_ID_LENGTH + 1), title: 'New title' })).toEqual(
+      {
+        error: 'Unauthorized',
+      },
+    );
+    expect(await updateCard({ cardId: 1 as unknown as string, title: 'New title' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.card.findFirst).not.toHaveBeenCalled();
+    expect(db.card.update).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

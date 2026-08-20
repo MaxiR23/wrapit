@@ -9,7 +9,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
-import { columnSchema, type ColumnFieldErrors } from '@/lib/validation/column';
+import { createColumnSchema, type ColumnFieldErrors } from '@/lib/validation/column';
 
 type CreateColumnResult =
   | { data: { id: string; title: string; order: number; projectId: string } }
@@ -25,13 +25,17 @@ export async function createColumn(input: {
     return { error: 'Unauthorized' };
   }
 
-  const parsed = columnSchema.safeParse({ title: input.title });
+  const parsed = createColumnSchema.safeParse(input);
   if (!parsed.success) {
-    return { fieldErrors: firstErrorPerField(parsed.error) };
+    const fieldFailed = parsed.error.issues.some((issue) => issue.path[0] === 'title');
+    if (fieldFailed) {
+      return { fieldErrors: firstErrorPerField(parsed.error) as ColumnFieldErrors };
+    }
+    return { error: 'Unauthorized' };
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: input.projectId, ...accessibleByUser(session.user.id) },
+    where: { id: parsed.data.projectId, ...accessibleByUser(session.user.id) },
   });
   if (!project) {
     return { error: 'Unauthorized' };

@@ -10,16 +10,20 @@
 // - Rejects the call when there is no session
 // - Returns a generic error when getSession rejects
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string project id without a lookup
+// - Rejects a non-boolean starred value without a lookup
 //
 // What is covered:
 // - Idempotent write, missing membership, unauthorized, session lookup
-//   failure, unexpected Prisma failure
+//   failure, unexpected Prisma failure, invalid id, invalid starred
 //
 // Run with: pnpm test:run tests/actions/setProjectStarred.test.ts
 //
 // SEE: src/actions/setProjectStarred.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -160,6 +164,33 @@ describe('setProjectStarred', () => {
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid project id without a lookup', async () => {
+    db.membership.findFirst.mockClear();
+
+    expect(await setProjectStarred('', true)).toEqual({ error: 'Unauthorized' });
+    expect(await setProjectStarred('   ', true)).toEqual({ error: 'Unauthorized' });
+    expect(await setProjectStarred('a'.repeat(MAX_ID_LENGTH + 1), true)).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await setProjectStarred(1 as unknown as string, true)).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.membership.findFirst).not.toHaveBeenCalled();
+    expect(db.membership.update).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-boolean starred value without a lookup', async () => {
+    db.membership.findFirst.mockClear();
+
+    expect(await setProjectStarred('project-1', 'true' as unknown as boolean)).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.membership.findFirst).not.toHaveBeenCalled();
+    expect(db.membership.update).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
