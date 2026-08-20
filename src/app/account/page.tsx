@@ -8,6 +8,7 @@ import { auth } from '@/lib/auth';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { accountPath, isAccountTab, parseAccountTab, SIGN_IN_PATH } from '@/lib/routes';
 import { getUserProfileForUser } from '@/lib/userProfile';
+import { getUserStatusesForUser } from '@/lib/userStatuses';
 
 export const metadata: Metadata = {
   title: 'Account | wrapit',
@@ -30,12 +31,13 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
     redirect(accountPath('profile'));
   }
 
-  const [profile, notifications] = await Promise.all([
+  const [profile, statuses, notifications] = await Promise.all([
     getUserProfileForUser(session.user.id),
+    getUserStatusesForUser(session.user.id),
     getNotificationsForUser(session.user.id),
   ]);
 
-  if (!profile) {
+  if (!profile || !statuses) {
     redirect(SIGN_IN_PATH);
   }
 
@@ -52,7 +54,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
       showSearch={false}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <AccountScreen tab={tab} profile={profile} />
+      <AccountScreen tab={tab} profile={profile} statuses={statuses} />
     </ProjectsShell>
   );
 }

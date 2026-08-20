@@ -29,8 +29,9 @@ See: https://hub.docker.com/_/postgres
 
 Defined in `prisma/schema.prisma`. The models and their relations:
 
-- `User` has many `Project`, many `Membership`, many `RecentProject`, at most
-  one `UserPreferences`, and at most one `UserProfile`.
+- `User` has many `Project`, many `Membership`, many `RecentProject`, many
+  `UserStatus`, at most one `UserPreferences`, and at most one `UserProfile`.
+  `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
   `Membership`, `Invitation`, and `RecentProject`. It
   has an optional `description` and a `status` (`ProjectStatus`: `NEW`,
@@ -70,9 +71,20 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `ANYONE`). The first write upserts the session user's row. Visibility values
   are stored in this slice; they are not yet enforced when other users view a
   profile.
+- `UserStatus` belongs to a `User`. It holds a display `name`, `description`,
+  `color` (one of six palette keys: `green`, `gray`, `red`, `amber`, `blue`,
+  `violet`), and an `Int` `order`. Statuses are per user and fully editable;
+  there are no system-owned rows. A user with no rows is seeded on first read
+  with Active, Inactive, Do not disturb, and Out of office; the first becomes
+  `User.activeStatusId`. A missing `activeStatusId` with rows present is healed
+  to the lowest-order row. The last remaining status cannot be deleted. Deleting
+  a status sets `User.activeStatusId` to null when it pointed at that row
+  (`onDelete: SetNull`); the delete action then points it at the previous status
+  (or the new first row) when the deleted row was active. At most 20 statuses
+  per user.
 
 Deleting a record cascades to its children (deleting a project deletes its columns
-and cards; deleting a user deletes their preferences and profile). `Column` and `Card` use a
+and cards; deleting a user deletes their preferences, profile, and statuses). `Column` and `Card` use a
 `Float` `order` field so siblings can be reordered without rewriting every row on
 each move. Midpoints, renumbering when precision runs out, and how the UI
 persists moves: `docs/kanban.md`.

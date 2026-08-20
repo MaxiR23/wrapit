@@ -14,6 +14,7 @@ function storedFromData<T>(data: unknown, intended: T): T {
   if (typeof data === 'object' && data !== null) {
     if ('value' in data) return (data as { value: T }).value;
     if ('visibility' in data) return (data as { visibility: T }).visibility;
+    if ('activeStatusId' in data) return (data as { activeStatusId: T }).activeStatusId;
   }
   return data === undefined || data === null ? intended : (data as T);
 }
@@ -35,6 +36,7 @@ export function useProfileAutosave<T>({
   const [error, setError] = useState<string | null>(null);
   const desiredRef = useRef(initial);
   const persistedRef = useRef(initial);
+  const generationRef = useRef(0);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveRef = useRef(save);
@@ -54,33 +56,39 @@ export function useProfileAutosave<T>({
       try {
         while (desiredRef.current !== persistedRef.current) {
           const intended = desiredRef.current;
-          const result = await saveRef.current(intended);
-          if ('fieldErrors' in result) {
-            const message =
-              result.fieldErrors.value ?? result.fieldErrors.field ?? GENERIC_ERROR_MESSAGE;
+          const generation = generationRef.current;
+          try {
+            const result = await saveRef.current(intended);
+            if ('fieldErrors' in result) {
+              if (generation !== generationRef.current) continue;
+              const message =
+                result.fieldErrors.value ?? result.fieldErrors.field ?? GENERIC_ERROR_MESSAGE;
+              desiredRef.current = persistedRef.current;
+              setValue(persistedRef.current);
+              setError(message);
+              onRevertRef.current?.(persistedRef.current);
+              return;
+            }
+            if ('error' in result) {
+              throw new Error(result.error);
+            }
+            const stored = storedFromData(result.data, intended);
+            persistedRef.current = stored;
+            if (desiredRef.current === intended) {
+              desiredRef.current = stored;
+              setValue(stored);
+              onSuccessRef.current?.(stored);
+            }
+          } catch {
+            if (generation !== generationRef.current) continue;
             desiredRef.current = persistedRef.current;
             setValue(persistedRef.current);
-            setError(message);
+            setError(GENERIC_ERROR_MESSAGE);
             onRevertRef.current?.(persistedRef.current);
             return;
           }
-          if ('error' in result) {
-            throw new Error(result.error);
-          }
-          const stored = storedFromData(result.data, intended);
-          persistedRef.current = stored;
-          if (desiredRef.current === intended) {
-            desiredRef.current = stored;
-            setValue(stored);
-            onSuccessRef.current?.(stored);
-          }
         }
         setError(null);
-      } catch {
-        desiredRef.current = persistedRef.current;
-        setValue(persistedRef.current);
-        setError(GENERIC_ERROR_MESSAGE);
-        onRevertRef.current?.(persistedRef.current);
       } finally {
         inFlightRef.current = null;
       }
@@ -100,6 +108,7 @@ export function useProfileAutosave<T>({
 
   const schedule = useCallback(
     (next: T) => {
+      generationRef.current += 1;
       desiredRef.current = next;
       setValue(next);
       setError(null);

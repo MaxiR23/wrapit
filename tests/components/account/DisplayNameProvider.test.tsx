@@ -18,6 +18,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { UserProfileView } from '@/lib/userProfile';
+import { accountStatusesFixture } from '../../helpers/accountStatuses';
 
 const updateProfileField = vi.fn();
 const updateProfileVisibility = vi.fn();
@@ -43,6 +44,10 @@ vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn()
 vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
 vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
 vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
+vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
+vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
+vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
+vi.mock('@/actions/deleteUserStatus', () => ({ deleteUserStatus: vi.fn() }));
 
 const { default: ProjectsShell } = await import('@/components/projects/ProjectsShell');
 const { default: AccountScreen } = await import('@/components/account/AccountScreen');
@@ -88,7 +93,7 @@ describe('live display name in the shell', () => {
     const events = userEvent.setup();
     render(
       <ProjectsShell user={shellUser} showSearch={false}>
-        <AccountScreen tab="profile" profile={profile} />
+        <AccountScreen tab="profile" profile={profile} statuses={accountStatusesFixture} />
       </ProjectsShell>,
     );
 
