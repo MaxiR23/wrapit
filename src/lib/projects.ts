@@ -49,6 +49,65 @@ export async function getProjectForUser(projectId: string, userId: string) {
   return { ...project, columns: columnsWithCards };
 }
 
+export type ProjectMember = {
+  userId: string;
+  name: string;
+  username: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+};
+
+const ROLE_ORDER: Record<ProjectMember['role'], number> = {
+  OWNER: 0,
+  ADMIN: 1,
+  MEMBER: 2,
+};
+
+/**
+ * Members of a project the user can access. Null when the project is missing
+ * or the user has no membership. Does not use ownerId for access or listing.
+ */
+export async function listProjectMembersForUser(
+  projectId: string,
+  userId: string,
+): Promise<ProjectMember[] | null> {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, ...accessibleByUser(userId) },
+  });
+  if (!project) return null;
+
+  const memberships = await prisma.membership.findMany({
+    where: { projectId: project.id },
+  });
+  const userIds = memberships.map((membership) => membership.userId);
+  const users =
+    userIds.length === 0
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: userIds } },
+        });
+  const usersById = new Map(users.map((user) => [user.id, user]));
+
+  return memberships
+    .map((membership) => {
+      const user = usersById.get(membership.userId);
+      const role: ProjectMember['role'] =
+        membership.role === 'OWNER' || membership.role === 'ADMIN' || membership.role === 'MEMBER'
+          ? membership.role
+          : 'MEMBER';
+      return {
+        userId: membership.userId,
+        name: user?.name ?? '',
+        username: user?.username ?? '',
+        role,
+      };
+    })
+    .sort((left, right) => {
+      const byRole = ROLE_ORDER[left.role] - ROLE_ORDER[right.role];
+      if (byRole !== 0) return byRole;
+      return left.name.localeCompare(right.name);
+    });
+}
+
 type UserRow = { id: string; name: string; username: string };
 
 function asUserRow(

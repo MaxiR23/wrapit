@@ -31,6 +31,12 @@ enum ViewMode {
   LIST
 }
 
+enum NotificationType {
+  INVITATION_RECEIVED
+  INVITATION_ACCEPTED
+  INVITATION_REJECTED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -167,18 +173,25 @@ model Invitation {
   inviteeId String
   invitee   User    @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
 
+  notifications Notification[]
+
   @@unique([projectId, inviteeId])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  type      String
+  id        String           @id @default(cuid())
+  type      NotificationType
   message   String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   recipientId String
   recipient   User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  invitationId String?
+  invitation   Invitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+
+  @@index([invitationId])
 }
 
 model UserPreferences {

@@ -37,6 +37,21 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `Membership` (roles `OWNER`, `ADMIN`, `MEMBER`); `ownerId` is creator metadata.
 - `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
   It holds `role` and `starred`. Every project must have at least one OWNER.
+- `Invitation` belongs to a `Project`, an inviter `User`, and an invitee `User`.
+  One row per `(projectId, inviteeId)`. Status is `PENDING`, `ACCEPTED`, or
+  `REJECTED`. Invites always write role `MEMBER`. A `REJECTED` row is reused
+  (set back to `PENDING`) rather than inserting a second invitation. Reuse
+  claims `REJECTED` with `updateMany` (`id` + `REJECTED`) so two overlapping
+  re-invites cannot each write an `INVITATION_RECEIVED`. A first-time insert
+  uses `createMany` with `skipDuplicates` so a concurrent create returns
+  `pending_invitation` instead of throwing. Accept and
+  reject claim `PENDING` with `updateMany` (`id` + `PENDING`) so only one
+  status transition wins.
+- `Notification` belongs to a recipient `User` and optionally an `Invitation`.
+  `type` is `NotificationType`: `INVITATION_RECEIVED`, `INVITATION_ACCEPTED`,
+  `INVITATION_REJECTED`. `invitationId` links the row so accept/reject can
+  delete the invitee's received notification. `message` is denormalized English
+  copy written at create time.
 - `Column` belongs to a `Project` and has many `Card`.
 - `Card` belongs to a `Column`.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that

@@ -71,6 +71,15 @@ upserts `openedAt` when the session user has a membership on the project and no-
 so opening a project cannot fail navigation. Failures that should not leak internals
 return a fixed generic message (`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
+Notification reads load in the projects page Server Component via
+`getNotificationsForUser` (session recipient only) so the bell badge is correct
+on first paint. The panel refetches through `listNotifications` when opened.
+Accepting an invitation from the panel calls `router.refresh()` so the
+mounted `/projects` grid picks up the new membership. Reject does not
+refresh. Mark-read writes (`markNotificationRead`, `markAllNotificationsRead`) only
+touch the session user's rows: `markNotificationRead` is one `updateMany` on
+`id` + `recipientId`. There is no polling and no websocket.
+
 **Auth in the browser** is the exception: sign up, sign in and sign out call
 `authClient` against `/api/auth/*`. Everything else that changes domain data uses
 an action.
@@ -101,6 +110,23 @@ throws `LastOwnerError` (`Cannot remove the last OWNER`) and does not write;
 membership delete and role-change actions in a later slice must call it before
 mutating.
 
+Any member can invite by username (`createInvitation`). Non-invitable targets
+(unknown username, self, already a member, existing PENDING invitation) return
+the same generic message (`CANT_INVITE_USER_MESSAGE`) and write nothing; the
+server logs the real reason. `inviteUserToProject` in `src/lib/invitations.ts`
+owns those checks. Re-inviting after a reject claims `REJECTED` inside the
+transaction (`updateMany` on `id` + `REJECTED`); a first-time insert claims
+with `createMany` + `skipDuplicates`. A lost claim returns `pending_invitation`
+and writes nothing. The invitee accepts or rejects; only the invitee can.
+`acceptInvitation` runs in one transaction. The first write is a conditional
+`updateMany` (`id` + `PENDING` → `ACCEPTED`); if that does not claim exactly
+one row, the transaction rolls back and the action returns Unauthorized. Only
+then: `MEMBER` membership, `INVITATION_ACCEPTED` for the inviter, delete the
+invitee's `INVITATION_RECEIVED`. `rejectInvitation` is the same without the
+membership write (`PENDING` → `REJECTED`). The invitee check stays outside the
+transaction; the status check does not. Neither action reads `ownerId` for
+access.
+
 Extra rules for moving cards (same project, neighbors in the target column) live
 in `docs/kanban.md`.
 
@@ -126,11 +152,15 @@ in `docs/kanban.md`.
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
     src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
+    src/lib/invitations.ts              invite-by-username checks, notification copy
+    src/lib/notifications.ts            list/mark-read for the session user's notifications
+    src/lib/relativeTime.ts             relative English time without a leading verb
+    src/lib/log.ts                      server-side info log (never sent to the client)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username
     src/lib/ownership.ts                column/card access chain (membership)
-    src/lib/messages.ts                 generic user-facing error string
+    src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
     src/lib/kanbanItems.ts              column→card id lists for DnD
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
@@ -139,12 +169,21 @@ in `docs/kanban.md`.
     src/lib/validation/signIn.ts        sign in rules
     src/lib/validation/forgotPassword.ts  forgot-password rules
     src/lib/validation/resetPassword.ts reset-password rules
-    src/lib/validation/project.ts       project title, optional description/status/featured/columns
+    src/lib/validation/id.ts            bounded identifier shared by action schemas
+    src/lib/validation/invitation.ts    invite projectId + username; accept/reject invitationId
+    src/lib/validation/notification.ts  markNotificationRead notificationId
+    src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
     src/lib/validation/column.ts        column title rules
     src/lib/validation/card.ts          card title and optional description
     src/lib/validation/moveCard.ts      moveCard id and neighbor rules
     src/lib/validation/viewMode.ts      projects grid/list viewMode
-    src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star
+    src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
+    src/actions/createInvitation.ts     invite a user by username (member only; generic deny)
+    src/actions/acceptInvitation.ts     invitee accepts: membership MEMBER + notify inviter
+    src/actions/rejectInvitation.ts     invitee declines and notifies the inviter
+    src/actions/listNotifications.ts    session user's notifications (newest first) + unread count
+    src/actions/markNotificationRead.ts mark one of the session user's notifications read
+    src/actions/markAllNotificationsRead.ts mark every unread notification for the session user
     src/actions/setProjectStarred.ts    write Membership.starred for a member
     src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
@@ -157,7 +196,7 @@ in `docs/kanban.md`.
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
-    src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent)
+    src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent; Members)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -167,7 +206,8 @@ in `docs/kanban.md`.
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs, OpenPanel exclusion
+    src/components/notifications/       bell, panel content, popover/sheet chrome, notifications provider
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

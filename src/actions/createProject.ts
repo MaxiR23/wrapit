@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
+import { inviteUserToProject, normalizeInviteUsername, type InvitationDb } from '@/lib/invitations';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH } from '@/lib/routes';
@@ -23,6 +24,7 @@ type CreateProjectResult =
         ownerId: string;
         createdAt: Date;
       };
+      inviteErrors?: { username: string }[];
     }
   | { fieldErrors: ProjectFieldErrors }
   | { error: string };
@@ -47,6 +49,7 @@ export async function createProject(input: {
   status?: 'NEW' | 'IN_PROGRESS' | 'PAUSED';
   featured?: boolean;
   columns?: CreateProjectColumn[];
+  invitees?: string[];
 }): Promise<CreateProjectResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -97,7 +100,30 @@ export async function createProject(input: {
 
     revalidatePath(PROJECTS_PATH);
 
-    return { data: project };
+    const invitees = [
+      ...new Set(
+        (parsed.data.invitees ?? [])
+          .map(normalizeInviteUsername)
+          .filter((username) => username.length > 0),
+      ),
+    ];
+    const inviteErrors: { username: string }[] = [];
+    for (const username of invitees) {
+      try {
+        const result = await inviteUserToProject(prisma as unknown as InvitationDb, {
+          projectId: project.id,
+          inviterId: session.user.id,
+          username,
+        });
+        if (!result.ok) {
+          inviteErrors.push({ username });
+        }
+      } catch {
+        inviteErrors.push({ username });
+      }
+    }
+
+    return inviteErrors.length > 0 ? { data: project, inviteErrors } : { data: project };
   } catch {
     // Never surface Prisma/raw messages: they can leak host or constraint details.
     return { error: GENERIC_ERROR_MESSAGE };

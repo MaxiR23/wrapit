@@ -20,9 +20,25 @@ OWNER `Membership` for the session user are created in the same transaction as
 the project. A create-time `featured` flag sets `starred: true` on that OWNER
 row; otherwise it is unstarred.
 
+Any member can invite another user by username. Invites always create a
+`MEMBER` role. `acceptInvitation` claims `PENDING` with a conditional
+`updateMany` inside the transaction, then inserts the membership; a concurrent
+reject or a second accept cannot leave a membership on a non-PENDING row. A
+mid-flight failure rolls back. Access for invite, accept, and reject is
+membership-based, never `ownerId`.
+
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. Only **cards** are reordered in the UI today;
 columns keep creation order.
+
+`createProject` also accepts optional `invitees` (usernames). The list is
+validated with the project (strings only, username length bounds, at most 20
+after dedup); a field error means nothing is created. After the project
+transaction commits, each unique username is invited (trimmed, lowercased,
+duplicates dropped). Invalid invitees are
+collected as `inviteErrors` and do not roll back the project. The new-project
+dialog always closes on success and may show a brief notice when some invites
+failed; remaining invites happen from Members on the project page.
 
 The project detail page loads ordered columns and cards server-side via
 `getProjectForUser`. Non-members get `notFound()`. The client receives card id lists

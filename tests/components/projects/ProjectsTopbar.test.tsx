@@ -23,6 +23,7 @@ import type { ReactElement } from 'react';
 const signOut = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
+const listNotifications = vi.fn();
 
 vi.mock('@/lib/authClient', () => ({
   authClient: { signOut },
@@ -32,19 +33,34 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
 }));
 
+vi.mock('@/actions/listNotifications', () => ({ listNotifications }));
+vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
+vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
+vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
+vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
+
 const { default: ProjectsTopbar } = await import('@/components/projects/ProjectsTopbar');
 const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsSearch');
+const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
+const { NotificationsProvider } = await import('@/components/notifications/NotificationsProvider');
 
 const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
 
 function renderTopbar(ui: ReactElement) {
-  return render(<ProjectsSearchProvider>{ui}</ProjectsSearchProvider>);
+  return render(
+    <OpenPanelProvider>
+      <NotificationsProvider>
+        <ProjectsSearchProvider>{ui}</ProjectsSearchProvider>
+      </NotificationsProvider>
+    </OpenPanelProvider>,
+  );
 }
 
 describe('ProjectsTopbar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signOut.mockResolvedValue({ data: { success: true }, error: null });
+    listNotifications.mockResolvedValue({ data: { items: [], unreadCount: 0 } });
   });
 
   it('signs the user out, redirects to the sign in page and refreshes the route', async () => {

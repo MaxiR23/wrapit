@@ -36,6 +36,7 @@ const {
   getProjectForUser,
   listProjectSummariesForUser,
   listRecentProjectsForUser,
+  listProjectMembersForUser,
 } = await import('@/lib/projects');
 
 describe('listProjectsForUser', () => {
@@ -371,5 +372,43 @@ describe('listRecentProjectsForUser', () => {
     const recents = await listRecentProjectsForUser('user-ada');
 
     expect(recents.map((recent) => recent.projectId)).toEqual([memberProject.id]);
+  });
+});
+
+describe('listProjectMembersForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('lists memberships for an accessible project, owner first', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.membership.create({
+      data: { userId: 'user-max', projectId: project.id, role: 'MEMBER', starred: false },
+    });
+
+    const members = await listProjectMembersForUser(project.id, 'user-ada');
+
+    expect(members).toEqual([
+      expect.objectContaining({ userId: 'user-ada', name: 'Ada Lovelace', role: 'OWNER' }),
+      expect.objectContaining({ userId: 'user-max', name: 'Maxi', role: 'MEMBER' }),
+    ]);
+  });
+
+  it('returns null when the user is not a member', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-other',
+    });
+
+    expect(await listProjectMembersForUser(project.id, 'user-ada')).toBeNull();
   });
 });

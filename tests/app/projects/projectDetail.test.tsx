@@ -20,6 +20,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
+const listProjectMembersForUser = vi.fn();
 const recordRecentProject = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -34,6 +35,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/projects', () => ({
   getProjectForUser,
+  listProjectMembersForUser,
 }));
 
 vi.mock('@/actions/recordRecentProject', () => ({
@@ -61,6 +63,10 @@ vi.mock('@/components/projects/ColumnsEmptyState', () => ({
   default: () => <p>This project has no columns yet. Create one to get started.</p>,
 }));
 
+vi.mock('@/actions/createInvitation', () => ({
+  createInvitation: vi.fn(),
+}));
+
 const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/page');
 
 describe('Project detail page', () => {
@@ -68,6 +74,9 @@ describe('Project detail page', () => {
     vi.clearAllMocks();
     getSession.mockResolvedValue({ user: { id: 'user-ada' } });
     recordRecentProject.mockResolvedValue(undefined);
+    listProjectMembersForUser.mockResolvedValue([
+      { userId: 'user-ada', name: 'Ada Lovelace', username: 'ada', role: 'OWNER' },
+    ]);
   });
 
   it('renders the project title for a member', async () => {
@@ -82,7 +91,10 @@ describe('Project detail page', () => {
     render(page);
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Members' })).toBeInTheDocument();
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
+    expect(listProjectMembersForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(notFound).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(recordRecentProject).toHaveBeenCalledWith('project-1');

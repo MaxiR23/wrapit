@@ -98,6 +98,7 @@ describe('NewProjectDialog', () => {
           { title: 'In progress', order: 1 },
           { title: 'Done', order: 2 },
         ],
+        invitees: [],
       });
     });
   });
@@ -122,6 +123,7 @@ describe('NewProjectDialog', () => {
           { title: 'In review', order: 2 },
           { title: 'Done', order: 3 },
         ],
+        invitees: [],
       });
     });
   });
@@ -159,6 +161,7 @@ describe('NewProjectDialog', () => {
           { title: 'In review', order: 2 },
           { title: 'Done', order: 3 },
         ],
+        invitees: [],
       });
     });
   });
@@ -296,5 +299,50 @@ describe('NewProjectDialog', () => {
 
     expect(await screen.findByText('Title is required')).toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'New project' })).toBeInTheDocument();
+  });
+
+  it('sends teammate usernames as invitees', async () => {
+    const user = userEvent.setup();
+    render(<NewProjectDialog />);
+    await openDialog(user);
+
+    await user.type(screen.getByLabelText('Name'), 'Sprint board');
+    await user.type(screen.getByLabelText('Teammate 1'), 'maxi');
+    await user.click(screen.getByRole('button', { name: 'Add teammate' }));
+    await user.type(screen.getByLabelText('Teammate 2'), 'linus');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => {
+      expect(createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Sprint board', invitees: ['maxi', 'linus'] }),
+      );
+    });
+  });
+
+  it('closes on success even when some invitees fail and shows a brief notice', async () => {
+    createProject.mockResolvedValueOnce({
+      data: {
+        id: 'project-1',
+        title: 'Sprint board',
+        description: null,
+        status: 'NEW',
+        ownerId: 'user-ada',
+        createdAt: new Date(),
+      },
+      inviteErrors: [{ username: 'nobody' }],
+    });
+    const user = userEvent.setup();
+    render(<NewProjectDialog />);
+    await openDialog(user);
+
+    await user.type(screen.getByLabelText('Name'), 'Sprint board');
+    await user.type(screen.getByLabelText('Teammate 1'), 'nobody');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'New project' })).not.toBeInTheDocument();
+    });
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status')).toHaveTextContent("Can't invite this user");
   });
 });

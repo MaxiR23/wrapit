@@ -6,6 +6,7 @@ import ProjectsShell from '@/components/projects/ProjectsShell';
 import ProjectsView from '@/components/projects/ProjectsView';
 import { auth } from '@/lib/auth';
 import { initials } from '@/lib/initials';
+import { getNotificationsForUser } from '@/lib/notifications';
 import { filterRecentProjects } from '@/lib/projectGrid';
 import { listProjectSummariesForUser, listRecentProjectsForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
@@ -21,10 +22,11 @@ export default async function ProjectsPage() {
     redirect(SIGN_IN_PATH);
   }
 
-  const [projects, preferences, recents] = await Promise.all([
+  const [projects, preferences, recents, notifications] = await Promise.all([
     listProjectSummariesForUser(session.user.id),
     getUserPreferences(session.user.id),
     listRecentProjectsForUser(session.user.id),
+    getNotificationsForUser(session.user.id),
   ]);
   // Recents are already access-filtered and capped in the query; this maps ids
   // to loaded summaries for chip rendering.
@@ -38,6 +40,7 @@ export default async function ProjectsPage() {
         username,
         initials: initials(session.user.name, username),
       }}
+      initialNotifications={notifications.items}
     >
       <ProjectsMobileSearch />
       <ProjectsView

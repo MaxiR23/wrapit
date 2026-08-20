@@ -6,3 +6,10 @@
  * database host or a constraint name, so `error.message` is never rendered.
  */
 export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
+
+/**
+ * Shown for every non-invitable target (unknown username, self, already a
+ * member, pending invitation). Deliberately the same string in every branch
+ * so the response cannot reveal whether the username exists.
+ */
+export const CANT_INVITE_USER_MESSAGE = "Can't invite this user";

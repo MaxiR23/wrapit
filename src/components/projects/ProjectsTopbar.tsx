@@ -1,7 +1,9 @@
 'use client';
 
-import { Bell } from 'lucide-react';
-
+import {
+  NotificationsBell,
+  NotificationsPopover,
+} from '@/components/notifications/NotificationsBell';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
 import { useSignOut } from '@/components/projects/useSignOut';
@@ -36,17 +38,14 @@ export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
         </kbd>
       </div>
 
-      <button
-        type="button"
-        aria-label="Notifications"
-        className={cn(
-          shellFocusClassName,
-          'relative inline-flex items-center justify-center rounded-md border border-border text-muted-foreground',
-          'size-10 hover:border-border-strong hover:text-foreground lg:size-9',
-        )}
-      >
-        <Bell className="size-[18px] lg:size-[17px]" strokeWidth={1.8} />
-      </button>
+      <div className="relative">
+        <NotificationsBell
+          className="size-10 rounded-md border border-border text-muted-foreground hover:border-border-strong hover:text-foreground lg:size-9"
+          iconClassName="size-[18px] lg:size-[17px]"
+          iconStrokeWidth={1.8}
+        />
+        <NotificationsPopover />
+      </div>
 
       {error && (
         <p role="alert" className="text-sm text-destructive">

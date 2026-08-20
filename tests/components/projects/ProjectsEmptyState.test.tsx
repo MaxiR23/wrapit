@@ -174,6 +174,7 @@ describe('ProjectsEmptyState', () => {
           { title: 'In review', order: 2 },
           { title: 'Done', order: 3 },
         ],
+        invitees: [],
       });
     });
   });

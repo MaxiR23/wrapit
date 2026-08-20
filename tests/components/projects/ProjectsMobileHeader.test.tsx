@@ -16,10 +16,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 
 const signOut = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
+const listNotifications = vi.fn();
 
 vi.mock('@/lib/authClient', () => ({
   authClient: { signOut },
@@ -29,21 +31,38 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
 }));
 
+vi.mock('@/actions/listNotifications', () => ({ listNotifications }));
+vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
+vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
+vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
+vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
+
 const { default: ProjectsMobileHeader } =
   await import('@/components/projects/ProjectsMobileHeader');
+const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
+const { NotificationsProvider } = await import('@/components/notifications/NotificationsProvider');
 
 const user = { name: 'Ada Lovelace', username: 'ada', initials: 'AL' };
+
+function renderHeader(ui: ReactElement) {
+  return render(
+    <OpenPanelProvider>
+      <NotificationsProvider>{ui}</NotificationsProvider>
+    </OpenPanelProvider>,
+  );
+}
 
 describe('ProjectsMobileHeader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signOut.mockResolvedValue({ data: { success: true }, error: null });
+    listNotifications.mockResolvedValue({ data: { items: [], unreadCount: 0 } });
   });
 
   it('signs the user out, redirects to the sign in page and refreshes the route', async () => {
     const events = userEvent.setup();
 
-    render(<ProjectsMobileHeader user={user} />);
+    renderHeader(<ProjectsMobileHeader user={user} />);
     await events.click(screen.getByRole('button', { name: 'Account' }));
 
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -59,7 +78,7 @@ describe('ProjectsMobileHeader', () => {
     });
     const events = userEvent.setup();
 
-    render(<ProjectsMobileHeader user={user} />);
+    renderHeader(<ProjectsMobileHeader user={user} />);
     await events.click(screen.getByRole('button', { name: 'Account' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
