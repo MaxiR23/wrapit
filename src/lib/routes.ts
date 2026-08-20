@@ -6,14 +6,22 @@
 
 export const HOME_PATH = '/';
 export const PROJECTS_PATH = '/projects';
+export const ACCOUNT_PATH = '/account';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
 export const RESET_PASSWORD_PATH = '/reset-password';
 
+export type AccountTab = 'profile' | 'visibility' | 'activity' | 'cards';
+
 /** Detail page for a single project. */
 export function projectPath(projectId: string) {
   return `${PROJECTS_PATH}/${projectId}`;
+}
+
+/** Account screen for a tab. The page does not exist yet; the hrefs are wired ahead of it. */
+export function accountPath(tab: AccountTab) {
+  return `${ACCOUNT_PATH}?tab=${tab}`;
 }
 
 /** Pages that show the sign in, sign up, or password-reset forms. */

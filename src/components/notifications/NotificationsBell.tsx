@@ -2,13 +2,10 @@
 
 import { Bell } from 'lucide-react';
 
-import {
-  NotificationsPanelContent,
-  notificationsPanelClassName,
-} from '@/components/notifications/NotificationsPanelContent';
+import { NotificationsPanelContent } from '@/components/notifications/NotificationsPanelContent';
 import { useNotifications } from '@/components/notifications/NotificationsProvider';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
-import { shellFocusClassName } from '@/components/projects/shell';
+import { shellFocusClassName, shellPanelClassName } from '@/components/projects/shell';
 import { cn } from '@/lib/utils';
 
 export function NotificationsBell({
@@ -69,7 +66,7 @@ function NotificationsPanel({
       role="dialog"
       aria-modal={kind === 'sheet' ? true : undefined}
       aria-label="Notifications"
-      className={notificationsPanelClassName(kind)}
+      className={shellPanelClassName(kind)}
     >
       <NotificationsPanelContent
         items={items}

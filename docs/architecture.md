@@ -12,7 +12,8 @@ import from `components/`, `actions/` and `lib/`; `components/` may import from
 
 - `src/app/` — **routes only**. A page composes; it does not implement domain
   logic. Keep it thin so a second route can reuse the same pieces.
-- `src/components/` — React UI grouped by domain (`auth/`, `projects/`, `cards/`).
+- `src/components/` — React UI grouped by domain (`auth/`, `projects/`, `cards/`,
+  `notifications/`, `account/`).
   `ui/` is the exception: shadcn/ui primitives. Feature UI never lands in `ui/`.
 - `src/actions/` — server actions, one file each, each starting with
   `'use server'`. Mutations that need the real session and Prisma live here.
@@ -145,7 +146,7 @@ in `docs/kanban.md`.
 ## File map
 
     src/proxy.ts                        route protection (cookie check only)
-    src/lib/routes.ts                   public routes; PROJECTS_PATH, projectPath
+    src/lib/routes.ts                   public routes; PROJECTS_PATH, projectPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
@@ -207,9 +208,10 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
+    src/components/account/             account menu (popover/sheet), sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs, OpenPanel exclusion
-    src/components/notifications/       bell, panel content, popover/sheet chrome, notifications provider
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs, OpenPanel exclusion, shellPanelClassName
+    src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/cards/               sortable cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

@@ -1,15 +1,17 @@
 // tests/components/projects/ProjectsTopbar.test.tsx
 //
-// Tests for the projects topbar account button, which hosts a temporary sign out,
-// and the search input that shares query state with the projects list.
+// Tests for the projects topbar account menu and the search input that shares
+// query state with the projects list.
 //
 // Tested:
-// - Signs the user out, redirects to the sign in page and refreshes the route
-// - Shows a generic message and stays put when sign out fails
+// - Account opens the menu and does not sign out on the first click
+// - Sign out from the menu redirects to the sign in page
+// - Opening Account closes notifications, and opening the bell closes Account
+// - Switching from Account to the bell leaves focus on the notifications button
 // - Renders the Search projects input
 //
 // What is covered:
-// - Sign out happy path, sign out failure, search field
+// - Account menu wiring, OpenPanel exclusion both ways, focus on switch, search field
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsTopbar.test.tsx
 //
@@ -63,33 +65,58 @@ describe('ProjectsTopbar', () => {
     listNotifications.mockResolvedValue({ data: { items: [], unreadCount: 0 } });
   });
 
-  it('signs the user out, redirects to the sign in page and refreshes the route', async () => {
+  it('opens the account menu and does not sign out on the first click', async () => {
     const events = userEvent.setup();
 
     renderTopbar(<ProjectsTopbar user={user} />);
     await events.click(screen.getByRole('button', { name: 'Account' }));
+
+    expect(signOut).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('dialog', { name: 'Account' }).length).toBeGreaterThan(0);
+  });
+
+  it('signs the user out from the menu, redirects to sign in and refreshes', async () => {
+    const events = userEvent.setup();
+
+    renderTopbar(<ProjectsTopbar user={user} />);
+    await events.click(screen.getByRole('button', { name: 'Account' }));
+    await events.click(screen.getAllByRole('button', { name: 'Sign out' })[0]);
 
     expect(signOut).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith('/sign-in');
     expect(refresh).toHaveBeenCalled();
   });
 
-  it('shows a generic message and stays put when sign out fails', async () => {
-    const leakyMessage = 'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused';
-    signOut.mockResolvedValue({
-      data: null,
-      error: { message: leakyMessage, status: 500, statusText: 'Internal Server Error' },
-    });
+  it('closes notifications when Account opens and closes Account when the bell opens', async () => {
     const events = userEvent.setup();
 
     renderTopbar(<ProjectsTopbar user={user} />);
-    await events.click(screen.getByRole('button', { name: 'Account' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not sign out. Please try again.',
-    );
-    expect(screen.getByRole('alert')).not.toHaveTextContent('10.0.0.5');
-    expect(push).not.toHaveBeenCalled();
+    await events.click(screen.getByRole('button', { name: 'Notifications' }));
+    expect(screen.getAllByRole('dialog', { name: 'Notifications' }).length).toBeGreaterThan(0);
+
+    await events.click(screen.getByRole('button', { name: 'Account' }));
+    expect(screen.queryByRole('dialog', { name: 'Notifications' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('dialog', { name: 'Account' }).length).toBeGreaterThan(0);
+
+    await events.click(screen.getByRole('button', { name: 'Notifications' }));
+    expect(screen.queryByRole('dialog', { name: 'Account' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('dialog', { name: 'Notifications' }).length).toBeGreaterThan(0);
+  });
+
+  it('leaves focus on the notifications button when switching from the account menu', async () => {
+    const events = userEvent.setup();
+
+    renderTopbar(<ProjectsTopbar user={user} />);
+    const account = screen.getByRole('button', { name: 'Account' });
+    const bell = screen.getByRole('button', { name: 'Notifications' });
+
+    await events.click(account);
+    await events.click(bell);
+
+    expect(screen.queryByRole('dialog', { name: 'Account' })).not.toBeInTheDocument();
+    expect(bell).toHaveFocus();
+    expect(account).not.toHaveFocus();
   });
 
   it('renders the Search projects input', () => {

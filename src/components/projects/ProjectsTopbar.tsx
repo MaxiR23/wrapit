@@ -1,17 +1,16 @@
 'use client';
 
+import { AccountButton, AccountPopover } from '@/components/account/AccountMenu';
 import {
   NotificationsBell,
   NotificationsPopover,
 } from '@/components/notifications/NotificationsBell';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
-import { useSignOut } from '@/components/projects/useSignOut';
 import { cn } from '@/lib/utils';
 
 export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
   const { query, setQuery } = useProjectsSearch();
-  const { signOut, error, isSigningOut } = useSignOut();
 
   return (
     <header
@@ -47,30 +46,15 @@ export default function ProjectsTopbar({ user }: { user: ProjectsShellUser }) {
         <NotificationsPopover />
       </div>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      <button
-        type="button"
-        aria-label="Account"
-        onClick={signOut}
-        disabled={isSigningOut}
-        className={cn(
-          shellFocusClassName,
-          'flex items-center gap-2.5 border-l border-border pl-3.5',
-        )}
-      >
-        <span className="hidden flex-col items-end gap-px lg:flex">
-          <span className="text-[13px] font-medium">{user.name}</span>
-          <span className="text-[11.5px] text-muted-foreground">{user.username}</span>
-        </span>
-        <span className="inline-flex size-8 items-center justify-center rounded-full border border-border-strong bg-card text-[11.5px] font-semibold leading-none">
-          {user.initials}
-        </span>
-      </button>
+      <div className="relative">
+        <AccountButton
+          user={user}
+          showName
+          className="flex items-center gap-2.5 border-l border-border pl-3.5"
+          avatarClassName="size-8 text-[11.5px]"
+        />
+        <AccountPopover user={user} />
+      </div>
     </header>
   );
 }
