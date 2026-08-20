@@ -47,7 +47,8 @@ render as chips near the top. Zero projects render `ProjectsEmptyState` instead
 of that list (distinct from an empty search).
 
 **Writes** go through server actions under `src/actions/`. Each action checks
-the real session, validates input, checks membership access, then mutates. Preferences
+the real session, validates input (bounded identifiers with `idSchema` before
+any ownership or membership lookup), checks membership access, then mutates. Preferences
 writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
@@ -173,9 +174,10 @@ in `docs/kanban.md`.
     src/lib/validation/invitation.ts    invite projectId + username; accept/reject invitationId
     src/lib/validation/notification.ts  markNotificationRead notificationId
     src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
-    src/lib/validation/column.ts        column title rules
-    src/lib/validation/card.ts          card title and optional description
-    src/lib/validation/moveCard.ts      moveCard id and neighbor rules
+    src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
+    src/lib/validation/column.ts        column title rules; create/delete action ids
+    src/lib/validation/card.ts          card title and optional description; create/update/delete action ids
+    src/lib/validation/moveCard.ts      moveCard card, column, and neighbor ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
     src/actions/createInvitation.ts     invite a user by username (member only; generic deny)

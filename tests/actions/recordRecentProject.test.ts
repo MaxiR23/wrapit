@@ -10,16 +10,19 @@
 // - No-ops when there is no session
 // - No-ops when getSession rejects
 // - No-ops when Prisma fails unexpectedly
+// - No-ops an empty, oversized, or non-string project id without a lookup
 //
 // What is covered:
 // - Happy path create and update, no access, unauthorized, session lookup failure,
-//   unexpected Prisma failure
+//   unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/recordRecentProject.test.ts
 //
 // SEE: src/actions/recordRecentProject.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -147,6 +150,18 @@ describe('recordRecentProject', () => {
     db.recentProject.upsert.mockRejectedValueOnce(new Error(leakyMessage));
 
     await expect(recordRecentProject(project.id)).resolves.toBeUndefined();
+    expect(db.recentProject.rows).toHaveLength(0);
+  });
+
+  it('does nothing for an invalid project id without a lookup', async () => {
+    db.project.findFirst.mockClear();
+
+    await expect(recordRecentProject('')).resolves.toBeUndefined();
+    await expect(recordRecentProject('   ')).resolves.toBeUndefined();
+    await expect(recordRecentProject('a'.repeat(MAX_ID_LENGTH + 1))).resolves.toBeUndefined();
+    await expect(recordRecentProject(1 as unknown as string)).resolves.toBeUndefined();
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(db.recentProject.upsert).not.toHaveBeenCalled();
     expect(db.recentProject.rows).toHaveLength(0);
   });
 });

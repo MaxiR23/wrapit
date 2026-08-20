@@ -9,7 +9,6 @@ import { orderBetween } from '@/lib/order';
 import { getCardForUser, getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
-import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import { moveCardSchema, type MoveCardFieldErrors } from '@/lib/validation/moveCard';
 
 type MoveCardResult =
@@ -38,7 +37,7 @@ export async function moveCard(input: {
 
   const parsed = moveCardSchema.safeParse(input);
   if (!parsed.success) {
-    return { fieldErrors: firstErrorPerField(parsed.error) };
+    return { error: 'Unauthorized' };
   }
 
   const { cardId, targetColumnId, beforeCardId, afterCardId } = parsed.data;

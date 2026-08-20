@@ -9,15 +9,18 @@
 // - Rejects creating on a column the user does not own
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
+// - Rejects an empty, oversized, or non-string column id without a lookup
 //
 // What is covered:
-// - Happy path, optional description, invalid input, ownership, unauthorized, unexpected Prisma failure
+// - Happy path, optional description, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/createCard.test.ts
 //
 // SEE: src/actions/createCard.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -158,6 +161,27 @@ describe('createCard', () => {
 
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid column id without a lookup', async () => {
+    db.column.findFirst.mockClear();
+
+    expect(await createCard({ columnId: '', title: 'Write tests' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await createCard({ columnId: '   ', title: 'Write tests' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(
+      await createCard({ columnId: 'a'.repeat(MAX_ID_LENGTH + 1), title: 'Write tests' }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(await createCard({ columnId: 1 as unknown as string, title: 'Write tests' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.card.create).not.toHaveBeenCalled();
+    expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

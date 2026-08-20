@@ -10,10 +10,12 @@
 // - Returns a generic error when Prisma fails unexpectedly
 // - Two overlapping first-time invites: one invitation, one notification;
 //   the loser gets the generic non-invitable message
+// - Rejects an empty, oversized, or non-string project id without a lookup
+// - Invalid projectId wins over invalid username: Unauthorized, no query, no log
 //
 // What is covered:
 // - Happy path, generic deny cases, authorization, unexpected Prisma failure,
-//   concurrent first-time invite
+//   concurrent first-time invite, invalid id
 //
 // Run with: pnpm test:run tests/actions/createInvitation.test.ts
 //
@@ -22,6 +24,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { CANT_INVITE_USER_MESSAGE, GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -29,6 +32,7 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 const getSession = vi.fn();
 const revalidatePath = vi.fn();
+const logInfo = vi.fn();
 
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
@@ -43,6 +47,8 @@ vi.mock('next/headers', () => ({
 vi.mock('next/cache', () => ({
   revalidatePath,
 }));
+
+vi.mock('@/lib/log', () => ({ logInfo }));
 
 const { createInvitation } = await import('@/actions/createInvitation');
 
@@ -209,5 +215,43 @@ describe('createInvitation', () => {
     expect(db.notification.rows[0]).toEqual(
       expect.objectContaining({ type: 'INVITATION_RECEIVED' }),
     );
+  });
+
+  it('rejects an invalid project id without a lookup', async () => {
+    db.project.findFirst.mockClear();
+
+    const empty = await createInvitation({ projectId: '', username: 'maxi' });
+    expect(empty).toEqual({ error: 'Unauthorized' });
+    expect(empty).not.toEqual({ error: CANT_INVITE_USER_MESSAGE });
+    expect(await createInvitation({ projectId: '   ', username: 'maxi' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(
+      await createInvitation({ projectId: 'a'.repeat(MAX_ID_LENGTH + 1), username: 'maxi' }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(await createInvitation({ projectId: 1 as unknown as string, username: 'maxi' })).toEqual(
+      {
+        error: 'Unauthorized',
+      },
+    );
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(db.notification.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects when both projectId and username are invalid without a lookup or log', async () => {
+    db.project.findFirst.mockClear();
+    const oversized = 'a'.repeat(MAX_ID_LENGTH + 1);
+
+    const result = await createInvitation({ projectId: oversized, username: 'ab' });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(result).not.toEqual({ error: CANT_INVITE_USER_MESSAGE });
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(logInfo).not.toHaveBeenCalled();
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(oversized);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

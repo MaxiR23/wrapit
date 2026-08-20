@@ -8,6 +8,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
+import { deleteCardSchema } from '@/lib/validation/card';
 
 type DeleteCardResult = { data: { id: string } } | { error: string };
 
@@ -17,7 +18,12 @@ export async function deleteCard(input: { cardId: string }): Promise<DeleteCardR
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getCardForUser(input.cardId, session.user.id);
+  const parsed = deleteCardSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: 'Unauthorized' };
+  }
+
+  const owned = await getCardForUser(parsed.data.cardId, session.user.id);
   if (!owned) {
     return { error: 'Unauthorized' };
   }
