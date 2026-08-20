@@ -87,6 +87,13 @@ function matches(
 }
 
 function createRow(rows: Row[], data: Row) {
+  if (
+    data.userId != null &&
+    data.order != null &&
+    rows.some((row) => row.userId === data.userId && row.order === data.order)
+  ) {
+    throw new Error('unique constraint');
+  }
   const row = {
     id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
     createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
@@ -121,7 +128,11 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
               (item.projectId != null &&
                 item.inviteeId != null &&
                 row.projectId === item.projectId &&
-                row.inviteeId === item.inviteeId),
+                row.inviteeId === item.inviteeId) ||
+              (item.userId != null &&
+                item.order != null &&
+                row.userId === item.userId &&
+                row.order === item.order),
           );
           if (duplicate) {
             if (skipDuplicates) continue;
@@ -205,8 +216,32 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
   };
 }
 
+type ModelDelegate = ReturnType<typeof createModel>;
+
+function sqlFromRaw(strings: unknown, values: unknown[]): string {
+  if (Array.isArray(strings)) {
+    return strings
+      .map((part, index) => `${part}${index < values.length ? String(values[index]) : ''}`)
+      .join('');
+  }
+  return String(strings);
+}
+
+function wrapModelForTransaction(model: ModelDelegate, takeSnapshot: () => void): ModelDelegate {
+  const wrapped = { ...model };
+  for (const [key, value] of Object.entries(model)) {
+    if (typeof value !== 'function') continue;
+    (wrapped as unknown as Record<string, unknown>)[key] = vi.fn((...args: unknown[]) => {
+      takeSnapshot();
+      return (value as (...inner: unknown[]) => unknown)(...args);
+    });
+  }
+  return wrapped;
+}
+
 export function createPrismaFake() {
-  const models: Record<string, ReturnType<typeof createModel>> = {};
+  const models: Record<string, ModelDelegate> = {};
+  const userRowLocks = new Map<string, Promise<void>>();
   const getRelated = (field: string, row: Row): Row[] => {
     switch (field) {
       case 'project':
@@ -217,10 +252,26 @@ export function createPrismaFake() {
         );
       case 'owner':
         return (models.user?.rows ?? []).filter((user) => user.id === row.ownerId);
+      case 'statuses':
+        return (models.userStatus?.rows ?? []).filter((status) => status.userId === row.id);
       default:
         return [];
     }
   };
+
+  async function acquireUserRowLock(userId: string): Promise<() => void> {
+    let unlockNext = () => {};
+    const next = new Promise<void>((resolve) => {
+      unlockNext = resolve;
+    });
+    const previous = userRowLocks.get(userId) ?? Promise.resolve();
+    userRowLocks.set(
+      userId,
+      previous.then(() => next),
+    );
+    await previous;
+    return unlockNext;
+  }
 
   const fake = {
     user: createModel(getRelated),
@@ -235,34 +286,85 @@ export function createPrismaFake() {
     notification: createModel(getRelated),
     userPreferences: createModel(getRelated),
     userProfile: createModel(getRelated),
+    userStatus: createModel(getRelated),
     recentProject: createModel(getRelated),
   };
   Object.assign(models, fake);
 
+  function nullifyActiveStatuses(deletedStatusIds: unknown[]) {
+    const ids = new Set(deletedStatusIds);
+    for (const user of fake.user.rows) {
+      if (ids.has(user.activeStatusId)) {
+        user.activeStatusId = null;
+      }
+    }
+  }
+
+  const originalStatusDelete = fake.userStatus.delete;
+  fake.userStatus.delete = vi.fn(async (args: { where?: Row }) => {
+    const matched = fake.userStatus.rows.find((row) => matches(row, args.where, getRelated));
+    const deleted = await originalStatusDelete(args);
+    if (matched?.id != null) nullifyActiveStatuses([matched.id]);
+    return deleted;
+  });
+
+  const originalStatusDeleteMany = fake.userStatus.deleteMany;
+  fake.userStatus.deleteMany = vi.fn(async (args: { where?: Row } = {}) => {
+    const matched = fake.userStatus.rows.filter((row) => matches(row, args.where, getRelated));
+    const result = await originalStatusDeleteMany(args);
+    nullifyActiveStatuses(matched.map((row) => row.id));
+    return result;
+  });
+
+  function queryRaw(unlocks: Array<() => void>) {
+    return vi.fn(async (strings: unknown, ...values: unknown[]) => {
+      const sql = sqlFromRaw(strings, values);
+      if (/FOR UPDATE/i.test(sql)) {
+        unlocks.push(await acquireUserRowLock(String(values[0] ?? '')));
+      }
+      return values[0] != null ? [{ id: values[0] }] : [];
+    });
+  }
+
   const client = {
     ...fake,
+    $queryRaw: queryRaw([]),
     $transaction: vi.fn(async (arg: unknown) => {
       if (typeof arg === 'function') {
-        const snapshot = Object.fromEntries(
-          Object.entries(fake).map(([name, model]) => [
-            name,
-            model.rows.map((row) => ({ ...row })),
-          ]),
-        );
-        try {
-          return await arg(client);
-        } catch (error) {
+        const unlocks: Array<() => void> = [];
+        const rollback: { rows: Record<string, Row[]> | null } = { rows: null };
+        const takeSnapshot = () => {
+          if (rollback.rows) return;
+          const next: Record<string, Row[]> = {};
           for (const [name, model] of Object.entries(fake)) {
-            model.rows.length = 0;
-            model.rows.push(...(snapshot[name] ?? []));
+            next[name] = model.rows.map((row) => ({ ...row }));
+          }
+          rollback.rows = next;
+        };
+        const txModels: Record<string, ModelDelegate> = {};
+        for (const [name, model] of Object.entries(fake)) {
+          txModels[name] = wrapModelForTransaction(model, takeSnapshot);
+        }
+        const tx = { ...txModels, $queryRaw: queryRaw(unlocks) };
+        try {
+          return await arg(tx);
+        } catch (error) {
+          if (rollback.rows) {
+            for (const [name, model] of Object.entries(fake)) {
+              model.rows.length = 0;
+              model.rows.push(...(rollback.rows[name] ?? []));
+            }
           }
           throw error;
+        } finally {
+          for (const unlock of unlocks) unlock();
         }
       }
       return Promise.all(arg as Promise<unknown>[]);
     }),
     reset() {
       for (const model of Object.values(fake)) model.rows.length = 0;
+      userRowLocks.clear();
     },
   };
 

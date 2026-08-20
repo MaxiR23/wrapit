@@ -8,9 +8,12 @@
 // - Does not report success for a value that is no longer desired
 // - Applies the stored (trimmed) value the action returned
 // - Reverts to the last persisted value when the save fails
+// - A late success of B after returning to A writes A so persisted matches desired
+// - A stale failure of the first B does not revert a later selection of B
 //
 // What is covered:
-// - Debounce, in-flight coalescing, stored-value apply, failure revert
+// - Debounce, in-flight coalescing, stored-value apply, failure revert, A-B-A
+//   correction write, same-id stale failure
 //
 // Run with: pnpm test:run tests/components/account/useProfileAutosave.test.tsx
 //
@@ -39,6 +42,9 @@ function Probe({
       <p>value:{field.value}</p>
       <button type="button" onClick={() => field.setValue('Ada Lovelace')}>
         set-long
+      </button>
+      <button type="button" onClick={() => field.setValue('Ada')}>
+        set-ada
       </button>
       <button type="button" onClick={() => field.setValue('A')}>
         set-a
@@ -139,5 +145,57 @@ describe('useProfileAutosave', () => {
     fireEvent.click(screen.getByRole('button', { name: 'set-a' }));
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByText('value:Ada')).toBeInTheDocument();
+  });
+
+  it('writes A after a late B success when the user returns to A', async () => {
+    let releaseB: (value: { data: { value: string } }) => void = () => {};
+    const save = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ data: { value: string } }>((resolve) => {
+            releaseB = resolve;
+          }),
+      )
+      .mockImplementation(async (value: string) => ({ data: { value } }));
+
+    render(<Probe save={save} debounceMs={0} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set-a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set-ada' }));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('value:Ada')).toBeInTheDocument();
+
+    releaseB({ data: { value: 'A' } });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save).toHaveBeenLastCalledWith('Ada');
+    expect(screen.getByText('value:Ada')).toBeInTheDocument();
+  });
+
+  it('retries B when a stale failure of the first B arrives after A to B to C to B', async () => {
+    let failFirstB: (value: { error: string }) => void = () => {};
+    const save = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ data: { value: string } } | { error: string }>((resolve) => {
+            failFirstB = resolve;
+          }),
+      )
+      .mockImplementation(async (value: string) => ({ data: { value } }));
+
+    render(<Probe save={save} debounceMs={0} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'set-a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set-ab' }));
+    fireEvent.click(screen.getByRole('button', { name: 'set-a' }));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('value:A')).toBeInTheDocument();
+
+    failFirstB({ error: 'Something went wrong. Please try again.' });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save).toHaveBeenLastCalledWith('A');
+    expect(screen.getByText('value:A')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

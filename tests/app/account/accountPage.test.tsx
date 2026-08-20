@@ -18,8 +18,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
+import { accountStatusesFixture } from '../../helpers/accountStatuses';
+
 const getSession = vi.fn();
 const getUserProfileForUser = vi.fn();
+const getUserStatusesForUser = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
 });
@@ -30,6 +33,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/userProfile', () => ({
   getUserProfileForUser,
+}));
+
+vi.mock('@/lib/userStatuses', () => ({
+  getUserStatusesForUser,
 }));
 
 vi.mock('@/lib/notifications', () => ({
@@ -45,6 +52,10 @@ vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn()
 vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
 vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
 vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
+vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
+vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
+vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
+vi.mock('@/actions/deleteUserStatus', () => ({ deleteUserStatus: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -90,6 +101,7 @@ describe('Account page', () => {
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
     getUserProfileForUser.mockResolvedValue(profile);
+    getUserStatusesForUser.mockResolvedValue(accountStatusesFixture);
   });
 
   it('renders Profile when the tab query is missing', async () => {

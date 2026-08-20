@@ -63,6 +63,9 @@ model User {
   preferences          UserPreferences?
   profile              UserProfile?
   recentProjects       RecentProject[]
+  statuses             UserStatus[]
+  activeStatusId       String?     @unique
+  activeStatus         UserStatus? @relation("UserActiveStatus", fields: [activeStatusId], references: [id], onDelete: SetNull)
 }
 
 model Session {
@@ -206,6 +209,21 @@ model UserPreferences {
   userId   String   @unique
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   viewMode ViewMode @default(GRID)
+}
+
+model UserStatus {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  color       String
+  order       Int
+
+  userId String
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeFor User? @relation("UserActiveStatus")
+
+  @@unique([userId, order])
 }
 
 model UserProfile {

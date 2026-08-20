@@ -34,9 +34,13 @@ too.
 The projects shell adds a few roles that the Neutral preset does not include:
 `--surface`, `--card-hover`, `--subtle`, `--border-strong`, and the status bar
 colors `--status-in-progress`, `--status-done`, `--status-paused`, `--status-new`.
-They are defined next to the other variables in `globals.css` and mapped in
-`@theme inline`, so components use `bg-surface`, `text-subtle`,
-`bg-status-in-progress`, and so on.
+User presence tones are a separate catalog: `--user-status-green`,
+`--user-status-gray`, `--user-status-red`, `--user-status-amber`,
+`--user-status-blue`, `--user-status-violet`. They are defined next to the other
+variables in `globals.css` and mapped in `@theme inline`, so components use
+`bg-surface`, `text-subtle`, `bg-status-in-progress`, `text-user-status-green`,
+and so on. The six presence keys live in `src/lib/userStatus.ts`; JSX never
+inlines their oklch values.
 
 ## Changing the palette
 

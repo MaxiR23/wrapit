@@ -65,6 +65,23 @@ Current-user avatar initials are derived in `DisplayNameProvider` from the live
 display name and username; pages do not pass a snapshotted initials string.
 Project member and notification avatars derive initials at render from name and
 username.
+Status reads (`getUserStatusesForUser`) seed four default `UserStatus` rows on
+first read when the user has none, and heal a null `activeStatusId` to the
+lowest-order row. Status writes (`setActiveStatus`, `updateUserStatusField`,
+`createUserStatus`, `deleteUserStatus`) only touch the session user's rows; they
+never take a user id from the client. Name, description, color, and the
+active-status selection all go through `useProfileAutosave`. A successful write
+always advances persisted, even if the user already moved on, so the loop can
+send a correction. Only failures and superseded-but-unwritten responses are
+discarded, using a request generation so A to B to C to B cannot treat the first
+B's failure as the latest B. The last remaining status cannot be deleted:
+`deleteUserStatus` locks the user row (`SELECT … FOR UPDATE`) at the start of
+the transaction, then `assertNotLastStatus` counts remaining rows after a
+conditional `deleteMany`. The lock keeps two overlapping deletes of the last
+two rows from each counting the other's uncommitted row under READ COMMITTED.
+Deleting the active status records that fact before `ON DELETE SET NULL` clears
+`User.activeStatusId`, then writes the replacement in the same transaction.
+The live active status (name + color) is held in `ActiveStatusProvider`.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -174,6 +191,8 @@ in `docs/kanban.md`.
     src/lib/log.ts                      server-side info log (never sent to the client)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
     src/lib/userProfile.ts              get-or-default user profile (fields + visibility)
+    src/lib/userStatus.ts               status tones, defaults, last-status guard, user-row lock
+    src/lib/userStatuses.ts             read/seed per-user statuses (server only)
     src/lib/localTime.ts                12-hour local time with a GMT offset
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
@@ -197,8 +216,13 @@ in `docs/kanban.md`.
     src/lib/validation/moveCard.ts      moveCard card, column, and neighbor ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
+    src/lib/validation/userStatus.ts    status id, name, description, color
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
+    src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status
+    src/actions/updateUserStatusField.ts  persist one status field for the session user
+    src/actions/createUserStatus.ts     append a custom status (cap 20)
+    src/actions/deleteUserStatus.ts     delete an owned status; lock the user; refuse the last remaining
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
     src/actions/createInvitation.ts     invite a user by username (member only; generic deny)
     src/actions/acceptInvitation.ts     invitee accepts: membership MEMBER + notify inviter
@@ -218,7 +242,7 @@ in `docs/kanban.md`.
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
-    src/app/account/page.tsx            account shell, tab routing, profile
+    src/app/account/page.tsx            account shell, tab routing, profile, visibility
     src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent; Members)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up

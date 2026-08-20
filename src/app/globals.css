@@ -46,6 +46,12 @@
   --color-status-done: var(--status-done);
   --color-status-paused: var(--status-paused);
   --color-status-new: var(--status-new);
+  --color-user-status-green: var(--user-status-green);
+  --color-user-status-gray: var(--user-status-gray);
+  --color-user-status-red: var(--user-status-red);
+  --color-user-status-amber: var(--user-status-amber);
+  --color-user-status-blue: var(--user-status-blue);
+  --color-user-status-violet: var(--user-status-violet);
   --color-brand-cta: var(--brand-cta);
   --color-brand-icon: var(--brand-icon);
   --spacing-sidebar: 236px;
@@ -268,6 +274,12 @@
   --status-done: oklch(0.74 0.085 155);
   --status-paused: oklch(0.78 0.075 75);
   --status-new: oklch(0.6 0 0);
+  --user-status-green: oklch(0.74 0.085 155);
+  --user-status-gray: oklch(0.6 0 0);
+  --user-status-red: oklch(0.72 0.09 25);
+  --user-status-amber: oklch(0.78 0.075 75);
+  --user-status-blue: oklch(0.72 0.085 245);
+  --user-status-violet: oklch(0.7 0.085 305);
   --brand-cta: oklch(0.8 0 0);
   --brand-icon: oklch(0.85 0 0);
   --brand-wash: oklch(1 0 0 / 5%);
@@ -329,6 +341,12 @@
   --status-done: oklch(0.74 0.085 155);
   --status-paused: oklch(0.78 0.075 75);
   --status-new: oklch(0.6 0 0);
+  --user-status-green: oklch(0.74 0.085 155);
+  --user-status-gray: oklch(0.6 0 0);
+  --user-status-red: oklch(0.72 0.09 25);
+  --user-status-amber: oklch(0.78 0.075 75);
+  --user-status-blue: oklch(0.72 0.085 245);
+  --user-status-violet: oklch(0.7 0.085 305);
 }
 
 @layer base {
