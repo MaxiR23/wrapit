@@ -5,7 +5,6 @@ import { X } from 'lucide-react';
 import { initials } from '@/lib/initials';
 import type { NotificationListItem } from '@/lib/notifications';
 import { formatRelativeTime } from '@/lib/relativeTime';
-import { cn } from '@/lib/utils';
 
 export function NotificationsPanelContent({
   items,
@@ -127,17 +126,4 @@ function NotificationItem({
       ) : null}
     </li>
   );
-}
-
-export function notificationsPanelClassName(kind: 'popover' | 'sheet') {
-  if (kind === 'popover') {
-    return cn(
-      'hidden md:block',
-      'absolute top-[calc(100%+8px)] right-0 z-50 w-[352px]',
-      'overflow-hidden rounded-[12px] border border-border-strong bg-surface',
-      'shadow-[0_30px_70px_oklch(0_0_0/0.6)]',
-    );
-  }
-
-  return cn('md:hidden', 'fixed inset-0 z-50 flex flex-col bg-surface');
 }

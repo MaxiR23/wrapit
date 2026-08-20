@@ -28,7 +28,7 @@ They live in `.env` (never committed) and are listed in `.env.example`:
 Auth-related paths only. The full app map is in `docs/architecture.md`.
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, projectPath
+    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, projectPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
     src/lib/email.ts                    Resend helper for the password-reset email
@@ -45,9 +45,10 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
     src/components/auth/LandingHero.tsx mobile hero on /sign-in
     src/components/auth/AuthFormIsland.tsx  light form column shared by auth layouts
-    src/components/projects/useSignOut.ts  shared temporary sign-out for the projects shell
-    src/components/projects/ProjectsTopbar.tsx  desktop account button (temporary sign out)
-    src/components/projects/ProjectsMobileHeader.tsx  mobile account button (temporary sign out)
+    src/components/account/useSignOut.ts  shared sign-out for the account menu
+    src/components/account/AccountMenu.tsx  topbar/mobile account trigger, popover, sheet
+    src/components/projects/ProjectsTopbar.tsx  desktop topbar (search, bell, account menu)
+    src/components/projects/ProjectsMobileHeader.tsx  mobile header (brand, bell, account menu)
     src/app/page.tsx                    / is redirect-only: session to /projects, else /sign-in
     src/app/(auth)/layout.tsx           split layout for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
@@ -204,11 +205,13 @@ clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
 A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
 
-On `/projects`, `AuthNav` is hidden, so the account buttons in
-`ProjectsTopbar` (desktop) and `ProjectsMobileHeader` (mobile) are a
-temporary sign out until the account menu exists. Both call `useSignOut`,
-which runs the same `authClient.signOut()` → `router.push('/sign-in')` →
-`router.refresh()` sequence, including the generic failure message.
+On `/projects`, `AuthNav` is hidden, so sign out lives in the account menu
+opened from `ProjectsTopbar` (desktop popover) and `ProjectsMobileHeader`
+(mobile sheet). The menu calls `useSignOut`, which runs the same
+`authClient.signOut()` → `router.push('/sign-in')` → `router.refresh()`
+sequence, including the generic failure message. The four tab links point at
+`/account?tab=profile|visibility|activity|cards`; that screen does not exist
+yet, so those hrefs 404 until it lands.
 
 Protection lives in `src/proxy.ts`.
 

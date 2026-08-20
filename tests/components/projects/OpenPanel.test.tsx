@@ -4,9 +4,11 @@
 //
 // Tested:
 // - Opening notifications then setting account closes notifications
+// - Opening account then setting notifications closes account
+// - Escape closes whichever panel is open
 //
 // What is covered:
-// - Mutual exclusion between panel ids
+// - Mutual exclusion between panel ids, Escape dismiss
 //
 // Run with: pnpm test:run tests/components/projects/OpenPanel.test.tsx
 //
@@ -33,14 +35,18 @@ function Probe() {
   );
 }
 
+function renderProbe() {
+  return render(
+    <OpenPanelProvider>
+      <Probe />
+    </OpenPanelProvider>,
+  );
+}
+
 describe('OpenPanelProvider', () => {
   it('closes notifications when the account panel opens', async () => {
     const events = userEvent.setup();
-    render(
-      <OpenPanelProvider>
-        <Probe />
-      </OpenPanelProvider>,
-    );
+    renderProbe();
 
     await events.click(screen.getByRole('button', { name: 'Open notifications' }));
     expect(screen.getByText('panel:notifications')).toBeInTheDocument();
@@ -48,5 +54,28 @@ describe('OpenPanelProvider', () => {
     await events.click(screen.getByRole('button', { name: 'Open account' }));
     expect(screen.getByText('panel:account')).toBeInTheDocument();
     expect(screen.queryByText('panel:notifications')).not.toBeInTheDocument();
+  });
+
+  it('closes account when the notifications panel opens', async () => {
+    const events = userEvent.setup();
+    renderProbe();
+
+    await events.click(screen.getByRole('button', { name: 'Open account' }));
+    expect(screen.getByText('panel:account')).toBeInTheDocument();
+
+    await events.click(screen.getByRole('button', { name: 'Open notifications' }));
+    expect(screen.getByText('panel:notifications')).toBeInTheDocument();
+    expect(screen.queryByText('panel:account')).not.toBeInTheDocument();
+  });
+
+  it('closes the open panel on Escape', async () => {
+    const events = userEvent.setup();
+    renderProbe();
+
+    await events.click(screen.getByRole('button', { name: 'Open account' }));
+    expect(screen.getByText('panel:account')).toBeInTheDocument();
+
+    await events.keyboard('{Escape}');
+    expect(screen.getByText('panel:none')).toBeInTheDocument();
   });
 });

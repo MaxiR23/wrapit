@@ -8,7 +8,6 @@ import { SIGN_IN_PATH } from '@/lib/routes';
 
 const SIGN_OUT_ERROR_MESSAGE = 'Could not sign out. Please try again.';
 
-/** Temporary sign-out used by the projects shell until the account menu exists. */
 export function useSignOut() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 export type OpenPanelId = 'notifications' | 'account' | null;
 
@@ -17,6 +25,15 @@ export function OpenPanelProvider({ children }: { children: ReactNode }) {
     setOpenPanelState(id);
   }, []);
   const value = useMemo(() => ({ openPanel, setOpenPanel }), [openPanel, setOpenPanel]);
+
+  useEffect(() => {
+    if (openPanel === null) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpenPanel(null);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [openPanel, setOpenPanel]);
 
   return <OpenPanelContext.Provider value={value}>{children}</OpenPanelContext.Provider>;
 }

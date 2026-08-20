@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { acceptInvitation } from '@/actions/acceptInvitation';
@@ -16,7 +8,6 @@ import { listNotifications } from '@/actions/listNotifications';
 import { markAllNotificationsRead } from '@/actions/markAllNotificationsRead';
 import { markNotificationRead } from '@/actions/markNotificationRead';
 import { rejectInvitation } from '@/actions/rejectInvitation';
-import { useOpenPanel } from '@/components/projects/OpenPanel';
 import type { NotificationListItem } from '@/lib/notifications';
 
 type NotificationsContextValue = {
@@ -38,7 +29,6 @@ export function NotificationsProvider({
   children: ReactNode;
   initialItems?: NotificationListItem[];
 }) {
-  const { openPanel, setOpenPanel } = useOpenPanel();
   const router = useRouter();
   const [items, setItems] = useState<NotificationListItem[]>(initialItems);
 
@@ -50,15 +40,6 @@ export function NotificationsProvider({
       setItems(result.data.items);
     }
   }, []);
-
-  useEffect(() => {
-    if (openPanel !== 'notifications') return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpenPanel(null);
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [openPanel, setOpenPanel]);
 
   const markRead = useCallback(
     async (id: string) => {

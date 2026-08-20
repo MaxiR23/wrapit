@@ -4,13 +4,14 @@
 //
 // Tested:
 // - Home, the auth pages and the Better Auth API are public
-// - Anything else is private
+// - Anything else is private, including /account
 // - Auth pages are recognized as auth pages, other public routes are not
 // - A trailing slash does not change the answer
+// - accountPath builds /account?tab= hrefs
 //
 // What is covered:
 // - Happy path, the private default, edge cases (trailing slash, a path that
-//   only looks like a public prefix)
+//   only looks like a public prefix), account tab hrefs
 //
 // Run with: pnpm test:run tests/lib/routes.test.ts
 //
@@ -18,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { isAuthPath, isPublicPath } from '@/lib/routes';
+import { accountPath, isAuthPath, isPublicPath } from '@/lib/routes';
 
 describe('isPublicPath', () => {
   it('accepts home and the auth pages', () => {
@@ -38,6 +39,7 @@ describe('isPublicPath', () => {
   it('rejects a route that is not listed', () => {
     expect(isPublicPath('/projects')).toBe(false);
     expect(isPublicPath('/projects/1')).toBe(false);
+    expect(isPublicPath('/account')).toBe(false);
     expect(isPublicPath('/api/projects')).toBe(false);
   });
 
@@ -49,6 +51,15 @@ describe('isPublicPath', () => {
   it('ignores a trailing slash', () => {
     expect(isPublicPath('/sign-in/')).toBe(true);
     expect(isPublicPath('/projects/')).toBe(false);
+  });
+});
+
+describe('accountPath', () => {
+  it('builds the account screen tab hrefs', () => {
+    expect(accountPath('profile')).toBe('/account?tab=profile');
+    expect(accountPath('visibility')).toBe('/account?tab=visibility');
+    expect(accountPath('activity')).toBe('/account?tab=activity');
+    expect(accountPath('cards')).toBe('/account?tab=cards');
   });
 });
 
