@@ -1,4 +1,5 @@
 import { initials } from '@/lib/initials';
+import { formatRelativeTime } from '@/lib/relativeTime';
 
 export type ProjectGridStatus = 'NEW' | 'IN_PROGRESS' | 'PAUSED' | 'DONE';
 
@@ -168,19 +169,6 @@ export function latestActivityAt(projectCreatedAt: Date, cards: Array<{ updatedA
 }
 
 export function formatUpdatedAt(date: Date, now = new Date()): string {
-  const diffMs = now.getTime() - date.getTime();
-  const seconds = Math.round(diffMs / 1000);
-  if (Math.abs(seconds) < 60) return 'Updated just now';
-
-  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-  const minutes = Math.round(seconds / 60);
-  if (Math.abs(minutes) < 60) return `Updated ${formatter.format(-minutes, 'minute')}`;
-  const hours = Math.round(minutes / 60);
-  if (Math.abs(hours) < 24) return `Updated ${formatter.format(-hours, 'hour')}`;
-  const days = Math.round(hours / 24);
-  if (Math.abs(days) < 30) return `Updated ${formatter.format(-days, 'day')}`;
-  const months = Math.round(days / 30);
-  if (Math.abs(months) < 12) return `Updated ${formatter.format(-months, 'month')}`;
-  const years = Math.round(days / 365);
-  return `Updated ${formatter.format(-years, 'year')}`;
+  const relative = formatRelativeTime(date, now);
+  return relative === 'just now' ? 'Updated just now' : `Updated ${relative}`;
 }

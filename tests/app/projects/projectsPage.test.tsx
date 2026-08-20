@@ -42,6 +42,10 @@ vi.mock('@/lib/userPreferences', () => ({
   getUserPreferences,
 }));
 
+vi.mock('@/lib/notifications', () => ({
+  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
+}));
+
 vi.mock('@/actions/createProject', () => ({
   createProject: vi.fn(),
 }));
@@ -53,6 +57,14 @@ vi.mock('@/actions/updateViewMode', () => ({
 vi.mock('@/actions/setProjectStarred', () => ({
   setProjectStarred: vi.fn(),
 }));
+
+vi.mock('@/actions/listNotifications', () => ({
+  listNotifications: vi.fn(async () => ({ data: { items: [], unreadCount: 0 } })),
+}));
+vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
+vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
+vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
+vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),

@@ -22,17 +22,22 @@
 // - Rolls back the project and columns when membership create fails
 // - Rolls back project, columns, and membership when membership create fails
 //   with an explicit column list
+// - Invites each unique username once; casing duplicates are not inviteErrors
+// - Rejects a non-string invitee or more than 20 unique invitees without
+//   creating a project
 //
 // What is covered:
 // - Happy path, default columns, explicit columns, order normalization,
 //   description, status, featured, invalid input, ownership, unauthorized,
-//   unexpected Prisma failure, transaction rollback
+//   unexpected Prisma failure, transaction rollback, invitees
 //
 // Run with: pnpm test:run tests/actions/createProject.test.ts
 //
 // SEE: src/actions/createProject.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { MAX_CREATE_PROJECT_INVITEES } from '@/lib/validation/project';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 
@@ -410,5 +415,144 @@ describe('createProject', () => {
     expect(db.column.rows).toHaveLength(0);
     expect(db.membership.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('invites valid usernames after the project is created', async () => {
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+
+    const result = await createProject({
+      title: 'Sprint board',
+      invitees: ['maxi'],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+    expect('inviteErrors' in result && result.inviteErrors).toBeFalsy();
+    expect(db.invitation.rows).toHaveLength(1);
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({
+        inviteeId: 'user-max',
+        status: 'PENDING',
+        role: 'MEMBER',
+      }),
+    );
+  });
+
+  it('keeps the project when some invitees are invalid and reports inviteErrors', async () => {
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+
+    const result = await createProject({
+      title: 'Sprint board',
+      invitees: ['maxi', 'nobody', ''],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+      inviteErrors: [{ username: 'nobody' }],
+    });
+    expect(db.project.rows).toHaveLength(1);
+    expect(db.invitation.rows).toHaveLength(1);
+    expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ inviteeId: 'user-max' }));
+  });
+
+  it('invites a duplicated username once and returns no inviteErrors', async () => {
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+
+    const result = await createProject({
+      title: 'Sprint board',
+      invitees: ['maxi', 'Maxi'],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+    expect('inviteErrors' in result).toBe(false);
+    expect(db.invitation.rows).toHaveLength(1);
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({
+        inviteeId: 'user-max',
+        status: 'PENDING',
+      }),
+    );
+  });
+
+  it('rejects a non-string invitee and creates no project', async () => {
+    const result = await createProject({
+      title: 'Sprint board',
+      invitees: ['maxi', 1],
+    } as { title: string });
+
+    expect(result).toEqual({
+      fieldErrors: { invitees: expect.any(String) },
+    });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(0);
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects more unique invitees than the max and creates no project', async () => {
+    const invitees = Array.from(
+      { length: MAX_CREATE_PROJECT_INVITEES + 1 },
+      (_, index) => `user${index}`,
+    );
+
+    const result = await createProject({ title: 'Sprint board', invitees });
+
+    expect(result).toEqual({
+      fieldErrors: {
+        invitees: `A project can have at most ${MAX_CREATE_PROJECT_INVITEES} invitees`,
+      },
+    });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(0);
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('creates the project and invites each unique username once from a valid list', async () => {
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+    await db.user.create({
+      data: { id: 'user-linus', name: 'Linus', username: 'linus' },
+    });
+
+    const result = await createProject({
+      title: 'Sprint board',
+      invitees: ['maxi', 'Maxi', 'linus', ''],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+    expect('inviteErrors' in result).toBe(false);
+    expect(db.project.rows).toHaveLength(1);
+    expect(db.invitation.rows).toHaveLength(2);
+    expect(db.invitation.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ inviteeId: 'user-max', status: 'PENDING' }),
+        expect.objectContaining({ inviteeId: 'user-linus', status: 'PENDING' }),
+      ]),
+    );
   });
 });

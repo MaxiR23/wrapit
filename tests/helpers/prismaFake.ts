@@ -111,6 +111,28 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
   return {
     rows,
     create: vi.fn(async ({ data }: { data: Row }) => createRow(rows, data)),
+    createMany: vi.fn(
+      async ({ data, skipDuplicates }: { data: Row[]; skipDuplicates?: boolean }) => {
+        let count = 0;
+        for (const item of data) {
+          const duplicate = rows.some(
+            (row) =>
+              (typeof item.id === 'string' && row.id === item.id) ||
+              (item.projectId != null &&
+                item.inviteeId != null &&
+                row.projectId === item.projectId &&
+                row.inviteeId === item.inviteeId),
+          );
+          if (duplicate) {
+            if (skipDuplicates) continue;
+            throw new Error('unique constraint');
+          }
+          createRow(rows, item);
+          count += 1;
+        }
+        return { count };
+      },
+    ),
     findFirst: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where, getRelated)),
     findUnique: vi.fn(async ({ where }: { where?: Row } = {}) => findRow(rows, where, getRelated)),
     findMany: vi.fn(
@@ -151,6 +173,11 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
       if (!row) throw new Error('record not found');
       Object.assign(row, data);
       return { ...row };
+    }),
+    updateMany: vi.fn(async ({ where, data }: { where?: Row; data: Row }) => {
+      const matched = rows.filter((r) => matches(r, where, getRelated));
+      for (const row of matched) Object.assign(row, data);
+      return { count: matched.length };
     }),
     delete: vi.fn(async ({ where }: { where?: Row }) => {
       const index = rows.findIndex((r) => matches(r, where, getRelated));
@@ -204,6 +231,8 @@ export function createPrismaFake() {
     column: createModel(getRelated),
     card: createModel(getRelated),
     membership: createModel(getRelated),
+    invitation: createModel(getRelated),
+    notification: createModel(getRelated),
     userPreferences: createModel(getRelated),
     recentProject: createModel(getRelated),
   };

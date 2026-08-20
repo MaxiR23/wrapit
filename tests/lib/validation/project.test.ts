@@ -13,9 +13,12 @@
 // - Allows omitting columns; accepts a valid explicit column list
 // - Rejects an empty column list, more than 8 columns, and empty or
 //   whitespace column titles
+// - Allows omitting invitees; drops empty entries
+// - Rejects a non-string invitee, a username outside length bounds, and more
+//   than 20 unique invitees
 //
 // What is covered:
-// - Happy path, invalid title, optional description/status/featured/columns
+// - Happy path, invalid title, optional description/status/featured/columns/invitees
 //
 // Run with: pnpm test:run tests/lib/validation/project.test.ts
 //
@@ -23,7 +26,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { validateProject } from '@/lib/validation/project';
+import { MAX_CREATE_PROJECT_INVITEES, validateProject } from '@/lib/validation/project';
+import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@/lib/validation/signUp';
 
 describe('validateProject', () => {
   it('reports no errors for a non-empty title', () => {
@@ -132,5 +136,58 @@ describe('validateProject', () => {
         columns: [{ title: '   ', order: 0 }],
       }).columns,
     ).toBe('Title is required');
+  });
+
+  it('allows omitting invitees', () => {
+    expect(validateProject({ title: 'Sprint board' })).toEqual({});
+  });
+
+  it('allows empty and whitespace invitee entries', () => {
+    expect(validateProject({ title: 'Sprint board', invitees: ['', '  ', 'maxi'] })).toEqual({});
+  });
+
+  it('rejects a non-string invitee', () => {
+    expect(
+      validateProject({
+        title: 'Sprint board',
+        invitees: ['maxi', 1],
+      } as { title: string }).invitees,
+    ).toBeTruthy();
+  });
+
+  it('rejects an invitee shorter than the username minimum', () => {
+    expect(validateProject({ title: 'Sprint board', invitees: ['ab'] }).invitees).toBe(
+      `Username must be at least ${USERNAME_MIN_LENGTH} characters`,
+    );
+  });
+
+  it('rejects an invitee longer than the username maximum', () => {
+    expect(
+      validateProject({
+        title: 'Sprint board',
+        invitees: ['a'.repeat(USERNAME_MAX_LENGTH + 1)],
+      }).invitees,
+    ).toBe(`Username must be at most ${USERNAME_MAX_LENGTH} characters`);
+  });
+
+  it('rejects more unique invitees than the max', () => {
+    const invitees = Array.from(
+      { length: MAX_CREATE_PROJECT_INVITEES + 1 },
+      (_, index) => `user${index}`,
+    );
+
+    expect(validateProject({ title: 'Sprint board', invitees }).invitees).toBe(
+      `A project can have at most ${MAX_CREATE_PROJECT_INVITEES} invitees`,
+    );
+  });
+
+  it('allows more than the max raw entries when unique invitees fit', () => {
+    const invitees = [
+      ...Array.from({ length: MAX_CREATE_PROJECT_INVITEES }, (_, index) => `user${index}`),
+      'USER0',
+      'user0',
+    ];
+
+    expect(validateProject({ title: 'Sprint board', invitees })).toEqual({});
   });
 });
