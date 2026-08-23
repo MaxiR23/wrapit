@@ -159,6 +159,26 @@ describe('getProjectForUser', () => {
     expect(result?.columns[1]?.cards.map((card) => card.title)).toEqual(['Finished']);
   });
 
+  it('omits archived cards from the board payload', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    await db.card.create({
+      data: { title: 'Open', order: 1, columnId: todo.id },
+    });
+    await db.card.create({
+      data: { title: 'Archived', order: 2, columnId: todo.id, archivedAt: new Date('2026-08-01') },
+    });
+
+    const result = await getProjectForUser(project.id, 'user-ada');
+
+    expect(result?.columns[0]?.cards.map((card) => card.title)).toEqual(['Open']);
+  });
+
   it('returns null for a non-member', async () => {
     const project = await db.project.create({
       data: { title: 'Ada board', ownerId: 'user-ada' },

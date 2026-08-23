@@ -119,6 +119,7 @@ model Project {
   title       String
   description String?
   status      ProjectStatus @default(NEW)
+  cardCounter Int           @default(0)
   createdAt   DateTime      @default(now())
 
   ownerId String
@@ -145,8 +146,10 @@ model Card {
   id          String    @id @default(cuid())
   title       String
   description String?
+  code        String
   order       Float
   dueDate     DateTime?
+  archivedAt  DateTime?
   priority    String?
   labels      String[]
   createdAt   DateTime  @default(now())

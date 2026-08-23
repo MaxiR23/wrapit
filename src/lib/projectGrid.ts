@@ -70,6 +70,16 @@ export function taskProgressLabel(doneCount: number, taskCount: number): string 
   return `${doneCount} of ${taskCount} tasks`;
 }
 
+/** Desktop board header: "N of M cards done". */
+export function boardProgressLabel(doneCount: number, taskCount: number): string {
+  return `${doneCount} of ${taskCount} cards done`;
+}
+
+/** Mobile board header: "N/M done". */
+export function boardProgressShortLabel(doneCount: number, taskCount: number): string {
+  return `${doneCount}/${taskCount} done`;
+}
+
 export function taskCountLabel(taskCount: number): string {
   return taskCount === 1 ? '1 task' : `${taskCount} tasks`;
 }

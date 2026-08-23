@@ -39,6 +39,8 @@ import {
   projectStatusLabel,
   taskCountLabel,
   taskProgressLabel,
+  boardProgressLabel,
+  boardProgressShortLabel,
   type ProjectSummary,
 } from '@/lib/projectGrid';
 
@@ -118,6 +120,20 @@ describe('taskProgressLabel', () => {
   it('renders N of M tasks', () => {
     expect(taskProgressLabel(0, 0)).toBe('0 of 0 tasks');
     expect(taskProgressLabel(11, 24)).toBe('11 of 24 tasks');
+  });
+});
+
+describe('boardProgressLabel', () => {
+  it('renders N of M cards done', () => {
+    expect(boardProgressLabel(0, 0)).toBe('0 of 0 cards done');
+    expect(boardProgressLabel(6, 9)).toBe('6 of 9 cards done');
+  });
+});
+
+describe('boardProgressShortLabel', () => {
+  it('renders N/M done', () => {
+    expect(boardProgressShortLabel(0, 0)).toBe('0/0 done');
+    expect(boardProgressShortLabel(6, 9)).toBe('6/9 done');
   });
 });
 

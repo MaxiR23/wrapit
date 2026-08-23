@@ -5,11 +5,10 @@ import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { orderBetween } from '@/lib/order';
-import { getCardForUser, getColumnForUser } from '@/lib/ownership';
+import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
-import { moveCardSchema, type MoveCardFieldErrors } from '@/lib/validation/moveCard';
+import { moveCardSchema } from '@/lib/validation/moveCard';
 
 type MoveCardResult =
   | {
@@ -17,18 +16,17 @@ type MoveCardResult =
         id: string;
         title: string;
         description: string | null;
+        code: string;
         order: number;
         columnId: string;
       };
     }
-  | { fieldErrors: MoveCardFieldErrors }
   | { error: string };
 
 export async function moveCard(input: {
   cardId: string;
+  sourceColumnId: string;
   targetColumnId: string;
-  beforeCardId: string | null;
-  afterCardId: string | null;
 }): Promise<MoveCardResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -40,10 +38,10 @@ export async function moveCard(input: {
     return { error: 'Unauthorized' };
   }
 
-  const { cardId, targetColumnId, beforeCardId, afterCardId } = parsed.data;
+  const { cardId, sourceColumnId, targetColumnId } = parsed.data;
 
-  const ownedCard = await getCardForUser(cardId, session.user.id);
-  if (!ownedCard) {
+  const ownedSource = await getColumnForUser(sourceColumnId, session.user.id);
+  if (!ownedSource) {
     return { error: 'Unauthorized' };
   }
 
@@ -52,118 +50,79 @@ export async function moveCard(input: {
     return { error: 'Unauthorized' };
   }
 
-  if (ownedCard.project.id !== ownedTarget.project.id) {
+  if (ownedSource.project.id !== ownedTarget.project.id) {
     return { error: 'Unauthorized' };
   }
 
-  try {
-    let beforeOrder: number | null = null;
-    let afterOrder: number | null = null;
-
-    if (beforeCardId !== null) {
-      if (beforeCardId === cardId) {
-        return { error: 'Unauthorized' };
-      }
-      const beforeCard = await prisma.card.findFirst({
-        where: { id: beforeCardId, columnId: ownedTarget.column.id },
-      });
-      if (!beforeCard) {
-        return { error: 'Unauthorized' };
-      }
-      beforeOrder = beforeCard.order;
+  if (sourceColumnId === targetColumnId) {
+    const card = await prisma.card.findFirst({
+      where: { id: cardId, columnId: sourceColumnId },
+    });
+    if (!card) {
+      return { error: 'Unauthorized' };
     }
-
-    if (afterCardId !== null) {
-      if (afterCardId === cardId) {
-        return { error: 'Unauthorized' };
-      }
-      const afterCard = await prisma.card.findFirst({
-        where: { id: afterCardId, columnId: ownedTarget.column.id },
-      });
-      if (!afterCard) {
-        return { error: 'Unauthorized' };
-      }
-      afterOrder = afterCard.order;
-    }
-
-    const order = orderBetween(beforeOrder, afterOrder);
-
-    if (order == null) {
-      const card = await renumberColumnInserting({
-        columnId: ownedTarget.column.id,
-        cardId,
-        beforeCardId,
-        afterCardId,
-      });
-      revalidatePath(projectPath(ownedTarget.project.id));
-      return { data: card };
-    }
-
-    const card = await prisma.card.update({
-      where: { id: ownedCard.card.id },
+    return {
       data: {
-        columnId: ownedTarget.column.id,
-        order,
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        code: typeof card.code === 'string' ? card.code : '',
+        order: card.order,
+        columnId: card.columnId,
       },
+    };
+  }
+
+  try {
+    const card = await prisma.$transaction(async (tx) => {
+      const [last] = await tx.card.findMany({
+        where: { columnId: ownedTarget.column.id },
+        orderBy: { order: 'desc' },
+        take: 1,
+      });
+      const order = (typeof last?.order === 'number' ? last.order : 0) + 1;
+
+      const claimed = await tx.card.updateMany({
+        where: { id: cardId, columnId: sourceColumnId },
+        data: {
+          columnId: ownedTarget.column.id,
+          order,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new OccupancyError();
+      }
+
+      const moved = await tx.card.findFirst({ where: { id: cardId } });
+      if (!moved) {
+        throw new OccupancyError();
+      }
+      return moved;
     });
 
     revalidatePath(projectPath(ownedTarget.project.id));
 
-    return { data: card };
-  } catch {
-    // Never surface Prisma/raw messages: they can leak host or constraint details.
+    return {
+      data: {
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        code: typeof card.code === 'string' ? card.code : '',
+        order: card.order,
+        columnId: card.columnId,
+      },
+    };
+  } catch (error) {
+    if (error instanceof OccupancyError) {
+      return { error: 'Unauthorized' };
+    }
     return { error: GENERIC_ERROR_MESSAGE };
   }
 }
 
-/**
- * Rewrites every card in the column to clean integer orders (1, 2, 3, ...) with
- * `cardId` inserted between the given neighbors.
- */
-async function renumberColumnInserting({
-  columnId,
-  cardId,
-  beforeCardId,
-  afterCardId,
-}: {
-  columnId: string;
-  cardId: string;
-  beforeCardId: string | null;
-  afterCardId: string | null;
-}) {
-  const siblings = await prisma.card.findMany({
-    where: { columnId },
-    orderBy: { order: 'asc' },
-  });
-
-  const without = siblings.filter((card) => card.id !== cardId);
-  let insertIndex = without.length;
-  if (beforeCardId) {
-    const beforeIndex = without.findIndex((card) => card.id === beforeCardId);
-    if (beforeIndex >= 0) insertIndex = beforeIndex + 1;
-  } else if (afterCardId) {
-    const afterIndex = without.findIndex((card) => card.id === afterCardId);
-    if (afterIndex >= 0) insertIndex = afterIndex;
+class OccupancyError extends Error {
+  constructor() {
+    super('Card occupancy conflict');
+    this.name = 'OccupancyError';
   }
-
-  const orderedIds = without.map((card) => card.id);
-  orderedIds.splice(insertIndex, 0, cardId);
-
-  await prisma.$transaction(
-    orderedIds.map((id, index) =>
-      prisma.card.update({
-        where: { id },
-        data: {
-          order: index + 1,
-          ...(id === cardId ? { columnId } : {}),
-        },
-      }),
-    ),
-  );
-
-  const card = await prisma.card.findFirst({ where: { id: cardId } });
-  if (!card) {
-    throw new Error('card missing after renumber');
-  }
-  return card;
 }

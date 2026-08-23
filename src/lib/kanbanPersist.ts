@@ -1,12 +1,18 @@
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import {
-  neighborsAt,
-  placeCardBetween,
+  findContainer,
+  placeCardInColumn,
   type ItemsByColumn,
   type MoveCommit,
 } from '@/lib/kanbanItems';
 
 export type PersistJob = MoveCommit;
+
+export type PersistPayload = {
+  cardId: string;
+  sourceColumnId: string;
+  targetColumnId: string;
+};
 
 /** Apply pending commits in order onto a persisted baseline. */
 export function applyPendingJobs(
@@ -14,36 +20,30 @@ export function applyPendingJobs(
   jobs: readonly PersistJob[],
 ): ItemsByColumn {
   return jobs.reduce(
-    (items, job) =>
-      placeCardBetween(items, job.cardId, job.targetColumnId, job.beforeCardId, job.afterCardId),
+    (items, job) => placeCardInColumn(items, job.cardId, job.targetColumnId),
     baseline,
   );
 }
 
 /** Build the board that should exist after this job lands on `baseline`. */
 export function reconcilePersistJob(baseline: ItemsByColumn, job: PersistJob): ItemsByColumn {
-  return placeCardBetween(
-    baseline,
-    job.cardId,
-    job.targetColumnId,
-    job.beforeCardId,
-    job.afterCardId,
-  );
+  return placeCardInColumn(baseline, job.cardId, job.targetColumnId);
 }
 
-/** Neighbors to send to moveCard after reconciling onto the persisted baseline. */
-export function persistPayloadFromReconciled(
-  reconciled: ItemsByColumn,
+/**
+ * Payload for moveCard from the persisted baseline: occupancy source is where
+ * the card sits before this job, not the snapshot from an older drag.
+ */
+export function persistPayloadFromBaseline(
+  baseline: ItemsByColumn,
   job: PersistJob,
-): MoveCommit {
-  const destIds = reconciled[job.targetColumnId] ?? [];
-  const index = destIds.indexOf(job.cardId);
-  const neighbors = neighborsAt(destIds, index);
+): PersistPayload | null {
+  const sourceColumnId = findContainer(baseline, job.cardId);
+  if (!sourceColumnId) return null;
   return {
     cardId: job.cardId,
+    sourceColumnId,
     targetColumnId: job.targetColumnId,
-    beforeCardId: neighbors.beforeCardId,
-    afterCardId: neighbors.afterCardId,
   };
 }
 

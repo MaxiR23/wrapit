@@ -38,12 +38,13 @@ export async function getProjectForUser(projectId: string, userId: string) {
       ? []
       : await prisma.card.findMany({
           where: { columnId: { in: columns.map((column) => column.id) } },
-          orderBy: { order: 'asc' },
+          orderBy: [{ order: 'asc' }, { id: 'asc' }],
         });
+  const visibleCards = cards.filter((card) => card.archivedAt == null);
 
   const columnsWithCards = columns.map((column) => ({
     ...column,
-    cards: cards.filter((card) => card.columnId === column.id),
+    cards: visibleCards.filter((card) => card.columnId === column.id),
   }));
 
   return { ...project, columns: columnsWithCards };
@@ -144,6 +145,7 @@ export async function listProjectSummariesForUser(userId: string): Promise<Proje
       : await prisma.card.findMany({
           where: { columnId: { in: columnIds } },
         });
+  const visibleCards = cards.filter((card) => card.archivedAt == null);
   const memberships = await prisma.membership.findMany({
     where: { projectId: { in: projectIds } },
   });
@@ -167,7 +169,7 @@ export async function listProjectSummariesForUser(userId: string): Promise<Proje
       .filter((column) => column.projectId === project.id)
       .map((column) => ({
         ...column,
-        cards: cards.filter((card) => card.columnId === column.id),
+        cards: visibleCards.filter((card) => card.columnId === column.id),
       }));
     const progress = projectProgress(projectColumns);
     const status = parseProjectStatus(project.status);

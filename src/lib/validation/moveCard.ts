@@ -5,9 +5,8 @@ import { idSchema } from '@/lib/validation/id';
 
 export const moveCardSchema = z.object({
   cardId: idSchema,
+  sourceColumnId: idSchema,
   targetColumnId: idSchema,
-  beforeCardId: idSchema.nullable(),
-  afterCardId: idSchema.nullable(),
 });
 
 export type MoveCardInput = z.infer<typeof moveCardSchema>;

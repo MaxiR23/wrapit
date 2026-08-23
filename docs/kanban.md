@@ -1,8 +1,8 @@
 # Kanban
 
-How projects, columns and cards work: membership access, float ordering, and optimistic
-drag-and-drop. App layering and the general file map: `docs/architecture.md`.
-Schema and Prisma setup: `docs/database.md`.
+How projects, columns and cards work: membership access, card codes, column
+moves, and the optimistic persist queue. App layering and the general file map:
+`docs/architecture.md`. Schema and Prisma setup: `docs/database.md`.
 
 ## Domain
 
@@ -28,8 +28,16 @@ mid-flight failure rolls back. Access for invite, accept, and reject is
 membership-based, never `ownerId`.
 
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
-`(max order in parent) + 1`. Only **cards** are reordered in the UI today;
-columns keep creation order.
+`(max order in parent) + 1`. The board UI moves cards **between columns only**
+and always appends to the target; intra-column reorder is stored for later and
+is not exposed in the UI.
+
+`Card.code` is assigned at create time as `{initials(project.title)}-{n}` (for
+example `RS-14`), using the same `initials()` helper as avatars (first and last
+word). Empty titles fall back to `PR`. `Project.cardCounter` increments atomically
+inside the create transaction (`increment: 1`); renaming the project or the card
+does not rewrite stored codes. `Card.archivedAt` hides a card from board reads
+when it is set; nothing in the UI archives yet.
 
 `createProject` also accepts optional `invitees` (usernames). The list is
 validated with the project (strings only, username length bounds, at most 20
@@ -40,10 +48,12 @@ collected as `inviteErrors` and do not roll back the project. The new-project
 dialog always closes on success and may show a brief notice when some invites
 failed; remaining invites happen from Members on the project page.
 
-The project detail page loads ordered columns and cards server-side via
-`getProjectForUser`. Non-members get `notFound()`. The client receives card id lists
-per column for DnD — not the float values. Display order is the id list;
-persistence recomputes floats on the server from neighbor ids.
+The project detail page loads ordered columns and visible cards (those with
+`archivedAt` unset) server-side via `getProjectForUser`. Non-members get
+`notFound()`. The page sits in `ProjectsShell` with Projects as the active nav
+and search hidden. The client owns an id list per column; a move persists
+`cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
+the server appends with `(max order in the target) + 1`.
 
 ## Progress on the projects grid
 
@@ -93,55 +103,47 @@ session or a broken chain returns `{ error: 'Unauthorized' }`. Pattern details:
 
 `moveCard` adds rules the helpers alone do not cover:
 
-- The target column must sit on the **same project** as the card. Membership on two projects
-  does not allow moving a card between them.
-- Optional `beforeCardId` / `afterCardId` must exist in the **target** column
-  (and must not be the moving card).
-- The client sends **neighbor ids**, never order numbers. The server reads those
-  rows and computes placement. Trusting a client float would let a request plant
-  a card anywhere in the sort key space.
+- Ids are validated with `idSchema` **before** any database lookup.
+- Source and target columns must both be reachable through membership
+  (`getColumnForUser`) and sit on the **same project**. Membership on two
+  projects does not allow moving a card between them.
+- The occupancy write is `updateMany({ where: { id, columnId: sourceColumnId } })`.
+  If the count is not 1, the card was not in that source column (stale client or
+  a concurrent move) and the action returns Unauthorized.
+- Same source and target is a read-only no-op: no order rewrite.
+
+The client does not send neighbor ids or order numbers.
 
 ## Ordering
 
-`orderBetween(before, after)` in `src/lib/order.ts` places a card without
-rewriting siblings:
+`order` is still a float so a later intra-column reorder can place a card
+without rewriting siblings (`orderBetween` in `src/lib/order.ts`). Today's
+`moveCard` always appends: `(max order in the target column) + 1`. Empty
+target → `1`.
 
-- no neighbors → `1` (empty column)
-- only before → `before + 1` (append)
-- only after → `after / 2` (prepend; must stay strictly between `0` and `after`)
-- both → midpoint `(before + after) / 2`
+## Optimistic column moves
 
-It returns `null` when no distinct finite value fits: equal neighbors, a
-collapsed float gap, prepend underflow, or append past safe integer range.
+Cards move on desktop with HTML5 drag-and-drop (pointer only) plus a keyboard
+**Move** menu, and on mobile with a 420ms long press, destination strip, and a
+330px snap carousel. `@dnd-kit` is not used. A drop or destination tap commits
+`{ cardId, targetColumnId }` and appends to that column. Pure list math lives in
+`kanbanItems.ts` / `kanbanPersist.ts` so it can be tested without the React tree.
 
-`moveCard` calls `orderBetween` first. A non-null result is a single update of
-`columnId` + `order`. On `null`, `renumberColumnInserting` loads the column,
-inserts the card at the neighbor-derived index, and rewrites every card to
-`1..n` in a transaction.
-
-**Why floats plus renumber:** most moves stay one UPDATE. Renumber is the safety
-valve when precision runs out or historical duplicates leave no gap — not the
-happy path.
-
-## Optimistic drag-and-drop
-
-Cards move with `@dnd-kit` in `ProjectKanban`. A drop commits a semantic position
-`{ cardId, targetColumnId, beforeCardId, afterCardId }`, not indices. Pure list
-math lives in `kanbanItems.ts` / `kanbanPersist.ts` so it can be tested without
-the React tree.
+Progress copy (`N of M cards done` / `N/M done`) uses the same
+`projectProgress()` helper as the projects grid.
 
 ### Why a queue
 
-Users can drag faster than the network. Each drop updates the UI immediately and
+Users can move faster than the network. Each drop updates the UI immediately and
 enqueues a persist job. Jobs run **one at a time** (`persistChainRef`) so two
-in-flight `moveCard` calls cannot race on neighbors or overwrite each other.
+in-flight `moveCard` calls cannot race on occupancy.
 
-Without a queue, a second drop would either block the UI or fire with stale
-neighbors against a board the first request had not finished writing.
+Without a queue, a second drop would either block the UI or fire with a stale
+source column against a board the first request had not finished writing.
 
 ### Baseline vs display
 
-`ProjectKanban` keeps two views of the board:
+`ProjectBoard` keeps two views of the board:
 
 - **Persisted baseline** (`persistedItemsRef`) — last layout acknowledged as
   saved (or the latest server props).
@@ -151,18 +153,14 @@ neighbors against a board the first request had not finished writing.
 The queue (`persistQueueRef`) is FIFO. Enqueue and optimistic display happen
 together; the network work trails behind.
 
-### Reconcile before the action
+### Source column from the baseline
 
 By the time a job reaches the head of the queue, the baseline may have moved
-(earlier success) or a neighbor id from drag-time may no longer sit where the
-user thought. Before calling `moveCard`, the client:
-
-1. Applies the job onto the **current** persisted baseline (`reconcilePersistJob`).
-2. Recomputes neighbors from that reconciled list (`persistPayloadFromReconciled`).
-3. Sends that payload to the server.
-
-So the server always sees neighbors that match the board the client believes is
-already saved, not the snapshot from an older drag.
+(earlier success) or a columns refresh may have landed. Before calling
+`moveCard`, the client builds the payload from the **current** persisted
+baseline (`persistPayloadFromBaseline`): occupancy `sourceColumnId` is where
+the card sits now, not the snapshot from an older drag. If the card is already
+in the target, the client skips the write.
 
 ### Failure
 
@@ -176,32 +174,39 @@ the server has. The user sees the generic error string, never a Prisma message.
 `moveCard` revalidates the project path. When fresh `columns` arrive, the effect
 sets a new server baseline and sets display to
 `applyPendingJobs(newBaseline, queue)`. Pending jobs are not dropped; cards
-created through dialogs on the server merge with in-flight drags instead of
-wiping them.
+that appeared on the server merge with in-flight moves instead of wiping them.
+A job whose card is already in the target column is a no-op on that list
+(no intra-column append).
 
 ## Files
 
 ```
-src/lib/order.ts                    midpoint / append / prepend
-src/lib/kanbanItems.ts              place, neighbors, drag transitions
+src/lib/order.ts                    midpoint / append / prepend (stored for later reorder)
+src/lib/cardCode.ts                  project-title initials + sequence
+src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late
+src/lib/labelTones.ts               eight label tones as CSS token classes
+src/lib/board.ts                    carousel width, long-press constants
+src/lib/kanbanItems.ts              append move, same-column no-op
 src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card access chain (membership)
-src/lib/validation/moveCard.ts      moveCard input rules
-src/actions/moveCard.ts             persist columnId + order (or renumber)
+src/lib/validation/moveCard.ts      moveCard card, source, and target ids
+src/actions/moveCard.ts             occupancy-guarded append to the target column
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
 src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
 src/actions/createProject.ts        create a project, optional column list, optional featured star
-src/lib/projectGrid.ts              done/total progress for the projects grid and list
+src/lib/projectGrid.ts              done/total progress for the grid, list, and board header
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
 src/components/projects/ProjectsEmptyState.tsx  dashed empty box, template picker, mobile Templates screen
 src/components/projects/EmptyDemoBoard.tsx  mobile empty-state CSS demo board
 src/components/projects/ProjectTemplateRow.tsx  single-select template row
 src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured, rename-only columns)
 src/components/projects/ProjectList.tsx   projects table
-src/components/projects/ProjectKanban.tsx   DnD context, queue, commit
-src/components/projects/KanbanColumn.tsx  droppable column
-src/components/cards/SortableCard.tsx   draggable card
+src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards
+src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
+src/components/projects/BoardMobile.tsx   carousel, long press, destination strip
+src/components/projects/BoardColumn.tsx   column chrome
+src/components/cards/BoardCard.tsx      card face (label, code, title, footer slots)
 ```
 
 ## SEE

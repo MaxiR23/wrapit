@@ -199,8 +199,12 @@ in `docs/kanban.md`.
     src/lib/ownership.ts                column/card access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
-    src/lib/kanbanItems.ts              column→card id lists for DnD
+    src/lib/kanbanItems.ts              column→card id lists; append to a column
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
+    src/lib/cardCode.ts                 stored card code from project title + counter
+    src/lib/cardDue.ts                  due labels and overdue
+    src/lib/labelTones.ts               eight label tones mapped to CSS tokens
+    src/lib/board.ts                    mobile carousel and long-press constants
     src/lib/validation/fieldErrors.ts   first error per field
     src/lib/validation/signUp.ts        sign up rules
     src/lib/validation/signIn.ts        sign in rules
@@ -213,7 +217,7 @@ in `docs/kanban.md`.
     src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
     src/lib/validation/column.ts        column title rules; create/delete action ids
     src/lib/validation/card.ts          card title and optional description; create/update/delete action ids
-    src/lib/validation/moveCard.ts      moveCard card, column, and neighbor ids
+    src/lib/validation/moveCard.ts      moveCard card, source, and target ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
@@ -235,15 +239,15 @@ in `docs/kanban.md`.
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
     src/actions/createColumn.ts         create a column on an accessible project
     src/actions/deleteColumn.ts         delete a column from an accessible project
-    src/actions/createCard.ts           create a card on an accessible column
+    src/actions/createCard.ts           create a card on an accessible column (code + counter)
     src/actions/updateCard.ts           update an accessible card
     src/actions/deleteCard.ts           delete an accessible card
-    src/actions/moveCard.ts             move/reorder a card (columnId + order)
+    src/actions/moveCard.ts             append a card to another column (occupancy guard)
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
     src/app/account/page.tsx            account shell, tab routing, profile, visibility
-    src/app/projects/[projectId]/page.tsx  project detail (member only; else 404; records recent; Members)
+    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -254,9 +258,9 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectKanban, column dialogs, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
-    src/components/cards/               sortable cards, card dialogs
+    src/components/cards/               board cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
+import { cardCode } from '@/lib/cardCode';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
@@ -17,6 +18,7 @@ type CreateCardResult =
         id: string;
         title: string;
         description: string | null;
+        code: string;
         order: number;
         columnId: string;
       };
@@ -51,28 +53,45 @@ export async function createCard(input: {
   }
 
   try {
-    const [last] = await prisma.card.findMany({
-      where: { columnId: owned.column.id },
-      orderBy: { order: 'desc' },
-      take: 1,
-    });
-    const order = (last?.order ?? 0) + 1;
-    const description = parsed.data.description ? parsed.data.description : null;
+    const card = await prisma.$transaction(async (tx) => {
+      const project = await tx.project.update({
+        where: { id: owned.project.id },
+        data: { cardCounter: { increment: 1 } },
+        select: { cardCounter: true, title: true },
+      });
+      const [last] = await tx.card.findMany({
+        where: { columnId: owned.column.id },
+        orderBy: { order: 'desc' },
+        take: 1,
+      });
+      const order = (last?.order ?? 0) + 1;
+      const description = parsed.data.description ? parsed.data.description : null;
+      const code = cardCode(project.title, project.cardCounter);
 
-    const card = await prisma.card.create({
-      data: {
-        title: parsed.data.title,
-        description,
-        order,
-        columnId: owned.column.id,
-      },
+      return tx.card.create({
+        data: {
+          title: parsed.data.title,
+          description,
+          code,
+          order,
+          columnId: owned.column.id,
+        },
+      });
     });
 
     revalidatePath(projectPath(owned.project.id));
 
-    return { data: card };
+    return {
+      data: {
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        code: card.code,
+        order: card.order,
+        columnId: card.columnId,
+      },
+    };
   } catch {
-    // Never surface Prisma/raw messages: they can leak host or constraint details.
     return { error: GENERIC_ERROR_MESSAGE };
   }
 }
