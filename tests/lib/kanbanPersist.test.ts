@@ -3,13 +3,14 @@
 // Tests for pure persist reconciliation and queue finish reduction.
 //
 // Tested:
-// - Reconcile job onto a persisted baseline by neighbors
+// - Reconcile job onto a persisted baseline by appending to the target
+// - Source column for moveCard comes from the baseline, not the drag snapshot
 // - Success with an empty remaining queue shows the new baseline
 // - Success with remaining jobs rebuilds display as baseline + pending
 // - Failure keeps the old baseline and still applies remaining pending jobs
 //
 // What is covered:
-// - Persist queue reductions used by ProjectKanban.commitMove
+// - Persist queue reductions used by ProjectBoard.commitMove
 //
 // Run with: pnpm test:run tests/lib/kanbanPersist.test.ts
 //
@@ -21,7 +22,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import {
   applyPendingJobs,
   isMoveCardErrorResult,
-  persistPayloadFromReconciled,
+  persistPayloadFromBaseline,
   reconcilePersistJob,
   reducePersistFinish,
 } from '@/lib/kanbanPersist';
@@ -29,28 +30,16 @@ import {
 describe('kanbanPersist', () => {
   const baseline = { todo: ['a', 'b'], doing: ['c'] };
 
-  const moveB: Parameters<typeof reconcilePersistJob>[1] = {
-    cardId: 'b',
-    targetColumnId: 'doing',
-    beforeCardId: null,
-    afterCardId: 'c',
-  };
+  const moveB = { cardId: 'b', targetColumnId: 'doing' };
+  const moveA = { cardId: 'a', targetColumnId: 'doing' };
 
-  const moveA: Parameters<typeof reconcilePersistJob>[1] = {
-    cardId: 'a',
-    targetColumnId: 'doing',
-    beforeCardId: 'b',
-    afterCardId: 'c',
-  };
-
-  it('reconciles a job onto the persisted baseline by neighbors', () => {
+  it('reconciles a job onto the persisted baseline by appending', () => {
     const reconciled = reconcilePersistJob(baseline, moveB);
-    expect(reconciled).toEqual({ todo: ['a'], doing: ['b', 'c'] });
-    expect(persistPayloadFromReconciled(reconciled, moveB)).toEqual({
+    expect(reconciled).toEqual({ todo: ['a'], doing: ['c', 'b'] });
+    expect(persistPayloadFromBaseline(baseline, moveB)).toEqual({
       cardId: 'b',
+      sourceColumnId: 'todo',
       targetColumnId: 'doing',
-      beforeCardId: null,
-      afterCardId: 'c',
     });
   });
 
@@ -63,8 +52,8 @@ describe('kanbanPersist', () => {
         failed: false,
       }),
     ).toEqual({
-      persisted: { todo: ['a'], doing: ['b', 'c'] },
-      display: { todo: ['a'], doing: ['b', 'c'] },
+      persisted: { todo: ['a'], doing: ['c', 'b'] },
+      display: { todo: ['a'], doing: ['c', 'b'] },
       error: null,
     });
   });
@@ -78,8 +67,8 @@ describe('kanbanPersist', () => {
         failed: false,
       }),
     ).toEqual({
-      persisted: { todo: ['a'], doing: ['b', 'c'] },
-      display: { todo: [], doing: ['b', 'a', 'c'] },
+      persisted: { todo: ['a'], doing: ['c', 'b'] },
+      display: { todo: [], doing: ['c', 'b', 'a'] },
       error: null,
     });
   });
@@ -99,7 +88,7 @@ describe('kanbanPersist', () => {
     });
     expect(applyPendingJobs(baseline, [moveB])).toEqual({
       todo: ['a'],
-      doing: ['b', 'c'],
+      doing: ['c', 'b'],
     });
   });
 

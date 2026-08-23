@@ -12,8 +12,33 @@ type Row = Record<string, unknown>;
 
 // The adapter writes conditions as operator objects, e.g.
 // { email: { equals: 'ada@example.com' } }.
+function isIncrement(value: unknown): value is { increment: number } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    !(value instanceof Date) &&
+    'increment' in value &&
+    typeof (value as { increment: unknown }).increment === 'number'
+  );
+}
+
+function applyUpdateData(row: Row, data: Row) {
+  for (const [key, value] of Object.entries(data)) {
+    if (isIncrement(value)) {
+      const current = typeof row[key] === 'number' ? (row[key] as number) : 0;
+      row[key] = current + value.increment;
+    } else {
+      row[key] = value;
+    }
+  }
+}
+
 function matchesValue(actual: unknown, condition: unknown): boolean {
-  if (condition === null || typeof condition !== 'object') {
+  if (condition === null) {
+    return actual == null;
+  }
+  if (typeof condition !== 'object') {
     return actual === condition;
   }
   return Object.entries(condition as Row).every(([operator, expected]) => {
@@ -182,12 +207,12 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
     update: vi.fn(async ({ where, data }: { where?: Row; data: Row }) => {
       const row = rows.find((r) => matches(r, where, getRelated));
       if (!row) throw new Error('record not found');
-      Object.assign(row, data);
+      applyUpdateData(row, data);
       return { ...row };
     }),
     updateMany: vi.fn(async ({ where, data }: { where?: Row; data: Row }) => {
       const matched = rows.filter((r) => matches(r, where, getRelated));
-      for (const row of matched) Object.assign(row, data);
+      for (const row of matched) applyUpdateData(row, data);
       return { count: matched.length };
     }),
     delete: vi.fn(async ({ where }: { where?: Row }) => {

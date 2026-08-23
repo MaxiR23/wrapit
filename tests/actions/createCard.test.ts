@@ -4,6 +4,8 @@
 //
 // Tested:
 // - Creates a card on the owner's column with an appending order
+// - Issues SB-1 then SB-2 from an atomic cardCounter increment
+// - Stores the code from the title at create time so a rename does not rewrite it
 // - Accepts an optional description
 // - Rejects an empty title with a clear field error
 // - Rejects creating on a column the user does not own
@@ -79,9 +81,11 @@ describe('createCard', () => {
         columnId: column.id,
         order: 2,
         description: null,
+        code: 'SB-1',
       }),
     });
     expect(db.card.rows).toHaveLength(2);
+    expect(db.project.rows[0]?.cardCounter).toBe(1);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -94,7 +98,37 @@ describe('createCard', () => {
       data: expect.objectContaining({
         title: 'First',
         order: 1,
+        code: 'SB-1',
       }),
+    });
+    expect(db.project.rows[0]?.cardCounter).toBe(1);
+  });
+
+  it('increments the project counter so a second card gets the next code', async () => {
+    const { column } = await seedOwnedColumn();
+
+    await createCard({ columnId: column.id, title: 'First' });
+    const result = await createCard({ columnId: column.id, title: 'Second' });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Second', code: 'SB-2', order: 2 }),
+    });
+    expect(db.project.rows[0]?.cardCounter).toBe(2);
+  });
+
+  it('stores the code from the title at create time so a later rename does not rewrite it', async () => {
+    const { project, column } = await seedOwnedColumn();
+
+    await createCard({ columnId: column.id, title: 'First' });
+    await db.project.update({
+      where: { id: project.id },
+      data: { title: 'Website redesign' },
+    });
+    const result = await createCard({ columnId: column.id, title: 'Second' });
+
+    expect(db.card.rows[0]).toEqual(expect.objectContaining({ title: 'First', code: 'SB-1' }));
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Second', code: 'WR-2' }),
     });
   });
 

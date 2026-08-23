@@ -1,15 +1,17 @@
 // tests/app/projects/projectDetail.test.tsx
 //
-// Tests for the project detail page access gates.
+// Tests for the project detail page access gates and shell.
 //
 // Tested:
 // - Renders the project title for a member
+// - Wraps the page in the projects shell with Projects as the active nav
+// - Hides the projects search input
+// - Does not render the Members heading
 // - Mounts the recents recorder after access is confirmed
 // - Calls notFound when getProjectForUser returns null
-// - Calls notFound when the project id is unknown
 //
 // What is covered:
-// - Owner happy path, non-owner and missing project as 404
+// - Member happy path, shell chrome, missing project as 404
 //
 // Run with: pnpm test:run tests/app/projects/projectDetail.test.tsx
 //
@@ -38,9 +40,21 @@ vi.mock('@/lib/projects', () => ({
   listProjectMembersForUser,
 }));
 
+vi.mock('@/lib/notifications', () => ({
+  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
+}));
+
 vi.mock('@/actions/recordRecentProject', () => ({
   recordRecentProject,
 }));
+
+vi.mock('@/actions/listNotifications', () => ({
+  listNotifications: vi.fn(async () => ({ data: { items: [], unreadCount: 0 } })),
+}));
+vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
+vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
+vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
+vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -49,22 +63,15 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   redirect,
   notFound,
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-vi.mock('@/components/projects/NewColumnDialog', () => ({
-  default: () => null,
-}));
-
-vi.mock('@/components/projects/ProjectKanban', () => ({
-  default: () => null,
+vi.mock('@/components/projects/ProjectBoard', () => ({
+  default: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
 vi.mock('@/components/projects/ColumnsEmptyState', () => ({
   default: () => <p>This project has no columns yet. Create one to get started.</p>,
-}));
-
-vi.mock('@/actions/createInvitation', () => ({
-  createInvitation: vi.fn(),
 }));
 
 const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/page');
@@ -72,14 +79,16 @@ const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/
 describe('Project detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSession.mockResolvedValue({ user: { id: 'user-ada' } });
+    getSession.mockResolvedValue({
+      user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
     recordRecentProject.mockResolvedValue(undefined);
     listProjectMembersForUser.mockResolvedValue([
       { userId: 'user-ada', name: 'Ada Lovelace', username: 'ada', role: 'OWNER' },
     ]);
   });
 
-  it('renders the project title for a member', async () => {
+  it('renders the project title for a member inside the projects shell', async () => {
     getProjectForUser.mockResolvedValue({
       id: 'project-1',
       title: 'Sprint board',
@@ -91,14 +100,30 @@ describe('Project detail page', () => {
     render(page);
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Members' })).toBeInTheDocument();
-    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
+    const projectLinks = screen.getAllByRole('link', { name: 'Projects' });
+    expect(projectLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
     expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(listProjectMembersForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(notFound).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(recordRecentProject).toHaveBeenCalledWith('project-1');
     });
+  });
+
+  it('renders the board title when the project has columns', async () => {
+    getProjectForUser.mockResolvedValue({
+      id: 'project-1',
+      title: 'Sprint board',
+      ownerId: 'user-ada',
+      columns: [{ id: 'column-todo', title: 'To do', order: 0, cards: [] }],
+    });
+
+    render(await ProjectDetailPage({ params: Promise.resolve({ projectId: 'project-1' }) }));
+
+    expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();
   });
 
   it('calls notFound when the project belongs to someone else', async () => {

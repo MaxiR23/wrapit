@@ -34,8 +34,9 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
   `Membership`, `Invitation`, and `RecentProject`. It
-  has an optional `description` and a `status` (`ProjectStatus`: `NEW`,
-  `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`). Access is through
+  has an optional `description`, a `status` (`ProjectStatus`: `NEW`,
+  `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`), and `cardCounter` (integer,
+  default 0) used to issue stored card codes. Access is through
   `Membership` (roles `OWNER`, `ADMIN`, `MEMBER`); `ownerId` is creator metadata.
 - `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
   It holds `role` and `starred`. Every project must have at least one OWNER.
@@ -55,7 +56,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   delete the invitee's received notification. `message` is denormalized English
   copy written at create time.
 - `Column` belongs to a `Project` and has many `Card`.
-- `Card` belongs to a `Column`.
+- `Card` belongs to a `Column`. It stores a `code` assigned at create time and
+  an optional `archivedAt`; archived cards are omitted from board reads.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings. Today
@@ -86,8 +88,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 Deleting a record cascades to its children (deleting a project deletes its columns
 and cards; deleting a user deletes their preferences, profile, and statuses). `Column` and `Card` use a
 `Float` `order` field so siblings can be reordered without rewriting every row on
-each move. Midpoints, renumbering when precision runs out, and how the UI
-persists moves: `docs/kanban.md`.
+each move. The board UI today only appends to a column; midpoints and later
+intra-column reorder: `docs/kanban.md`.
 
 `User`, `Session`, `Account` and `Verification` are owned by Better Auth.
 Passwords live on `Account`, not on `User`. See `docs/auth.md`.

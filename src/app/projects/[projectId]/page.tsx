@@ -1,14 +1,38 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
+import type { Metadata } from 'next';
 
 import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
-import NewColumnDialog from '@/components/projects/NewColumnDialog';
-import ProjectKanban from '@/components/projects/ProjectKanban';
-import ProjectMembersSection from '@/components/projects/ProjectMembersSection';
+import ProjectBoard from '@/components/projects/ProjectBoard';
+import type { BoardCardData } from '@/components/projects/boardTypes';
 import RecordRecentProject from '@/components/projects/RecordRecentProject';
+import ProjectsShell from '@/components/projects/ProjectsShell';
 import { auth } from '@/lib/auth';
+import { getNotificationsForUser } from '@/lib/notifications';
 import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
+
+function sessionUsername(user: { username?: unknown }): string {
+  return typeof user.username === 'string' ? user.username : '';
+}
+
+function asCard(card: {
+  id: string;
+  title: string;
+  code: string;
+  dueDate: Date | null;
+}): BoardCardData {
+  return {
+    id: card.id,
+    title: card.title,
+    code: card.code,
+    dueDate: card.dueDate,
+  };
+}
+
+export const metadata: Metadata = {
+  title: 'Project | wrapit',
+};
 
 export default async function ProjectDetailPage({
   params,
@@ -26,33 +50,45 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const members = await listProjectMembersForUser(project.id, session.user.id);
+  const [members, notifications] = await Promise.all([
+    listProjectMembersForUser(project.id, session.user.id),
+    getNotificationsForUser(session.user.id),
+  ]);
+  const username = sessionUsername(session.user);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+    <ProjectsShell
+      user={{
+        name: session.user.name,
+        username,
+      }}
+      initialNotifications={notifications.items}
+      activeNav="projects"
+      showSearch={false}
+      contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
       <RecordRecentProject projectId={project.id} />
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{project.title}</h1>
-        <NewColumnDialog projectId={project.id} />
-      </div>
-
-      {members ? <ProjectMembersSection projectId={project.id} members={members} /> : null}
-
       {project.columns.length === 0 ? (
-        <ColumnsEmptyState />
+        <div className="px-4 py-6 md:px-7">
+          <h1 className="text-[23px] font-semibold tracking-[-0.025em]">{project.title}</h1>
+          <ColumnsEmptyState />
+        </div>
       ) : (
-        <ProjectKanban
+        <ProjectBoard
+          title={project.title}
+          members={(members ?? []).map((member) => ({
+            id: member.userId,
+            name: member.name,
+            username: member.username,
+          }))}
           columns={project.columns.map((column) => ({
             id: column.id,
             title: column.title,
-            cards: column.cards.map((card) => ({
-              id: card.id,
-              title: card.title,
-              description: card.description,
-            })),
+            order: column.order,
+            cards: column.cards.map(asCard),
           }))}
         />
       )}
-    </main>
+    </ProjectsShell>
   );
 }

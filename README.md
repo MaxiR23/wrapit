@@ -6,9 +6,12 @@ production-style stack and eventually contribute to similar codebases.
 ## Status
 
 Stack and tooling are in place. Authentication covers sign up, sign in, sign out
-and route protection. Projects can be listed, created and opened; columns and cards support create,
-list, edit, delete, and drag-and-drop moves between columns (persisted). Card
-metadata (due date, priority, labels) is not built yet.
+and route protection. Projects can be listed, created and opened inside the
+projects shell. The project board shows columns and cards, with desktop
+drag-and-drop and a mobile carousel; moves persist by appending to the target
+column. Card create/edit/delete dialogs exist but are not mounted on the board
+yet. Card metadata (due date, priority, labels) is stored on the model and shown
+when present; there is no editor for it on the board.
 
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
