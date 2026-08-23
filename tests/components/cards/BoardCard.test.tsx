@@ -54,8 +54,16 @@ describe('BoardCard', () => {
   });
 
   it('renders a known label tone', () => {
-    render(<BoardCard card={{ ...base, label: { name: 'Design', tone: 'violet' } }} />);
+    render(
+      <BoardCard card={{ ...base, label: { id: 'label-1', name: 'Design', tone: 'violet' } }} />,
+    );
 
     expect(screen.getByText('Design')).toHaveClass('text-label-violet');
+  });
+
+  it('omits the pill when the card has no label', () => {
+    render(<BoardCard card={base} />);
+
+    expect(screen.queryByText('Design')).not.toBeInTheDocument();
   });
 });

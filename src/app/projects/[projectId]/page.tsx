@@ -8,7 +8,9 @@ import type { BoardCardData } from '@/components/projects/boardTypes';
 import RecordRecentProject from '@/components/projects/RecordRecentProject';
 import ProjectsShell from '@/components/projects/ProjectsShell';
 import { auth } from '@/lib/auth';
+import { cardLabelFromRow, type LabelView } from '@/lib/labels';
 import { getNotificationsForUser } from '@/lib/notifications';
+import { getProjectLabelsForUser } from '@/lib/projectLabels';
 import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
 
@@ -16,17 +18,23 @@ function sessionUsername(user: { username?: unknown }): string {
   return typeof user.username === 'string' ? user.username : '';
 }
 
-function asCard(card: {
-  id: string;
-  title: string;
-  code: string;
-  dueDate: Date | null;
-}): BoardCardData {
+function asCard(
+  card: {
+    id: string;
+    title: string;
+    code: string;
+    dueDate: Date | null;
+    labelId?: string | null;
+  },
+  labels: LabelView[],
+): BoardCardData {
+  const row = card.labelId ? labels.find((label) => label.id === card.labelId) : undefined;
   return {
     id: card.id,
     title: card.title,
     code: card.code,
     dueDate: card.dueDate,
+    label: cardLabelFromRow(row),
   };
 }
 
@@ -50,11 +58,13 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const [members, notifications] = await Promise.all([
+  const [members, notifications, labels] = await Promise.all([
     listProjectMembersForUser(project.id, session.user.id),
     getNotificationsForUser(session.user.id),
+    getProjectLabelsForUser(project.id, session.user.id),
   ]);
   const username = sessionUsername(session.user);
+  const projectLabels = labels ?? [];
 
   return (
     <ProjectsShell
@@ -76,6 +86,8 @@ export default async function ProjectDetailPage({
       ) : (
         <ProjectBoard
           title={project.title}
+          projectId={project.id}
+          labels={projectLabels}
           members={(members ?? []).map((member) => ({
             id: member.userId,
             name: member.name,
@@ -85,7 +97,7 @@ export default async function ProjectDetailPage({
             id: column.id,
             title: column.title,
             order: column.order,
-            cards: column.cards.map(asCard),
+            cards: column.cards.map((card) => asCard(card, projectLabels)),
           }))}
         />
       )}

@@ -23,6 +23,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
 const listProjectMembersForUser = vi.fn();
+const getProjectLabelsForUser = vi.fn();
 const recordRecentProject = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -38,6 +39,10 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/projects', () => ({
   getProjectForUser,
   listProjectMembersForUser,
+}));
+
+vi.mock('@/lib/projectLabels', () => ({
+  getProjectLabelsForUser,
 }));
 
 vi.mock('@/lib/notifications', () => ({
@@ -86,6 +91,9 @@ describe('Project detail page', () => {
     listProjectMembersForUser.mockResolvedValue([
       { userId: 'user-ada', name: 'Ada Lovelace', username: 'ada', role: 'OWNER' },
     ]);
+    getProjectLabelsForUser.mockResolvedValue([
+      { id: 'l0', name: 'Design', tone: 'blue', order: 0 },
+    ]);
   });
 
   it('renders the project title for a member inside the projects shell', async () => {
@@ -106,6 +114,7 @@ describe('Project detail page', () => {
     expect(projectLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
     expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(listProjectMembersForUser).toHaveBeenCalledWith('project-1', 'user-ada');
+    expect(getProjectLabelsForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(notFound).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(recordRecentProject).toHaveBeenCalledWith('project-1');

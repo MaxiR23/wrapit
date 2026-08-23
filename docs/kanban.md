@@ -49,8 +49,15 @@ dialog always closes on success and may show a brief notice when some invites
 failed; remaining invites happen from Members on the project page.
 
 The project detail page loads ordered columns and visible cards (those with
-`archivedAt` unset) server-side via `getProjectForUser`. Non-members get
-`notFound()`. The page sits in `ProjectsShell` with Projects as the active nav
+`archivedAt` unset) server-side via `getProjectForUser`, and project labels via
+`getProjectLabelsForUser` (seeding six defaults when the project has none).
+Non-members get `notFound()`. Cards with a `labelId` render a pill from
+`cardLabelFromRow`; unlabeled cards omit it. The Labels control in the board
+header opens the same editor later reused by the new-card screen. Renaming a
+label updates every card that points at it; removing one reassigns those cards
+to the first remaining label. The last label cannot be removed.
+
+The page sits in `ProjectsShell` with Projects as the active nav
 and search hidden. The client owns an id list per column; a move persists
 `cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
 the server appends with `(max order in the target) + 1`.
@@ -185,12 +192,18 @@ src/lib/order.ts                    midpoint / append / prepend (stored for late
 src/lib/cardCode.ts                  project-title initials + sequence
 src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late
 src/lib/labelTones.ts               eight label tones as CSS token classes
+src/lib/labels.ts                   defaults, last-label guard, card pill sync
+src/lib/projectLabels.ts            read/seed per-project labels
 src/lib/board.ts                    carousel width, long-press constants
 src/lib/kanbanItems.ts              append move, same-column no-op
 src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
-src/lib/ownership.ts                column/card access chain (membership)
+src/lib/ownership.ts                column/card/label access chain (membership)
 src/lib/validation/moveCard.ts      moveCard card, source, and target ids
+src/lib/validation/label.ts         label name/tone and action ids
 src/actions/moveCard.ts             occupancy-guarded append to the target column
+src/actions/updateLabelField.ts     persist one label name or tone
+src/actions/createLabel.ts          append a label (cap 20)
+src/actions/deleteLabel.ts          reassign cards, refuse the last remaining
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
 src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
@@ -206,6 +219,8 @@ src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + m
 src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
 src/components/projects/BoardMobile.tsx   carousel, long press, destination strip
 src/components/projects/BoardColumn.tsx   column chrome
+src/components/labels/LabelEditor.tsx     reusable editor (header panel and later new card)
+src/components/labels/LabelsControl.tsx   board-header popover/sheet entry
 src/components/cards/BoardCard.tsx      card face (label, code, title, footer slots)
 ```
 

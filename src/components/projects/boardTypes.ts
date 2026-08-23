@@ -15,7 +15,7 @@ export type BoardCardData = {
   subtaskDone?: number;
   subtaskTotal?: number;
   assignees?: BoardMember[];
-  label?: { name: string; tone: LabelTone } | null;
+  label?: { id: string; name: string; tone: LabelTone } | null;
 };
 
 export type BoardColumnData = {

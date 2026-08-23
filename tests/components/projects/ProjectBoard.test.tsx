@@ -32,6 +32,10 @@ vi.mock('@/actions/moveCard', () => ({
   moveCard,
 }));
 
+vi.mock('@/components/labels/LabelsControl', () => ({
+  default: () => null,
+}));
+
 const { default: ProjectBoard } = await import('@/components/projects/ProjectBoard');
 
 const columns: BoardColumnData[] = [
@@ -84,7 +88,15 @@ describe('ProjectBoard', () => {
   });
 
   it('renders column titles and cards in their columns', () => {
-    render(<ProjectBoard title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
 
     expect(
       within(desktopBoard()).getByRole('heading', { name: 'To do', level: 2 }),
@@ -106,7 +118,16 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(<ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
     expect(ref.current).not.toBeNull();
 
     let commitPromise: Promise<void> = Promise.resolve();
@@ -143,7 +164,16 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(<ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
 
     let commitPromise: Promise<void> = Promise.resolve();
     await act(async () => {
@@ -173,7 +203,16 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(<ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
 
     let firstCommit: Promise<void> = Promise.resolve();
     let secondCommit: Promise<void> = Promise.resolve();
@@ -231,7 +270,16 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(<ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
 
     let firstCommit: Promise<void> = Promise.resolve();
     let secondCommit: Promise<void> = Promise.resolve();
@@ -272,7 +320,14 @@ describe('ProjectBoard', () => {
 
     const ref = createRef<ProjectBoardHandle>();
     const { rerender } = render(
-      <ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />,
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
     );
 
     let firstCommit: Promise<void> = Promise.resolve();
@@ -322,6 +377,8 @@ describe('ProjectBoard', () => {
         <ProjectBoard
           ref={ref}
           title="Sprint board"
+          projectId="project-1"
+          labels={[]}
           columns={columnsAfterFirstPersist}
           members={[]}
         />,
@@ -381,7 +438,16 @@ describe('ProjectBoard', () => {
   it('updates progress when a card moves into Done', async () => {
     moveCard.mockResolvedValue({ data: { id: 'card-a' } });
     const ref = createRef<ProjectBoardHandle>();
-    render(<ProjectBoard ref={ref} title="Sprint board" columns={columns} members={[]} />);
+    render(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
 
     expect(screen.getByText('0 of 3 cards done')).toBeInTheDocument();
 
