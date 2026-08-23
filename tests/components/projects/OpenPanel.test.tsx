@@ -31,6 +31,9 @@ function Probe() {
       <button type="button" onClick={() => setOpenPanel('account')}>
         Open account
       </button>
+      <button type="button" onClick={() => setOpenPanel('labels')}>
+        Open labels
+      </button>
     </div>
   );
 }
@@ -77,5 +80,16 @@ describe('OpenPanelProvider', () => {
 
     await events.keyboard('{Escape}');
     expect(screen.getByText('panel:none')).toBeInTheDocument();
+  });
+
+  it('closes notifications when the labels panel opens', async () => {
+    const events = userEvent.setup();
+    renderProbe();
+
+    await events.click(screen.getByRole('button', { name: 'Open notifications' }));
+    await events.click(screen.getByRole('button', { name: 'Open labels' }));
+
+    expect(screen.getByText('panel:labels')).toBeInTheDocument();
+    expect(screen.queryByText('panel:notifications')).not.toBeInTheDocument();
   });
 });

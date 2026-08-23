@@ -1,9 +1,11 @@
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
+import LabelsControl from '@/components/labels/LabelsControl';
 import MemberPopover from '@/components/projects/MemberPopover';
 import type { BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import type { LabelView } from '@/lib/labels';
 import { boardProgressLabel, boardProgressShortLabel } from '@/lib/projectGrid';
 import { PROJECTS_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -14,12 +16,18 @@ export default function BoardHeader({
   taskCount,
   percent,
   members,
+  projectId,
+  labels,
+  onLabelsChange,
 }: {
   title: string;
   doneCount: number;
   taskCount: number;
   percent: number;
   members: BoardMember[];
+  projectId: string;
+  labels: LabelView[];
+  onLabelsChange?: (labels: LabelView[]) => void;
 }) {
   return (
     <header className="flex shrink-0 flex-col gap-3 bg-[radial-gradient(130%_70%_at_8%_-20%,oklch(1_0_0/0.07)_0%,transparent_62%)] px-4 pt-0.5 pb-3 md:gap-3.5 md:px-7 md:pt-[26px]">
@@ -34,6 +42,7 @@ export default function BoardHeader({
           <ChevronLeft className="size-[15px]" strokeWidth={2} />
           Projects
         </Link>
+        <LabelsControl projectId={projectId} labels={labels} onLabelsChange={onLabelsChange} />
       </div>
 
       <div className="flex flex-col gap-[9px]">

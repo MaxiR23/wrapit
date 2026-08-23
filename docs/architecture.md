@@ -82,6 +82,15 @@ two rows from each counting the other's uncommitted row under READ COMMITTED.
 Deleting the active status records that fact before `ON DELETE SET NULL` clears
 `User.activeStatusId`, then writes the replacement in the same transaction.
 The live active status (name + color) is held in `ActiveStatusProvider`.
+Label reads (`getProjectLabelsForUser`) seed six default `Label` rows on first
+board load when the project has none. Concurrent first reads collide on the
+per-project order unique and retry the read. Label writes (`updateLabelField`,
+`createLabel`, `deleteLabel`) are membership-based. Name and tone go through
+`useProfileAutosave`. `deleteLabel` locks the project row, reassigns cards to
+the first remaining label, then `assertNotLastLabel` counts remaining rows
+after a conditional `deleteMany`. The last remaining label cannot be deleted.
+At most 20 labels per project. Board cards render a pill only when
+`Card.labelId` points at a known tone.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -131,8 +140,8 @@ someone else's card cannot succeed.
 
 `src/lib/membership.ts` owns the Prisma where clause (`accessibleByUser`) and the
 last-OWNER invariant (`assertNotLastOwner` / `LastOwnerError`).
-`src/lib/ownership.ts` centralizes the column/card lookups (`getColumnForUser`,
-`getCardForUser`) using that where clause. Actions return `{ error: 'Unauthorized' }`
+`src/lib/ownership.ts` centralizes the column/card/label lookups (`getColumnForUser`,
+`getCardForUser`, `getLabelForUser`) using that where clause. Actions return `{ error: 'Unauthorized' }`
 when any link is missing or the user is not a member. That is deliberate: pages
 hide existence with `notFound()`; mutations refuse without confirming whether
 the row exists for another user.
@@ -196,7 +205,7 @@ in `docs/kanban.md`.
     src/lib/localTime.ts                12-hour local time with a GMT offset
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
-    src/lib/ownership.ts                column/card access chain (membership)
+    src/lib/ownership.ts                column/card/label access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
     src/lib/kanbanItems.ts              column→card id lists; append to a column
@@ -204,6 +213,8 @@ in `docs/kanban.md`.
     src/lib/cardCode.ts                 stored card code from project title + counter
     src/lib/cardDue.ts                  due labels and overdue
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
+    src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
+    src/lib/projectLabels.ts            read/seed per-project labels (server only)
     src/lib/board.ts                    mobile carousel and long-press constants
     src/lib/validation/fieldErrors.ts   first error per field
     src/lib/validation/signUp.ts        sign up rules
@@ -221,6 +232,7 @@ in `docs/kanban.md`.
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
+    src/lib/validation/label.ts         label id, name, tone; create projectId
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status
@@ -243,6 +255,9 @@ in `docs/kanban.md`.
     src/actions/updateCard.ts           update an accessible card
     src/actions/deleteCard.ts           delete an accessible card
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
+    src/actions/updateLabelField.ts     persist one label name or tone for a member
+    src/actions/createLabel.ts          append a label (cap 20; seeds defaults if empty)
+    src/actions/deleteLabel.ts          delete a label; reassign cards; refuse the last remaining
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
@@ -260,6 +275,7 @@ in `docs/kanban.md`.
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
+    src/components/labels/              label editor, row, board-header popover/sheet control
     src/components/cards/               board cards, card dialogs
     src/components/ui/                  shadcn/ui primitives
 

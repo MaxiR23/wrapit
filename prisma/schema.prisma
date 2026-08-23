@@ -129,6 +129,7 @@ model Project {
   memberships     Membership[]
   invitations     Invitation[]
   recentProjects  RecentProject[]
+  labels          Label[]
 }
 
 model Column {
@@ -150,13 +151,29 @@ model Card {
   order       Float
   dueDate     DateTime?
   archivedAt  DateTime?
-  priority    String?
-  labels      String[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   columnId String
   column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  labelId String?
+  label   Label?  @relation(fields: [labelId], references: [id], onDelete: Restrict)
+
+  @@index([labelId])
+}
+
+model Label {
+  id        String @id @default(cuid())
+  name      String
+  tone      String
+  order     Int
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cards     Card[]
+
+  @@unique([projectId, order])
 }
 
 model Membership {

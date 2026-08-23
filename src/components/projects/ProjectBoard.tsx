@@ -14,6 +14,7 @@ import {
   persistPayloadFromBaseline,
   reducePersistFinish,
 } from '@/lib/kanbanPersist';
+import { syncCardLabels, type LabelView } from '@/lib/labels';
 import { projectProgress } from '@/lib/projectGrid';
 
 export type ProjectBoardHandle = {
@@ -22,8 +23,10 @@ export type ProjectBoardHandle = {
 
 type ProjectBoardProps = {
   title: string;
+  projectId: string;
   columns: BoardColumnData[];
   members: BoardMember[];
+  labels: LabelView[];
 };
 
 function buildInitialState(columns: BoardColumnData[]) {
@@ -56,11 +59,12 @@ function columnsFromItems(
 }
 
 const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function ProjectBoard(
-  { title, columns, members },
+  { title, projectId, columns, members, labels: initialLabels },
   ref,
 ) {
   const initial = buildInitialState(columns);
   const [itemsByColumn, setItemsByColumn] = useState<ItemsByColumn>(initial.itemsByColumn);
+  const [labels, setLabels] = useState(initialLabels);
   const [error, setError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
@@ -83,6 +87,17 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     cardsById.current = next.cardsById;
     columnMeta.current = next.columnMeta;
   }, [columns]);
+
+  useEffect(() => {
+    setLabels(initialLabels);
+    cardsById.current = syncCardLabels(cardsById.current, initialLabels);
+  }, [initialLabels]);
+
+  function handleLabelsChange(next: LabelView[]) {
+    setLabels(next);
+    cardsById.current = syncCardLabels(cardsById.current, next);
+    setItemsByColumn((current) => ({ ...current }));
+  }
 
   const displayColumns = columnsFromItems(columnMeta.current, itemsByColumn, cardsById.current);
   const progress = projectProgress(displayColumns);
@@ -162,6 +177,9 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         taskCount={progress.taskCount}
         percent={progress.percent}
         members={members}
+        projectId={projectId}
+        labels={labels}
+        onLabelsChange={handleLabelsChange}
       />
 
       {error ? (

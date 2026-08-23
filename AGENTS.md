@@ -20,7 +20,7 @@ All application code lives under `src/`. The tree itself is listed in
   A page composes; it does not implement. Anything a second route could ever
   want belongs in one of the layers below, not in the route folder.
 - `src/components/` — React components, **grouped by domain** in a subdirectory:
-  `auth/`, `projects/`, `cards/`, `notifications/`, `account/` as those features land. A component used
+  `auth/`, `projects/`, `cards/`, `notifications/`, `account/`, `labels/` as those features land. A component used
   by a single route still lives here; the App Router routes by filename, so a
   component next to a page would be indistinguishable from a route.
 

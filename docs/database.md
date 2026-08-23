@@ -33,7 +33,7 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `UserStatus`, at most one `UserPreferences`, and at most one `UserProfile`.
   `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
-  `Membership`, `Invitation`, and `RecentProject`. It
+  `Membership`, `Invitation`, `RecentProject`, and `Label`. It
   has an optional `description`, a `status` (`ProjectStatus`: `NEW`,
   `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`), and `cardCounter` (integer,
   default 0) used to issue stored card codes. Access is through
@@ -56,8 +56,21 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   delete the invitee's received notification. `message` is denormalized English
   copy written at create time.
 - `Column` belongs to a `Project` and has many `Card`.
+- `Label` belongs to a `Project`. It holds a display `name`, a `tone` (one of
+  eight palette keys: `blue`, `green`, `amber`, `red`, `violet`, `cyan`,
+  `pink`, `gray`), and an `Int` `order`. Labels are per project and fully
+  editable. A project with no rows is seeded on first board read with Design,
+  Content, Infra, Bug, Product, and Internal. Concurrent first reads collide on
+  `@@unique([projectId, order])` and the loser re-reads. The last remaining
+  label cannot be deleted. Deleting a label reassigns its cards to the first
+  remaining label (lowest `order`) in the same transaction, then
+  `assertNotLastLabel` counts remaining rows after a conditional `deleteMany`.
+  `Card.labelId` uses `onDelete: Restrict` so a delete that skipped reassignment
+  cannot leave a pointer at a missing row. At most 20 labels per project.
+  Assigning a label to a card is a later slice; `labelId` is nullable.
 - `Card` belongs to a `Column`. It stores a `code` assigned at create time and
-  an optional `archivedAt`; archived cards are omitted from board reads.
+  an optional `archivedAt`; archived cards are omitted from board reads. An
+  optional `labelId` points at one project label.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings. Today
@@ -85,8 +98,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   (or the new first row) when the deleted row was active. At most 20 statuses
   per user.
 
-Deleting a record cascades to its children (deleting a project deletes its columns
-and cards; deleting a user deletes their preferences, profile, and statuses). `Column` and `Card` use a
+Deleting a record cascades to its children (deleting a project deletes its columns,
+cards, and labels; deleting a user deletes their preferences, profile, and statuses). `Column` and `Card` use a
 `Float` `order` field so siblings can be reordered without rewriting every row on
 each move. The board UI today only appends to a column; midpoints and later
 intra-column reorder: `docs/kanban.md`.
