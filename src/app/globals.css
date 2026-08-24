@@ -53,6 +53,9 @@
   --color-user-status-blue: var(--user-status-blue);
   --color-user-status-violet: var(--user-status-violet);
   --color-late: var(--late);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-edge: var(--danger-edge);
   --color-label-blue: var(--label-blue);
   --color-label-green: var(--label-green);
   --color-label-amber: var(--label-amber);
@@ -100,6 +103,7 @@
   --container-brand-lede: 36ch;
   --breakpoint-auth-sm: 600px;
   --breakpoint-auth-lg: 900px;
+  --breakpoint-tablet: 600px;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -290,6 +294,9 @@
   --user-status-blue: oklch(0.72 0.085 245);
   --user-status-violet: oklch(0.7 0.085 305);
   --late: oklch(0.7 0.09 30);
+  --danger: oklch(0.7 0.15 25);
+  --danger-soft: oklch(0.7 0.15 25 / 14%);
+  --danger-edge: oklch(0.7 0.15 25 / 40%);
   --label-blue: oklch(0.72 0.085 245);
   --label-green: oklch(0.74 0.085 155);
   --label-amber: oklch(0.78 0.075 75);
@@ -322,7 +329,7 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.215 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -366,6 +373,9 @@
   --user-status-blue: oklch(0.72 0.085 245);
   --user-status-violet: oklch(0.7 0.085 305);
   --late: oklch(0.7 0.09 30);
+  --danger: oklch(0.7 0.15 25);
+  --danger-soft: oklch(0.7 0.15 25 / 14%);
+  --danger-edge: oklch(0.7 0.15 25 / 40%);
   --label-blue: oklch(0.72 0.085 245);
   --label-green: oklch(0.74 0.085 155);
   --label-amber: oklch(0.78 0.075 75);

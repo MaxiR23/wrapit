@@ -23,7 +23,7 @@ export default function ProjectsTopbar({
   return (
     <header
       className={cn(
-        'hidden shrink-0 items-center border-b border-border md:flex',
+        'hidden shrink-0 items-center border-b border-border tablet:flex',
         'h-[60px] gap-3 px-5 lg:h-topbar lg:gap-3.5 lg:px-7',
       )}
     >

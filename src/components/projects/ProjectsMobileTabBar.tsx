@@ -18,7 +18,7 @@ export default function ProjectsMobileTabBar({
   return (
     <nav
       aria-label="Main"
-      className="grid h-16 shrink-0 grid-cols-4 border-t border-border bg-surface md:hidden"
+      className="grid h-16 shrink-0 grid-cols-4 border-t border-border bg-surface tablet:hidden"
     >
       <Link
         href={PROJECTS_PATH}

@@ -105,7 +105,7 @@ describe('ProjectBoard', () => {
     expect(within(desktopColumn('To do')).getByText('Card B')).toBeInTheDocument();
     expect(within(desktopColumn('Doing')).getByText('Card C')).toBeInTheDocument();
     expect(within(desktopColumn('Doing')).queryByText('Card A')).not.toBeInTheDocument();
-    expect(within(desktopColumn('Done')).getByText('Nothing here yet')).toBeInTheDocument();
+    expect(within(desktopColumn('Done')).queryByText('Nothing here yet')).not.toBeInTheDocument();
   });
 
   it('reverts the optimistic move and shows a generic alert when persist fails', async () => {

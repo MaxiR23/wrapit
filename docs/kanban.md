@@ -15,7 +15,7 @@ cleanup.
 `order`). It validates titles (trimmed, non-empty), requires 1–8 columns, then
 sorts by the provided order and reassigns `0..n-1` so client order values are
 never trusted. When `columns` is omitted, it seeds the **blank** template
-(**To do**, **In progress**, **Done**) from `src/lib/templates.ts`. Columns and an
+(**To do**, **In progress**, **In review**, **Done**) from `src/lib/templates.ts`. Columns and an
 OWNER `Membership` for the session user are created in the same transaction as
 the project. A create-time `featured` flag sets `starred: true` on that OWNER
 row; otherwise it is unstarred.
@@ -219,6 +219,8 @@ src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + m
 src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
 src/components/projects/BoardMobile.tsx   carousel, long press, destination strip
 src/components/projects/BoardColumn.tsx   column chrome
+src/components/projects/MemberPopover.tsx  member avatars; popover clamped to the viewport
+src/components/projects/memberPopoverPosition.ts  left offset so the popover stays in bounds
 src/components/labels/LabelEditor.tsx     reusable editor (header panel and later new card)
 src/components/labels/LabelsControl.tsx   board-header popover/sheet entry
 src/components/cards/BoardCard.tsx      card face (label, code, title, footer slots)

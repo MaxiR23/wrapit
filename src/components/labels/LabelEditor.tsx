@@ -58,8 +58,10 @@ export default function LabelEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-border bg-background p-[13px]">
-      <p className="text-[11.5px] text-subtle">Edit the name, click the color to change it</p>
+    <div className="flex flex-col gap-1.5 rounded-md border border-border bg-background p-3">
+      <p className="pb-0.5 text-[11.5px] text-subtle">
+        Edit the name, click the color to change it
+      </p>
       <div className="flex flex-col gap-2">
         {labels.map((label) => (
           <LabelRow
@@ -71,12 +73,12 @@ export default function LabelEditor({
           />
         ))}
       </div>
-      <div className="flex items-center gap-2 border-t border-border pt-[9px]">
+      <div className="flex items-center gap-2 border-t border-border pt-2">
         <button
           type="button"
           className={cn(
             shellFocusClassName,
-            'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-surface px-3 text-[12.5px] font-medium',
+            'inline-flex h-[30px] items-center gap-1.5 rounded-sm border border-border bg-surface px-[11px] text-[12.5px] font-medium',
           )}
           onClick={() => void handleAdd()}
         >
@@ -87,7 +89,7 @@ export default function LabelEditor({
           type="button"
           className={cn(
             shellFocusClassName,
-            'ml-auto h-9 px-3 text-[12.5px] font-medium text-muted-foreground hover:text-foreground',
+            'ml-auto h-[30px] px-[11px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground',
           )}
           onClick={onDone}
         >

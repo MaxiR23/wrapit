@@ -65,11 +65,13 @@ export default function BoardCard({
       onPointerCancel={onPointerCancel}
       onClick={onClick}
       className={cn(
-        'relative flex flex-col gap-[11px] rounded-[14px] border bg-card p-3.5 shadow-[0_1px_2px_oklch(0_0_0/0.35)]',
-        'transition-[transform,box-shadow,opacity,border-color] duration-[140ms] ease-out',
-        highlighted || lifted ? 'border-foreground' : 'border-border',
+        'relative flex flex-col gap-[11px] rounded-[12px] border bg-card p-[13px] shadow-[0_1px_2px_oklch(0_0_0/0.35)]',
+        'transition-[transform,box-shadow,opacity,border-color,background] duration-[160ms] ease-out',
+        highlighted || lifted
+          ? 'border-foreground'
+          : 'border-border hover:border-border-strong hover:bg-card-hover',
         lifted && 'scale-[1.03] opacity-90 shadow-[0_16px_34px_oklch(0_0_0/0.6)]',
-        dimmed && 'opacity-50',
+        dimmed && 'opacity-[0.45]',
         draggable && 'cursor-grab',
       )}
     >
@@ -91,12 +93,12 @@ export default function BoardCard({
         </div>
       ) : null}
 
-      <h3 className="text-[14.5px] font-medium leading-[1.35] text-pretty">{card.title}</h3>
+      <h3 className="text-[13.5px] font-medium leading-[1.35] text-pretty">{card.title}</h3>
 
       {showFooter ? (
         <div className="flex items-center gap-3 border-t border-border pt-[11px] text-[11.5px] text-muted-foreground tabular-nums">
           {showComments ? (
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-[5px]">
               <MessageSquare className="size-[13px]" strokeWidth={2} />
               {card.commentCount}
             </span>

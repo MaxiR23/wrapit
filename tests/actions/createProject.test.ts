@@ -114,7 +114,8 @@ describe('createProject', () => {
     expect(columns.map((column) => ({ title: column.title, order: column.order }))).toEqual([
       { title: 'To do', order: 0 },
       { title: 'In progress', order: 1 },
-      { title: 'Done', order: 2 },
+      { title: 'In review', order: 2 },
+      { title: 'Done', order: 3 },
     ]);
     expect(columns.every((column) => column.projectId === db.project.rows[0]?.id)).toBe(true);
   });

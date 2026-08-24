@@ -49,6 +49,7 @@ export default function AuthNav() {
     isAuthPath(pathname) ||
     pathname === HOME_PATH ||
     pathname === PROJECTS_PATH ||
+    pathname.startsWith(`${PROJECTS_PATH}/`) ||
     pathname === ACCOUNT_PATH
   ) {
     return null;

@@ -6,12 +6,12 @@
 // - Shows sign in and sign up links when there is no session
 // - Shows the sign out button when there is a session
 // - Renders nothing while the session is still loading
-// - Renders nothing on /, /sign-in, /sign-up, /forgot-password, /reset-password, /projects and /account
+// - Renders nothing on /, /sign-in, /sign-up, /forgot-password, /reset-password, /projects, /projects/:id and /account
 // - Signs the user out, redirects to the sign in page and refreshes the route
 // - Shows a generic message and stays put when sign out fails
 //
 // What is covered:
-// - Signed out state, signed in state, loading state, landing, auth and projects list routes hidden,
+// - Signed out state, signed in state, loading state, landing, auth, projects and board routes hidden,
 //   sign out happy path, sign out failure
 //
 // Run with: pnpm test:run tests/components/auth/AuthNav.test.tsx
@@ -48,7 +48,7 @@ describe('AuthNav', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useSession.mockReturnValue({ data: null, isPending: false });
-    usePathname.mockReturnValue('/projects/project-1');
+    usePathname.mockReturnValue('/other');
     signOut.mockResolvedValue({ data: { success: true }, error: null });
   });
 
@@ -112,6 +112,14 @@ describe('AuthNav', () => {
 
   it('renders nothing on the projects list page', () => {
     usePathname.mockReturnValue('/projects');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing on a project board page', () => {
+    usePathname.mockReturnValue('/projects/project-1');
 
     const { container } = render(<AuthNav />);
 

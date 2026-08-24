@@ -5,11 +5,12 @@
 // Tested:
 // - Links back to the projects list
 // - Shows desktop and mobile progress copy from the same counts
-// - Renders interactive member avatars on desktop and static ones on mobile
+// - Replaces the bar with empty copy when there are no cards
+// - Renders one interactive avatar per member
 // - Shows a Labels control that opens the editor
 //
 // What is covered:
-// - Back link, progress labels, dual member avatars, labels entry
+// - Back link, progress labels, empty copy, member avatars, labels entry
 //
 // Run with: pnpm test:run tests/components/projects/BoardHeader.test.tsx
 //
@@ -59,17 +60,30 @@ describe('BoardHeader', () => {
   it('links back to projects and shows both progress labels', () => {
     renderHeader({ doneCount: 1, taskCount: 4, percent: 25 });
 
-    expect(screen.getByRole('link', { name: 'Projects' })).toHaveAttribute('href', '/projects');
+    expect(screen.getByRole('link', { name: 'Projects / Board' })).toHaveAttribute(
+      'href',
+      '/projects',
+    );
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(screen.getByText('1 of 4 cards done')).toBeInTheDocument();
     expect(screen.getByText('1/4 done')).toBeInTheDocument();
   });
 
-  it('renders a static avatar and an interactive one for the same member', () => {
+  it('replaces the progress bar with empty copy when there are no cards', () => {
+    renderHeader();
+
+    expect(
+      screen.getByText('There are no cards yet. You can create the first one in any column.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('0 of 0 cards done')).not.toBeInTheDocument();
+    expect(screen.queryByText('0/0 done')).not.toBeInTheDocument();
+  });
+
+  it('renders one interactive avatar per member', () => {
     renderHeader({ members });
 
-    expect(screen.getAllByTitle('Ada Lovelace')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(screen.queryByTitle('Ada Lovelace')).not.toBeInTheDocument();
   });
 
   it('renders a Labels control in the header', () => {

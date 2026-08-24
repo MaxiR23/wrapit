@@ -15,6 +15,7 @@ export default function BoardColumn({
   onDrop,
   onDragOver,
   renderCard,
+  className,
 }: {
   columnId: string;
   title: string;
@@ -25,6 +26,7 @@ export default function BoardColumn({
   onDrop?: (event: DragEvent<HTMLElement>) => void;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
   renderCard?: (card: BoardCardData) => ReactNode;
+  className?: string;
 }) {
   return (
     <section
@@ -33,11 +35,13 @@ export default function BoardColumn({
       onDrop={onDrop}
       onDragOver={onDragOver}
       className={cn(
-        'flex min-h-0 min-w-[280px] flex-1 flex-col gap-2.5 overflow-hidden rounded-[18px] border p-3',
-        highlighted ? 'border-foreground bg-card' : 'border-border bg-surface',
+        'flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-hidden rounded-[14px] border p-3',
+        'transition-[border-color,background] duration-[160ms] ease',
+        highlighted ? 'border-border-strong bg-card' : 'border-border bg-surface',
+        className,
       )}
     >
-      <header className="flex items-center gap-[9px] border-b border-border px-1 pt-0.5 pb-[9px]">
+      <header className="flex items-center gap-[9px] border-b border-border px-1 pt-0.5 pb-2">
         <h2 className="text-[11.5px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           {title}
         </h2>
@@ -48,7 +52,8 @@ export default function BoardColumn({
           aria-label={`Add card to ${title}`}
           className={cn(
             shellFocusClassName,
-            'ml-auto inline-flex size-8 items-center justify-center rounded-md text-[19px] leading-none text-muted-foreground disabled:opacity-100',
+            'ml-auto inline-flex size-[30px] items-center justify-center rounded-md text-[16px] leading-none text-muted-foreground lg:size-6 lg:text-[15px]',
+            'disabled:opacity-50',
           )}
         >
           +
@@ -68,11 +73,6 @@ export default function BoardColumn({
             />
           ),
         )}
-        {cards.length === 0 ? (
-          <div className="flex items-center justify-center rounded-[14px] border border-dashed border-border px-2.5 py-6 text-center text-[12.5px] text-subtle">
-            Nothing here yet
-          </div>
-        ) : null}
       </div>
     </section>
   );

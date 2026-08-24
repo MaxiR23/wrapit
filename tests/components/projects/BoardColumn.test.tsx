@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Renders the uppercase title, card count, and cards
-// - Shows the empty copy when there are no cards
+// - Leaves an empty column blank (no placeholder copy)
 // - Leaves the add-card control inert
 //
 // What is covered:
@@ -34,10 +34,12 @@ describe('BoardColumn', () => {
     expect(screen.getByRole('heading', { name: 'Second', level: 3 })).toBeInTheDocument();
   });
 
-  it('shows the empty copy when there are no cards', () => {
+  it('leaves an empty column blank', () => {
     render(<BoardColumn columnId="column-todo" title="To do" cards={[]} />);
 
-    expect(screen.getByText('Nothing here yet')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing here yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'To do', level: 2 })).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
   });
 
   it('leaves the add-card control inert', () => {
