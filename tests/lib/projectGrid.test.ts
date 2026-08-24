@@ -6,7 +6,7 @@
 // Tested:
 // - Counts cards in a Done column as done
 // - Falls back to the last column by order when no Done column exists
-// - Returns 0 of 0 and 0% when a project has no cards
+// - Renders N of M cards done, N/M done, and the empty-board copy
 // - Rounds the percentage
 // - Always includes the owner among members
 // - Pluralizes the project count label
@@ -39,6 +39,7 @@ import {
   projectStatusLabel,
   taskCountLabel,
   taskProgressLabel,
+  boardProgressEmptyLabel,
   boardProgressLabel,
   boardProgressShortLabel,
   type ProjectSummary,
@@ -134,6 +135,14 @@ describe('boardProgressShortLabel', () => {
   it('renders N/M done', () => {
     expect(boardProgressShortLabel(0, 0)).toBe('0/0 done');
     expect(boardProgressShortLabel(6, 9)).toBe('6/9 done');
+  });
+});
+
+describe('boardProgressEmptyLabel', () => {
+  it('tells the user they can create the first card in any column', () => {
+    expect(boardProgressEmptyLabel()).toBe(
+      'There are no cards yet. You can create the first one in any column.',
+    );
   });
 });
 

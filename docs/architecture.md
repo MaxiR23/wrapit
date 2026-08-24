@@ -94,7 +94,7 @@ At most 20 labels per project. Board cards render a pill only when
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
-then reassigned to `0..n-1`), or the blank template (**To do**, **In progress**,
+then reassigned to `0..n-1`), or the blank template (**To do**, **In progress**, **In review**,
 **Done**) from `src/lib/templates.ts` when `columns` is omitted. `Project.ownerId`
 is creator metadata (still the session user). When `featured` is true the OWNER
 row is created with `starred: true`; otherwise it is unstarred.

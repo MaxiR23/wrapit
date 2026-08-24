@@ -80,6 +80,11 @@ export function boardProgressShortLabel(doneCount: number, taskCount: number): s
   return `${doneCount}/${taskCount} done`;
 }
 
+/** Empty project: replaces the progress bar. */
+export function boardProgressEmptyLabel(): string {
+  return 'There are no cards yet. You can create the first one in any column.';
+}
+
 export function taskCountLabel(taskCount: number): string {
   return taskCount === 1 ? '1 task' : `${taskCount} tasks`;
 }

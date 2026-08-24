@@ -30,7 +30,7 @@ export default function BoardDesktop({
   return (
     <div
       data-board="desktop"
-      className="hidden min-h-0 flex-1 gap-3 overflow-x-auto px-7 pb-9 md:flex"
+      className="hidden min-h-0 flex-1 gap-3 overflow-x-auto px-[18px] pb-[18px] tablet:flex lg:gap-3.5 lg:px-7 lg:pb-7"
     >
       {columns.map((column) => (
         <BoardColumn
@@ -38,6 +38,7 @@ export default function BoardDesktop({
           columnId={column.id}
           title={column.title}
           cards={column.cards}
+          className="w-[300px] flex-none lg:w-auto lg:flex-1 lg:min-w-0"
           highlighted={overColumnId === column.id}
           dimmedCardId={draggingId}
           onDragOver={(event) => {

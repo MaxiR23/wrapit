@@ -162,7 +162,7 @@ export default function BoardMobile({
   const liveCount = columns.length;
 
   return (
-    <div data-board="mobile" className="flex min-h-0 flex-1 flex-col md:hidden">
+    <div data-board="mobile" className="flex min-h-0 flex-1 flex-col tablet:hidden">
       <div className="flex shrink-0 items-center justify-center gap-1.5 pb-2.5">
         {columns.map((column, index) => {
           const active = visibleIndex === index;

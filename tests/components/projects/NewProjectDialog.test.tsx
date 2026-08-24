@@ -12,7 +12,7 @@
 // - Renaming a column sends the edited titles with order 0..n-1
 // - A blank or whitespace column name blocks submit and shows the error on
 //   that row
-// - The default (blank) template shows To do, In progress, and Done
+// - The default (blank) template shows To do, In progress, In review, and Done
 // - Changing templateId while the dialog is open resets the column list
 // - Status options map to NEW / IN_PROGRESS / PAUSED; default is NEW
 // - Escape and backdrop click close the modal; a click inside does not
@@ -96,7 +96,8 @@ describe('NewProjectDialog', () => {
         columns: [
           { title: 'To do', order: 0 },
           { title: 'In progress', order: 1 },
-          { title: 'Done', order: 2 },
+          { title: 'In review', order: 2 },
+          { title: 'Done', order: 3 },
         ],
         invitees: [],
       });
@@ -188,8 +189,9 @@ describe('NewProjectDialog', () => {
 
     expect(screen.getByLabelText('Column 1')).toHaveValue('To do');
     expect(screen.getByLabelText('Column 2')).toHaveValue('In progress');
-    expect(screen.getByLabelText('Column 3')).toHaveValue('Done');
-    expect(screen.queryByLabelText('Column 4')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Column 3')).toHaveValue('In review');
+    expect(screen.getByLabelText('Column 4')).toHaveValue('Done');
+    expect(screen.queryByLabelText('Column 5')).not.toBeInTheDocument();
   });
 
   it('resets the column list when templateId changes while open', async () => {

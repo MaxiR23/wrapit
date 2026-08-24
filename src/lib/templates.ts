@@ -1,5 +1,5 @@
 export const PROJECT_TEMPLATES = [
-  { id: 'blank', name: 'Blank', columns: ['To do', 'In progress', 'Done'] },
+  { id: 'blank', name: 'Blank', columns: ['To do', 'In progress', 'In review', 'Done'] },
   { id: 'product', name: 'Product', columns: ['Backlog', 'In progress', 'In review', 'Done'] },
   { id: 'marketing', name: 'Marketing', columns: ['Ideas', 'Production', 'Published'] },
   { id: 'support', name: 'Support', columns: ['Incoming', 'Investigating', 'Resolved'] },

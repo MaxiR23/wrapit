@@ -42,12 +42,16 @@ export default function LabelRow({
   const classes = labelToneClasses(currentTone);
 
   return (
-    <div className="flex items-center gap-[9px]">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         title="Change color"
         aria-label="Change color"
-        className={cn(shellFocusClassName, 'size-7 shrink-0 rounded-full border', classes.swatch)}
+        className={cn(
+          shellFocusClassName,
+          'size-[22px] shrink-0 rounded-full border',
+          classes.swatch,
+        )}
         onClick={() => {
           const next = nextLabelTone(currentTone);
           tone.setValue(next);
@@ -58,7 +62,7 @@ export default function LabelRow({
         aria-label={`${label.name} name`}
         className={cn(
           shellFocusClassName,
-          'h-[38px] min-w-0 flex-1 rounded-sm border border-border bg-surface px-[11px] text-[13.5px] text-foreground',
+          'h-8 min-w-0 flex-1 rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground',
         )}
         value={label.name}
         onChange={(event) => {
@@ -75,8 +79,8 @@ export default function LabelRow({
         disabled={!canDelete}
         className={cn(
           shellFocusClassName,
-          'inline-flex size-[34px] shrink-0 items-center justify-center rounded-sm text-muted-foreground',
-          'hover:bg-destructive/14 hover:text-destructive',
+          'inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
+          'hover:bg-danger-soft hover:text-danger',
           'disabled:pointer-events-none disabled:opacity-40',
         )}
         onClick={() => {
@@ -85,7 +89,7 @@ export default function LabelRow({
           });
         }}
       >
-        <X className="size-[15px]" strokeWidth={1.7} />
+        <X className="size-3.5" strokeWidth={1.7} />
       </button>
       {name.error || tone.error ? (
         <p role="alert" className="sr-only">

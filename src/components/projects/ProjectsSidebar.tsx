@@ -22,7 +22,7 @@ export default function ProjectsSidebar({
   return (
     <aside
       className={cn(
-        'hidden shrink-0 flex-col border-r border-border bg-surface md:flex',
+        'hidden shrink-0 flex-col border-r border-border bg-surface tablet:flex',
         'w-sidebar-collapsed items-center gap-[22px] py-[18px]',
         'lg:w-sidebar lg:items-stretch lg:gap-7 lg:px-4 lg:py-[22px]',
       )}

@@ -13,7 +13,7 @@ export default function ProjectsMobileHeader({ user }: { user: ProjectsShellUser
   const liveUser = useLiveShellUser(user);
 
   return (
-    <header className="flex h-mobile-header shrink-0 items-center gap-2.5 border-b border-border bg-surface px-4 md:hidden">
+    <header className="flex h-mobile-header shrink-0 items-center gap-2.5 border-b border-border bg-surface px-4 tablet:hidden">
       <ProjectsBrand showName={false} />
       <span className="mr-auto text-base font-semibold tracking-[-0.01em]">Projects</span>
       <NotificationsBell
