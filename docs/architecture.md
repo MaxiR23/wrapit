@@ -91,6 +91,11 @@ the first remaining label, then `assertNotLastLabel` counts remaining rows
 after a conditional `deleteMany`. The last remaining label cannot be deleted.
 At most 20 labels per project. Board cards render a pill only when
 `Card.labelId` points at a known tone.
+`createCard` validates ids before any lookup. Inside one transaction it
+increments `cardCounter`, appends the card, stores the code, optional label and
+due date, and `CardAssignee` rows. An empty assignee list writes the session
+user. Label and assignee ids must belong to the target column's project
+(count guards); a mismatch rolls back.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -211,7 +216,7 @@ in `docs/kanban.md`.
     src/lib/kanbanItems.ts              column→card id lists; append to a column
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
     src/lib/cardCode.ts                 stored card code from project title + counter
-    src/lib/cardDue.ts                  due labels and overdue
+    src/lib/cardDue.ts                  due labels, overdue, calendar-day persist
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
@@ -227,7 +232,7 @@ in `docs/kanban.md`.
     src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
     src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
     src/lib/validation/column.ts        column title rules; create/delete action ids
-    src/lib/validation/card.ts          card title and optional description; create/update/delete action ids
+    src/lib/validation/card.ts          card title, optional description/due date/label/assignees; create/update/delete action ids
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
@@ -251,7 +256,7 @@ in `docs/kanban.md`.
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
     src/actions/createColumn.ts         create a column on an accessible project
     src/actions/deleteColumn.ts         delete a column from an accessible project
-    src/actions/createCard.ts           create a card on an accessible column (code + counter)
+    src/actions/createCard.ts           create a card on an accessible column (code, counter, label, assignees, due date)
     src/actions/updateCard.ts           update an accessible card
     src/actions/deleteCard.ts           delete an accessible card
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
@@ -275,8 +280,8 @@ in `docs/kanban.md`.
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
-    src/components/labels/              label editor, row, board-header popover/sheet control
-    src/components/cards/               board cards, card dialogs
+    src/components/labels/              label editor and row (inline in new task)
+    src/components/cards/               board cards, new-task dialog
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

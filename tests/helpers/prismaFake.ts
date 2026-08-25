@@ -127,6 +127,13 @@ function createRow(rows: Row[], data: Row) {
   ) {
     throw new Error('unique constraint');
   }
+  if (
+    data.cardId != null &&
+    data.userId != null &&
+    rows.some((row) => row.cardId === data.cardId && row.userId === data.userId)
+  ) {
+    throw new Error('unique constraint');
+  }
   const row = {
     id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
     createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
@@ -170,7 +177,11 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
                 item.order != null &&
                 item.tone != null &&
                 row.projectId === item.projectId &&
-                row.order === item.order),
+                row.order === item.order) ||
+              (item.cardId != null &&
+                item.userId != null &&
+                row.cardId === item.cardId &&
+                row.userId === item.userId),
           );
           if (duplicate) {
             if (skipDuplicates) continue;
@@ -296,6 +307,8 @@ export function createPrismaFake() {
         return (models.label?.rows ?? []).filter((label) => label.projectId === row.id);
       case 'label':
         return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
+      case 'assignees':
+        return (models.cardAssignee?.rows ?? []).filter((assignee) => assignee.cardId === row.id);
       default:
         return [];
     }
@@ -330,6 +343,7 @@ export function createPrismaFake() {
     userProfile: createModel(getRelated),
     userStatus: createModel(getRelated),
     label: createModel(getRelated),
+    cardAssignee: createModel(getRelated),
     recentProject: createModel(getRelated),
   };
   Object.assign(models, fake);

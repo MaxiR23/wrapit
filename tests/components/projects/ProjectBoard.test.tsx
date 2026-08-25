@@ -10,9 +10,12 @@
 // - Queued persists: both fail and the UI returns to the original board
 // - Columns refresh while moves are queued does not drop later moveCard calls
 // - After a successful move, progress counts follow the new column membership
+// - The column plus opens New task aimed at that column
+// - Create is disabled without a title
+// - A created card lands at the end of the chosen column
 //
 // What is covered:
-// - Render layout, optimistic rollback, serialized persist races, progress
+// - Render layout, optimistic rollback, serialized persist races, progress, new task modal
 //
 // Run with: pnpm test:run tests/components/projects/ProjectBoard.test.tsx
 //
@@ -21,20 +24,26 @@
 import { createRef } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import type { ProjectBoardHandle } from '@/components/projects/ProjectBoard';
 import type { BoardColumnData } from '@/components/projects/boardTypes';
 
 const moveCard = vi.fn();
+const createCard = vi.fn();
 
 vi.mock('@/actions/moveCard', () => ({
   moveCard,
 }));
-
-vi.mock('@/components/labels/LabelsControl', () => ({
-  default: () => null,
+vi.mock('@/actions/createCard', () => ({
+  createCard,
 }));
+vi.mock('@/actions/updateLabelField', () => ({
+  updateLabelField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
+}));
+vi.mock('@/actions/createLabel', () => ({ createLabel: vi.fn() }));
+vi.mock('@/actions/deleteLabel', () => ({ deleteLabel: vi.fn() }));
 
 const { default: ProjectBoard } = await import('@/components/projects/ProjectBoard');
 
@@ -457,5 +466,73 @@ describe('ProjectBoard', () => {
 
     expect(screen.getByText('1 of 3 cards done')).toBeInTheDocument();
     expect(within(desktopColumn('Done')).getByText('Card A')).toBeInTheDocument();
+  });
+
+  it('opens New task from the plus with that column selected', async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        labels={[{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }]}
+        columns={columns}
+        members={[{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]}
+      />,
+    );
+
+    await user.click(
+      within(desktopColumn('To do')).getByRole('button', { name: 'Add card to To do' }),
+    );
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('In Sprint board · To do')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'To do', pressed: true }).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByRole('button', { name: 'Create task' })).toBeDisabled();
+  });
+
+  it('appends a created card at the end of the chosen column', async () => {
+    const user = userEvent.setup();
+    createCard.mockResolvedValue({
+      data: {
+        id: 'card-new',
+        title: 'New work',
+        description: null,
+        code: 'SB-4',
+        order: 3,
+        columnId: 'column-doing',
+        dueDate: null,
+        labelId: 'l0',
+        assignees: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
+      },
+    });
+    render(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        labels={[{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }]}
+        columns={columns}
+        members={[{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]}
+      />,
+    );
+
+    await user.click(
+      within(desktopColumn('To do')).getByRole('button', { name: 'Add card to To do' }),
+    );
+    await user.type(screen.getByLabelText('Title'), 'New work');
+    await user.click(screen.getByRole('button', { name: 'Doing' }));
+    await user.click(screen.getByRole('button', { name: 'Create task' }));
+
+    await waitFor(() => {
+      expect(createCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          columnId: 'column-doing',
+          title: 'New work',
+        }),
+      );
+    });
+    expect(cardTitlesInColumn('Doing')).toEqual(['Card C', 'New work']);
+    expect(within(desktopColumn('Doing')).getByText('SB-4')).toBeInTheDocument();
   });
 });

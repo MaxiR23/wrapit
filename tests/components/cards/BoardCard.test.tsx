@@ -44,8 +44,8 @@ describe('BoardCard', () => {
   });
 
   it('marks an overdue due date with the late token', () => {
-    const due = new Date();
-    due.setDate(due.getDate() - 1);
+    const now = new Date();
+    const due = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 
     render(<BoardCard card={{ ...base, dueDate: due }} />);
 
@@ -59,6 +59,19 @@ describe('BoardCard', () => {
     );
 
     expect(screen.getByText('Design')).toHaveClass('text-label-violet');
+  });
+
+  it('renders assignee initials from name and username', () => {
+    render(
+      <BoardCard
+        card={{
+          ...base,
+          assignees: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByTitle('Ada Lovelace')).toHaveTextContent('AL');
   });
 
   it('omits the pill when the card has no label', () => {

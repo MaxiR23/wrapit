@@ -14,6 +14,7 @@ export default function BoardColumn({
   dimmedCardId = null,
   onDrop,
   onDragOver,
+  onAddCard,
   renderCard,
   className,
 }: {
@@ -25,6 +26,7 @@ export default function BoardColumn({
   dimmedCardId?: string | null;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
+  onAddCard?: (columnId: string, trigger: HTMLButtonElement) => void;
   renderCard?: (card: BoardCardData) => ReactNode;
   className?: string;
 }) {
@@ -48,12 +50,13 @@ export default function BoardColumn({
         <span className="text-xs font-medium text-subtle tabular-nums">{cards.length}</span>
         <button
           type="button"
-          disabled
+          disabled={!onAddCard}
           aria-label={`Add card to ${title}`}
+          onClick={(event) => onAddCard?.(columnId, event.currentTarget)}
           className={cn(
             shellFocusClassName,
             'ml-auto inline-flex size-[30px] items-center justify-center rounded-md text-[16px] leading-none text-muted-foreground lg:size-6 lg:text-[15px]',
-            'disabled:opacity-50',
+            onAddCard ? 'hover:bg-card hover:text-foreground' : 'disabled:opacity-50',
           )}
         >
           +

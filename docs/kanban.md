@@ -52,10 +52,16 @@ The project detail page loads ordered columns and visible cards (those with
 `archivedAt` unset) server-side via `getProjectForUser`, and project labels via
 `getProjectLabelsForUser` (seeding six defaults when the project has none).
 Non-members get `notFound()`. Cards with a `labelId` render a pill from
-`cardLabelFromRow`; unlabeled cards omit it. The Labels control in the board
-header opens the same editor later reused by the new-card screen. Renaming a
-label updates every card that points at it; removing one reassigns those cards
-to the first remaining label. The last label cannot be removed.
+`cardLabelFromRow`; unlabeled cards omit it. The new-task dialog opens from a
+column plus with that column preselected. Its pencil opens the same `LabelEditor`
+used for project labels: renaming a label updates every card that points at it;
+removing one reassigns those cards to the first remaining label. The last label
+cannot be removed. Create is disabled without a title. The card is appended to
+the chosen column with the next stored code. Assignees are members of the
+project; if none are picked, the creator is assigned. `Card.dueDate` is an
+optional calendar day stored as UTC midnight and shown through `formatCardDue`
+/ `isCardDueLate`. Overdue and Today / Yesterday / Tomorrow use the viewer's
+local calendar day, not UTC.
 
 The page sits in `ProjectsShell` with Projects as the active nav
 and search hidden. The client owns an id list per column; a move persists
@@ -190,7 +196,7 @@ A job whose card is already in the target column is a no-op on that list
 ```
 src/lib/order.ts                    midpoint / append / prepend (stored for later reorder)
 src/lib/cardCode.ts                  project-title initials + sequence
-src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late
+src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late; calendar-day persist
 src/lib/labelTones.ts               eight label tones as CSS token classes
 src/lib/labels.ts                   defaults, last-label guard, card pill sync
 src/lib/projectLabels.ts            read/seed per-project labels
@@ -221,8 +227,9 @@ src/components/projects/BoardMobile.tsx   carousel, long press, destination stri
 src/components/projects/BoardColumn.tsx   column chrome
 src/components/projects/MemberPopover.tsx  member avatars; popover clamped to the viewport
 src/components/projects/memberPopoverPosition.ts  left offset so the popover stays in bounds
-src/components/labels/LabelEditor.tsx     reusable editor (header panel and later new card)
-src/components/labels/LabelsControl.tsx   board-header popover/sheet entry
+src/components/labels/LabelEditor.tsx     reusable editor (inline in new task)
+src/components/cards/NewCardDialog.tsx  new-task dialog (540px tablet+, full screen on phone)
+src/components/cards/NewCardFields.tsx  shared new-task form body
 src/components/cards/BoardCard.tsx      card face (label, code, title, footer slots)
 ```
 
