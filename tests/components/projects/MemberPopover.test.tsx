@@ -18,6 +18,7 @@ import userEvent from '@testing-library/user-event';
 
 import MemberPopover from '@/components/projects/MemberPopover';
 import { MEMBER_POPOVER_VIEWPORT_INSET_PX } from '@/components/projects/memberPopoverPosition';
+import { OpenPanelProvider } from '@/components/projects/OpenPanel';
 
 const POPOVER_WIDTH = 170;
 const AVATAR_SIZE = 30;
@@ -82,7 +83,11 @@ describe('MemberPopover', () => {
       Cara: lastLeft,
     });
 
-    render(<MemberPopover members={members} />);
+    render(
+      <OpenPanelProvider>
+        <MemberPopover members={members} />
+      </OpenPanelProvider>,
+    );
 
     await events.click(screen.getByRole('button', { name: 'Ada Lovelace' }));
     const firstDialog = screen.getByRole('dialog', { name: 'Ada Lovelace' });

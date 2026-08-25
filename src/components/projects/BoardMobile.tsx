@@ -6,6 +6,7 @@ import BoardColumn from '@/components/projects/BoardColumn';
 import MobileMoveStrip from '@/components/projects/MobileMoveStrip';
 import type { BoardCardData, BoardColumnData } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { DEFAULT_BOARD_VISIBILITY, type BoardVisibility } from '@/lib/boardView';
 import {
   BOARD_COLUMN_WIDTH_PX,
   BOARD_LONG_PRESS_MOVE_PX,
@@ -22,6 +23,7 @@ export default function BoardMobile({
   itemsByColumn,
   jumpToColumnId,
   jumpToken = 0,
+  visibility = DEFAULT_BOARD_VISIBILITY,
   onMoveToColumn,
   onAddCard,
   onOpenCard,
@@ -31,6 +33,7 @@ export default function BoardMobile({
   itemsByColumn: Record<string, string[]>;
   jumpToColumnId: string | null;
   jumpToken?: number;
+  visibility?: BoardVisibility;
   onMoveToColumn: (cardId: string, columnId: string) => void;
   onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
   onOpenCard: (cardId: string, trigger: HTMLElement) => void;
@@ -226,6 +229,7 @@ export default function BoardMobile({
               renderCard={(card) => (
                 <BoardCard
                   card={cardsById[card.id] ?? card}
+                  visibility={visibility}
                   lifted={liftedId === card.id}
                   onPointerDown={(event) => startPress(card.id, event)}
                   onPointerCancel={cancelPress}

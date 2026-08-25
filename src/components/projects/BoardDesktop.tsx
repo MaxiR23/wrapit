@@ -4,6 +4,7 @@ import BoardCard from '@/components/cards/BoardCard';
 import BoardColumn from '@/components/projects/BoardColumn';
 import type { BoardCardData, BoardColumnData } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { DEFAULT_BOARD_VISIBILITY, type BoardVisibility } from '@/lib/boardView';
 import { cn } from '@/lib/utils';
 
 export default function BoardDesktop({
@@ -11,6 +12,7 @@ export default function BoardDesktop({
   cardsById,
   draggingId,
   overColumnId,
+  visibility = DEFAULT_BOARD_VISIBILITY,
   onDragStart,
   onDragEnd,
   onDragOverColumn,
@@ -23,6 +25,7 @@ export default function BoardDesktop({
   cardsById: Record<string, BoardCardData>;
   draggingId: string | null;
   overColumnId: string | null;
+  visibility?: BoardVisibility;
   onDragStart: (cardId: string) => void;
   onDragEnd: () => void;
   onDragOverColumn: (columnId: string | null) => void;
@@ -59,6 +62,7 @@ export default function BoardDesktop({
             <DesktopCard
               card={cardsById[card.id] ?? card}
               columns={columns}
+              visibility={visibility}
               dimmed={draggingId === card.id}
               onDragStart={() => onDragStart(card.id)}
               onDragEnd={onDragEnd}
@@ -75,6 +79,7 @@ export default function BoardDesktop({
 function DesktopCard({
   card,
   columns,
+  visibility,
   dimmed,
   onDragStart,
   onDragEnd,
@@ -83,6 +88,7 @@ function DesktopCard({
 }: {
   card: BoardCardData;
   columns: BoardColumnData[];
+  visibility: BoardVisibility;
   dimmed: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -107,6 +113,7 @@ function DesktopCard({
   return (
     <BoardCard
       card={card}
+      visibility={visibility}
       dimmed={dimmed}
       draggable
       onDragStart={(event) => {

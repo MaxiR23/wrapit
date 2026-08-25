@@ -22,6 +22,8 @@ export default function ProjectsShell({
   initialNotifications = [],
   activeNav = 'projects',
   showSearch = true,
+  searchPlaceholder = 'Search projects',
+  searchAriaLabel = 'Search projects',
   contentClassName,
   children,
 }: {
@@ -29,6 +31,8 @@ export default function ProjectsShell({
   initialNotifications?: NotificationListItem[];
   activeNav?: ProjectsShellActiveNav;
   showSearch?: boolean;
+  searchPlaceholder?: string;
+  searchAriaLabel?: string;
   contentClassName?: string;
   children: ReactNode;
 }) {
@@ -41,7 +45,12 @@ export default function ProjectsShell({
               <ProjectsSidebar activeNav={activeNav} />
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <ProjectsMobileHeader user={user} />
-                <ProjectsTopbar user={user} showSearch={showSearch} />
+                <ProjectsTopbar
+                  user={user}
+                  showSearch={showSearch}
+                  searchPlaceholder={searchPlaceholder}
+                  searchAriaLabel={searchAriaLabel}
+                />
                 <div className={cn(contentClassName ?? defaultContentClassName)}>{children}</div>
                 <ProjectsMobileTabBar activeNav={activeNav} />
               </div>

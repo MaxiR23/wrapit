@@ -4,10 +4,28 @@ import { initials } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 import type { BoardMember } from '@/components/projects/boardTypes';
 import { memberPopoverOffsetX } from '@/components/projects/memberPopoverPosition';
+import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { shellFocusClassName } from '@/components/projects/shell';
 
 export default function MemberPopover({ members }: { members: BoardMember[] }) {
+  const { openPanel, setOpenPanel } = useOpenPanel();
   const [openId, setOpenId] = useState<string | null>(null);
+  const openMemberId = openPanel === 'member' ? openId : null;
+
+  function toggle(id: string) {
+    if (openMemberId === id) {
+      setOpenId(null);
+      setOpenPanel(null);
+      return;
+    }
+    setOpenId(id);
+    setOpenPanel('member');
+  }
+
+  function close() {
+    setOpenId(null);
+    if (openPanel === 'member') setOpenPanel(null);
+  }
 
   return (
     <div className="flex items-center gap-1">
@@ -15,9 +33,9 @@ export default function MemberPopover({ members }: { members: BoardMember[] }) {
         <MemberAvatar
           key={member.id}
           member={member}
-          open={openId === member.id}
-          onToggle={() => setOpenId(openId === member.id ? null : member.id)}
-          onClose={() => setOpenId(null)}
+          open={openMemberId === member.id}
+          onToggle={() => toggle(member.id)}
+          onClose={close}
         />
       ))}
     </div>

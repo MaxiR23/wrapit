@@ -15,6 +15,10 @@
 // - A created card lands at the end of the chosen column
 // - Clicking a card opens the detail dialog
 // - Archive removes the card and shows a status toast
+// - Label filters and search narrow the board and empty results show no-results
+// - Turning off card code hides it on every card
+// - A failed visibility persist reverts the face and shows a generic alert
+// - Opening card detail closes the filters popover
 //
 // What is covered:
 // - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail
@@ -23,7 +27,7 @@
 //
 // SEE: src/components/projects/ProjectBoard.tsx
 
-import { createRef } from 'react';
+import { createRef, type ReactElement, type ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -69,8 +73,19 @@ vi.mock('@/actions/updateLabelField', () => ({
 }));
 vi.mock('@/actions/createLabel', () => ({ createLabel: vi.fn() }));
 vi.mock('@/actions/deleteLabel', () => ({ deleteLabel: vi.fn() }));
+const updateBoardVisibility = vi.fn(
+  async (visibility: unknown): Promise<{ data: unknown } | { error: string }> => ({
+    data: visibility,
+  }),
+);
+
+vi.mock('@/actions/updateBoardVisibility', () => ({
+  updateBoardVisibility,
+}));
 
 const { default: ProjectBoard } = await import('@/components/projects/ProjectBoard');
+const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
+const { ProjectsSearchProvider } = await import('@/components/projects/ProjectsSearch');
 
 const columns: BoardColumnData[] = [
   {
@@ -95,6 +110,18 @@ const columns: BoardColumnData[] = [
     cards: [],
   },
 ];
+
+function BoardHarness({ children }: { children: ReactNode }) {
+  return (
+    <OpenPanelProvider>
+      <ProjectsSearchProvider>{children}</ProjectsSearchProvider>
+    </OpenPanelProvider>
+  );
+}
+
+function renderBoard(ui: ReactElement) {
+  return render(ui, { wrapper: BoardHarness });
+}
 
 function desktopBoard() {
   const root = document.querySelector('[data-board="desktop"]');
@@ -122,7 +149,7 @@ describe('ProjectBoard', () => {
   });
 
   it('renders column titles and cards in their columns', () => {
-    render(
+    renderBoard(
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
@@ -153,7 +180,7 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(
+    renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -200,7 +227,7 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(
+    renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -240,7 +267,7 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(
+    renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -308,7 +335,7 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    render(
+    renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -358,7 +385,7 @@ describe('ProjectBoard', () => {
     );
 
     const ref = createRef<ProjectBoardHandle>();
-    const { rerender } = render(
+    const { rerender } = renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -479,7 +506,7 @@ describe('ProjectBoard', () => {
   it('updates progress when a card moves into Done', async () => {
     moveCard.mockResolvedValue({ data: { id: 'card-a' } });
     const ref = createRef<ProjectBoardHandle>();
-    render(
+    renderBoard(
       <ProjectBoard
         ref={ref}
         title="Sprint board"
@@ -503,7 +530,7 @@ describe('ProjectBoard', () => {
 
   it('opens New task from the plus with that column selected', async () => {
     const user = userEvent.setup();
-    render(
+    renderBoard(
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
@@ -541,7 +568,7 @@ describe('ProjectBoard', () => {
         assignees: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
       },
     });
-    render(
+    renderBoard(
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
@@ -573,7 +600,7 @@ describe('ProjectBoard', () => {
 
   it('opens the card detail when a board card is clicked', async () => {
     const user = userEvent.setup();
-    render(
+    renderBoard(
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
@@ -592,7 +619,7 @@ describe('ProjectBoard', () => {
 
   it('archives a card, removes it from the board, and shows a toast', async () => {
     const user = userEvent.setup();
-    render(
+    renderBoard(
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
@@ -608,5 +635,118 @@ describe('ProjectBoard', () => {
 
     expect(within(desktopColumn('To do')).queryByText('Card A')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Task archived');
+  });
+
+  it('narrows the board by selected labels and search text together', async () => {
+    const user = userEvent.setup();
+    const design = { id: 'label-design', name: 'Design', tone: 'blue' as const, order: 0 };
+    const bug = { id: 'label-bug', name: 'Bug', tone: 'red' as const, order: 1 };
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[design, bug]}
+        members={[{ id: 'user-ada', name: 'Ada', username: 'ada' }]}
+        columns={[
+          {
+            id: 'column-todo',
+            title: 'To do',
+            order: 0,
+            cards: [
+              { id: 'card-a', title: 'Draw the board', code: 'CA-1', dueDate: null, label: design },
+              { id: 'card-b', title: 'Fix the queue', code: 'CB-2', dueDate: null, label: bug },
+            ],
+          },
+          { id: 'column-doing', title: 'Doing', order: 1, cards: [] },
+          { id: 'column-done', title: 'Done', order: 2, cards: [] },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getAllByRole('button', { name: 'Design' })[0]!);
+
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveTextContent('1');
+    expect(within(desktopColumn('To do')).getByText('Draw the board')).toBeInTheDocument();
+    expect(within(desktopColumn('To do')).queryByText('Fix the queue')).not.toBeInTheDocument();
+
+    await user.type(screen.getAllByRole('searchbox', { name: 'Search the board' })[0]!, 'missing');
+    expect(screen.getByText('No results')).toBeInTheDocument();
+    expect(screen.queryByText('Draw the board')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Clear search and filters' }));
+    expect(within(desktopColumn('To do')).getByText('Draw the board')).toBeInTheDocument();
+    expect(within(desktopColumn('To do')).getByText('Fix the queue')).toBeInTheDocument();
+  });
+
+  it('hides the card code when visibility is turned off', async () => {
+    const user = userEvent.setup();
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    expect(within(desktopColumn('To do')).getByText('CA-1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Card visibility' }));
+    await user.click(screen.getAllByRole('button', { name: 'Card code' })[0]!);
+
+    expect(within(desktopColumn('To do')).queryByText('CA-1')).not.toBeInTheDocument();
+    expect(within(desktopColumn('To do')).getByText('Card A')).toBeInTheDocument();
+  });
+
+  it('reverts a failed visibility toggle and does not leave an unpersisted face', async () => {
+    updateBoardVisibility.mockResolvedValue({ error: GENERIC_ERROR_MESSAGE });
+    const user = userEvent.setup();
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Card visibility' }));
+    await user.click(screen.getAllByRole('button', { name: 'Card code' })[0]!);
+
+    await waitFor(() => {
+      expect(within(desktopColumn('To do')).getByText('CA-1')).toBeInTheDocument();
+    });
+    expect(screen.getAllByRole('button', { name: 'Card code' })[0]).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(GENERIC_ERROR_MESSAGE);
+  });
+
+  it('closes filters when a card detail modal opens', async () => {
+    const user = userEvent.setup();
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[{ id: 'label-design', name: 'Design', tone: 'blue', order: 0 }]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.getAllByRole('dialog', { name: 'Filters' }).length).toBeGreaterThan(0);
+
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
   });
 });

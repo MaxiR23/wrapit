@@ -5,7 +5,7 @@
 // Tested:
 // - Renders the project title for a member
 // - Wraps the page in the projects shell with Projects as the active nav
-// - Hides the projects search input
+// - Shows the board search input, not Search projects
 // - Does not render the Members heading
 // - Mounts the recents recorder after access is confirmed
 // - Calls notFound when getProjectForUser returns null
@@ -24,6 +24,7 @@ const getSession = vi.fn();
 const getProjectForUser = vi.fn();
 const listProjectMembersForUser = vi.fn();
 const getProjectLabelsForUser = vi.fn();
+const getUserPreferences = vi.fn();
 const recordRecentProject = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -43,6 +44,10 @@ vi.mock('@/lib/projects', () => ({
 
 vi.mock('@/lib/projectLabels', () => ({
   getProjectLabelsForUser,
+}));
+
+vi.mock('@/lib/userPreferences', () => ({
+  getUserPreferences,
 }));
 
 vi.mock('@/lib/notifications', () => ({
@@ -94,6 +99,17 @@ describe('Project detail page', () => {
     getProjectLabelsForUser.mockResolvedValue([
       { id: 'l0', name: 'Design', tone: 'blue', order: 0 },
     ]);
+    getUserPreferences.mockResolvedValue({
+      viewMode: 'grid',
+      boardVisibility: {
+        label: true,
+        code: true,
+        comments: true,
+        subtasks: true,
+        dueDate: true,
+        assignees: true,
+      },
+    });
   });
 
   it('renders the project title for a member inside the projects shell', async () => {
@@ -109,6 +125,7 @@ describe('Project detail page', () => {
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search the board' })).toBeInTheDocument();
     expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
     const projectLinks = screen.getAllByRole('link', { name: 'Projects' });
     expect(projectLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);

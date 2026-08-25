@@ -8,9 +8,11 @@ import { labelToneClasses } from '@/lib/labelTones';
 import { cn } from '@/lib/utils';
 import type { BoardCardData } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { DEFAULT_BOARD_VISIBILITY, type BoardVisibility } from '@/lib/boardView';
 
 export default function BoardCard({
   card,
+  visibility = DEFAULT_BOARD_VISIBILITY,
   lifted = false,
   dimmed = false,
   highlighted = false,
@@ -25,6 +27,7 @@ export default function BoardCard({
   moveMenu,
 }: {
   card: BoardCardData;
+  visibility?: BoardVisibility;
   lifted?: boolean;
   dimmed?: boolean;
   highlighted?: boolean;
@@ -38,15 +41,18 @@ export default function BoardCard({
   onClick?: (event: MouseEvent<HTMLElement>) => void;
   moveMenu?: ReactNode;
 }) {
-  const showLabel = Boolean(card.label);
-  const showCode = Boolean(card.code);
+  const showLabel = visibility.label && Boolean(card.label);
+  const showCode = visibility.code && Boolean(card.code);
   const showTop = showLabel || showCode;
   const comments = card.comments ?? [];
   const subtasks = card.subtasks ?? [];
   const { done: subtaskDone, total: subtaskTotal } = subtaskProgress(subtasks);
-  const showDue = card.dueDate != null;
+  const showComments = visibility.comments;
+  const showSubtasks = visibility.subtasks;
+  const showDue = visibility.dueDate && card.dueDate != null;
   const assignees = card.assignees ?? [];
-  const showPeople = assignees.length > 0;
+  const showPeople = visibility.assignees && assignees.length > 0;
+  const showFooter = showComments || showSubtasks || showDue || showPeople;
   const shownPeople = assignees.slice(0, 3);
   const extraCount = assignees.length - shownPeople.length;
   const late = card.dueDate != null && isCardDueLate(card.dueDate);
@@ -104,38 +110,44 @@ export default function BoardCard({
 
       <h3 className="text-[13.5px] font-medium leading-[1.35] text-pretty">{card.title}</h3>
 
-      <div className="flex items-center gap-3 border-t border-border pt-[11px] text-[11.5px] text-muted-foreground tabular-nums">
-        <span className="inline-flex items-center gap-[5px]">
-          <MessageSquare className="size-[13px]" strokeWidth={2} />
-          {commentCount(comments)}
-        </span>
-        <span>
-          {subtaskDone}/{subtaskTotal}
-        </span>
-        {showDue ? (
-          <span className={cn('ml-auto', late ? 'text-late' : 'text-muted-foreground')}>
-            {dueLabel}
-          </span>
-        ) : null}
-        {showPeople ? (
-          <div className={cn('flex gap-1', showDue ? '' : 'ml-auto')}>
-            {shownPeople.map((member) => (
-              <span
-                key={member.id}
-                title={member.name}
-                className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-[9.5px] font-semibold leading-none"
-              >
-                {initials(member.name, member.username)}
-              </span>
-            ))}
-            {extraCount > 0 ? (
-              <span className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border border-border bg-background text-[9.5px] font-semibold leading-none text-muted-foreground">
-                +{extraCount}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+      {showFooter ? (
+        <div className="flex items-center gap-3 border-t border-border pt-[11px] text-[11.5px] text-muted-foreground tabular-nums">
+          {showComments ? (
+            <span className="inline-flex items-center gap-[5px]">
+              <MessageSquare className="size-[13px]" strokeWidth={2} />
+              {commentCount(comments)}
+            </span>
+          ) : null}
+          {showSubtasks ? (
+            <span>
+              {subtaskDone}/{subtaskTotal}
+            </span>
+          ) : null}
+          {showDue ? (
+            <span className={cn('ml-auto', late ? 'text-late' : 'text-muted-foreground')}>
+              {dueLabel}
+            </span>
+          ) : null}
+          {showPeople ? (
+            <div className={cn('flex gap-1', showDue ? '' : 'ml-auto')}>
+              {shownPeople.map((member) => (
+                <span
+                  key={member.id}
+                  title={member.name}
+                  className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-[9.5px] font-semibold leading-none"
+                >
+                  {initials(member.name, member.username)}
+                </span>
+              ))}
+              {extraCount > 0 ? (
+                <span className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-full border border-border bg-background text-[9.5px] font-semibold leading-none text-muted-foreground">
+                  +{extraCount}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {moveMenu ? (
         <div

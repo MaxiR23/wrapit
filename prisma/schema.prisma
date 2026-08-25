@@ -272,6 +272,13 @@ model UserPreferences {
   userId   String   @unique
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   viewMode ViewMode @default(GRID)
+
+  showCardLabel     Boolean @default(true)
+  showCardCode      Boolean @default(true)
+  showCardComments  Boolean @default(true)
+  showCardSubtasks  Boolean @default(true)
+  showCardDueDate   Boolean @default(true)
+  showCardAssignees Boolean @default(true)
 }
 
 model UserStatus {

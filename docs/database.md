@@ -83,10 +83,11 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   members, or the session user when nobody was picked.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
-- `UserPreferences` belongs to a `User`. It holds per-user UI settings. Today
-  that is `viewMode` (`GRID` or `LIST`, default `GRID`). The table is meant to
-  grow with more columns (for example language) on the same 1:1 row, without a
-  new model.
+- `UserPreferences` belongs to a `User`. It holds per-user UI settings:
+  `viewMode` (`GRID` or `LIST`, default `GRID`) and six board-face flags
+  (`showCardLabel`, `showCardCode`, `showCardComments`, `showCardSubtasks`,
+  `showCardDueDate`, `showCardAssignees`, all default true). The table is meant
+  to grow with more columns on the same 1:1 row, without a new model.
 - `UserProfile` belongs to a `User`. It holds optional profile fields
   (`fullName`, pronouns, job title, and so on) and a `ProfileVisibility`
   (`ANYONE`, `TEAM`, `ADMINS_ONLY`) per field, including photo, public name,

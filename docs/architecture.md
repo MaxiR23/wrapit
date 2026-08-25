@@ -41,7 +41,8 @@ and `getUserPreferences` in `src/lib/userPreferences.ts` /
 inaccessible projects return `null`; the page turns that into `notFound()`. Recents are the
 latest four accessible projects the user opened; that cap is applied in the query
 after the membership access filter. A missing
-preferences row is not an error: the helper returns GRID defaults. A missing
+preferences row is not an error: the helper returns GRID defaults and all board
+fields visible. A missing
 profile row is the same: empty fields and default visibilities (email
 `admins`, everything else `anyone`). The client
 never talks to Prisma for project data. The projects list search filters those
@@ -53,7 +54,7 @@ of that list (distinct from an empty search).
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input (bounded identifiers with `idSchema` before
 any ownership or membership lookup), checks membership access, then mutates. Preferences
-writes such as `updateViewMode` upsert the session user's 1:1 preferences row.
+writes such as `updateViewMode` and `updateBoardVisibility` upsert the session user's 1:1 preferences row.
 Profile writes (`updateProfileField`, `updateProfileVisibility`) upsert the
 session user's 1:1 profile row the same way; they never take a user id from the
 client. `publicName` writes `User.name`. The action returns the stored
@@ -213,7 +214,8 @@ in `docs/kanban.md`.
     src/lib/notifications.ts            list/mark-read for the session user's notifications
     src/lib/relativeTime.ts             relative English time without a leading verb
     src/lib/log.ts                      server-side info log (never sent to the client)
-    src/lib/userPreferences.ts          get-or-default user preferences (viewMode)
+    src/lib/userPreferences.ts          get-or-default user preferences (viewMode, board visibility)
+    src/lib/boardView.ts                board filters, search match, visibility defaults, summary
     src/lib/userProfile.ts              get-or-default user profile (fields + visibility)
     src/lib/userStatus.ts               status tones, defaults, last-status guard, user-row lock
     src/lib/userStatuses.ts             read/seed per-user statuses (server only)
@@ -248,6 +250,7 @@ in `docs/kanban.md`.
     src/lib/validation/comment.ts       comment body; create cardId
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
+    src/lib/validation/boardVisibility.ts  six board-face visibility flags
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
     src/lib/validation/label.ts         label id, name, tone; create projectId
@@ -267,6 +270,7 @@ in `docs/kanban.md`.
     src/actions/setProjectStarred.ts    write Membership.starred for a member
     src/actions/recordRecentProject.ts  upsert RecentProject.openedAt on project open
     src/actions/updateViewMode.ts       persist the signed-in user's projects viewMode
+    src/actions/updateBoardVisibility.ts persist the signed-in user's board field visibility
     src/actions/createColumn.ts         create a column on an accessible project
     src/actions/deleteColumn.ts         delete a column from an accessible project
     src/actions/createCard.ts           create a card on an accessible column (code, counter, label, assignees, due date)
@@ -299,7 +303,7 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, board filters/visibility, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail
