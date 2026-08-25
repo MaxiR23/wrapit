@@ -49,6 +49,19 @@ enum ProfileVisibility {
   ADMINS_ONLY
 }
 
+enum ActivityEventType {
+  CARD_CREATED
+  CARD_MOVED
+  CARD_ARCHIVED
+  CARD_DELETED
+  ASSIGNEES_CHANGED
+  LABEL_CHANGED
+  DUE_DATE_CHANGED
+  COMMENT_ADDED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -72,6 +85,7 @@ model User {
   statuses             UserStatus[]
   cardAssignments      CardAssignee[]
   cardComments         Comment[]
+  activityEvents       ActivityEvent[]
   activeStatusId       String?     @unique
   activeStatus         UserStatus? @relation("UserActiveStatus", fields: [activeStatusId], references: [id], onDelete: SetNull)
 }
@@ -140,6 +154,7 @@ model Project {
   invitations     Invitation[]
   recentProjects  RecentProject[]
   labels          Label[]
+  activityEvents  ActivityEvent[]
 }
 
 model Column {
@@ -329,6 +344,20 @@ model UserProfile {
   localTimeVisibility      ProfileVisibility @default(ANYONE)
   workingWithYouVisibility ProfileVisibility @default(ANYONE)
   emailVisibility          ProfileVisibility @default(ADMINS_ONLY)
+}
+
+model ActivityEvent {
+  id        String            @id @default(cuid())
+  type      ActivityEventType
+  payload   Json
+  createdAt DateTime          @default(now())
+
+  projectId String
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
 }
 
 model RecentProject {

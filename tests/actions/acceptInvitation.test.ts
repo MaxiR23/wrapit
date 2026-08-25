@@ -115,6 +115,19 @@ describe('acceptInvitation', () => {
     ]);
     expect(revalidatePath).toHaveBeenCalledWith('/projects');
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'MEMBER_ADDED',
+        projectId: project.id,
+        actorId: invitee.id,
+        payload: expect.objectContaining({
+          actorName: 'Maxi',
+          memberId: invitee.id,
+          inviterId: inviter.id,
+          inviterName: 'Ada Lovelace',
+        }),
+      }),
+    ]);
   });
 
   it('rejects when the inviter tries to accept', async () => {
@@ -199,6 +212,7 @@ describe('acceptInvitation', () => {
     expect(db.notification.rows).toEqual([
       expect.objectContaining({ id: 'notif-received', type: 'INVITATION_RECEIVED' }),
     ]);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('rejects the call when there is no session', async () => {
@@ -220,5 +234,18 @@ describe('acceptInvitation', () => {
     expect(await acceptInvitation(1 as unknown as string)).toEqual({ error: 'Unauthorized' });
     expect(db.invitation.findFirst).not.toHaveBeenCalled();
     expect(db.project.rows).toHaveLength(0);
+  });
+
+  it('rolls back the membership when logging fails', async () => {
+    const { invitation } = await seedPendingInvite();
+    const membershipCountBefore = db.membership.rows.length;
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ error: GENERIC_ERROR_MESSAGE });
+    expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'PENDING' }));
+    expect(db.membership.rows).toHaveLength(membershipCountBefore);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

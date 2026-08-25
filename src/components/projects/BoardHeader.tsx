@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { History, Plus } from 'lucide-react';
 
 import BoardFilterSummary from '@/components/projects/BoardFilterSummary';
 import BoardFiltersPopover from '@/components/projects/BoardFiltersPopover';
@@ -19,6 +19,7 @@ import {
   type BoardVisibility,
 } from '@/lib/boardView';
 import type { LabelView } from '@/lib/labels';
+import { activityCopy } from '@/lib/activityCopy';
 import {
   boardProgressEmptyLabel,
   boardProgressLabel,
@@ -39,6 +40,8 @@ export default function BoardHeader({
   visibility,
   onVisibilityChange,
   visibleCount,
+  logOpen = false,
+  onToggleLog,
 }: {
   title: string;
   doneCount: number;
@@ -51,6 +54,8 @@ export default function BoardHeader({
   visibility: BoardVisibility;
   onVisibilityChange: (visibility: BoardVisibility) => void;
   visibleCount: number;
+  logOpen?: boolean;
+  onToggleLog?: () => void;
 }) {
   const hasCards = taskCount > 0;
   const { query, setQuery } = useProjectsSearch();
@@ -135,6 +140,26 @@ export default function BoardHeader({
         <div className="mx-0.5 hidden h-6 w-px bg-border tablet:block" />
         <BoardFiltersPopover labels={labels} filters={filters} onChange={onFiltersChange} />
         <BoardVisibilityPopover visibility={visibility} onChange={onVisibilityChange} />
+        <button
+          type="button"
+          aria-label={activityCopy.logLabel}
+          aria-pressed={logOpen}
+          title={activityCopy.logLabel}
+          onClick={() => {
+            setOpenPanel(null);
+            onToggleLog?.();
+          }}
+          className={cn(
+            shellFocusClassName,
+            'inline-flex items-center justify-center rounded-md border',
+            'size-10 tablet:size-[38px] lg:size-9',
+            logOpen
+              ? 'border-border-strong bg-card text-foreground'
+              : 'border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground',
+          )}
+        >
+          <History className="size-[17px]" strokeWidth={1.9} />
+        </button>
       </div>
       {filterCount > 0 ? (
         <div className="col-span-2">

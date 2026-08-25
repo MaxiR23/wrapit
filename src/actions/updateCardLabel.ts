@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
@@ -58,6 +59,27 @@ export async function updateCardLabel(input: {
       if (updated.count !== 1) {
         throw new UnauthorizedWriteError();
       }
+
+      let labelName: string | null = null;
+      if (labelId) {
+        const label = await tx.label.findFirst({
+          where: { id: labelId, projectId: owned.project.id },
+        });
+        labelName = typeof label?.name === 'string' ? label.name : null;
+      }
+
+      await recordActivityEvent(tx, {
+        projectId: owned.project.id,
+        actorId: session.user.id,
+        type: 'LABEL_CHANGED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          cardId: owned.card.id,
+          cardTitle: owned.card.title,
+          labelId,
+          labelName,
+        },
+      });
     });
 
     revalidatePath(projectPath(owned.project.id));

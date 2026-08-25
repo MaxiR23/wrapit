@@ -74,6 +74,13 @@ describe('archiveCard', () => {
 
     expect(result).toEqual({ data: { id: card.id } });
     expect(db.card.rows[0]?.archivedAt).toBeInstanceOf(Date);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'CARD_ARCHIVED',
+        projectId: project.id,
+        payload: expect.objectContaining({ cardTitle: 'Write tests' }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -85,6 +92,7 @@ describe('archiveCard', () => {
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.card.rows[0]?.archivedAt).toEqual(archivedAt);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -145,5 +153,16 @@ describe('archiveCard', () => {
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
     expect(db.card.rows[0]?.archivedAt).toBeUndefined();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the archive when logging fails', async () => {
+    const { card } = await seedOwnedCard();
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await archiveCard({ cardId: card.id });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows[0]?.archivedAt).toBeUndefined();
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

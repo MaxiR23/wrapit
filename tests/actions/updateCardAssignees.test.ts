@@ -101,6 +101,18 @@ describe('updateCardAssignees', () => {
         expect.objectContaining({ cardId: card.id, userId: sessionUser.id }),
       ]),
     );
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'ASSIGNEES_CHANGED',
+        payload: expect.objectContaining({
+          cardTitle: 'Write tests',
+          assignees: [
+            { id: 'user-max', name: 'Maxi', username: 'maxi' },
+            { id: sessionUser.id, name: 'Ada', username: 'ada' },
+          ],
+        }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -114,6 +126,7 @@ describe('updateCardAssignees', () => {
 
     expect(result).toEqual({ data: { assignees: [] } });
     expect(db.cardAssignee.rows).toHaveLength(0);
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ assignees: [] }));
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -132,6 +145,7 @@ describe('updateCardAssignees', () => {
     expect(db.cardAssignee.rows).toEqual([
       expect.objectContaining({ cardId: card.id, userId: sessionUser.id }),
     ]);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -195,5 +209,27 @@ describe('updateCardAssignees', () => {
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the assignee replace when logging fails', async () => {
+    const { card } = await seedOwnedCard();
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada', username: 'ada' },
+    });
+    await db.cardAssignee.create({
+      data: { cardId: card.id, userId: sessionUser.id },
+    });
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await updateCardAssignees({
+      cardId: card.id,
+      assigneeIds: [],
+    });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.cardAssignee.rows).toEqual([
+      expect.objectContaining({ cardId: card.id, userId: sessionUser.id }),
+    ]);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

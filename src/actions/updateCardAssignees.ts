@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
@@ -51,7 +52,7 @@ export async function updateCardAssignees(input: {
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const assignees = await prisma.$transaction(async (tx) => {
       if (assigneeIds.length > 0) {
         const memberCount = await tx.membership.count({
           where: { projectId: owned.project.id, userId: { in: assigneeIds } },
@@ -75,23 +76,37 @@ export async function updateCardAssignees(input: {
           data: assigneeIds.map((userId) => ({ cardId: owned.card.id, userId })),
         });
       }
-    });
 
-    const users =
-      assigneeIds.length === 0
-        ? []
-        : await prisma.user.findMany({
-            where: { id: { in: assigneeIds } },
-            select: { id: true, name: true, username: true },
-          });
-    const usersById = new Map(users.map((user) => [user.id, user]));
-    const assignees = assigneeIds.map((userId) => {
-      const user = usersById.get(userId);
-      return {
-        id: userId,
-        name: user?.name ?? '',
-        username: user?.username ?? '',
-      };
+      const users =
+        assigneeIds.length === 0
+          ? []
+          : await tx.user.findMany({
+              where: { id: { in: assigneeIds } },
+              select: { id: true, name: true, username: true },
+            });
+      const usersById = new Map(users.map((user) => [user.id, user]));
+      const nextAssignees = assigneeIds.map((userId) => {
+        const user = usersById.get(userId);
+        return {
+          id: userId,
+          name: user?.name ?? '',
+          username: user?.username ?? '',
+        };
+      });
+
+      await recordActivityEvent(tx, {
+        projectId: owned.project.id,
+        actorId: session.user.id,
+        type: 'ASSIGNEES_CHANGED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          cardId: owned.card.id,
+          cardTitle: owned.card.title,
+          assignees: nextAssignees,
+        },
+      });
+
+      return nextAssignees;
     });
 
     revalidatePath(projectPath(owned.project.id));

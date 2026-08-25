@@ -100,6 +100,18 @@ describe('moveCard', () => {
     expect(db.card.rows.find((row) => row.id === cardC.id)).toEqual(
       expect.objectContaining({ columnId: doing.id, order: 1 }),
     );
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'CARD_MOVED',
+        projectId: project.id,
+        actorId: sessionUser.id,
+        payload: expect.objectContaining({
+          cardTitle: 'Card A',
+          fromColumnTitle: 'To do',
+          toColumnTitle: 'Doing',
+        }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -120,6 +132,7 @@ describe('moveCard', () => {
       }),
     });
     expect(db.card.updateMany).not.toHaveBeenCalled();
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -255,6 +268,39 @@ describe('moveCard', () => {
     expect(db.card.findFirst).not.toHaveBeenCalled();
     expect(db.column.findFirst).not.toHaveBeenCalled();
     expect(db.card.updateMany).not.toHaveBeenCalled();
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('keeps the snapshotted column title after a rename', async () => {
+    const { todo, doing, cardA } = await seedTwoColumns();
+
+    await moveCard({
+      cardId: cardA.id,
+      sourceColumnId: todo.id,
+      targetColumnId: doing.id,
+    });
+    await db.column.update({ where: { id: todo.id }, data: { title: 'Backlog' } });
+
+    expect(db.activityEvent.rows[0]?.payload).toEqual(
+      expect.objectContaining({ fromColumnTitle: 'To do', toColumnTitle: 'Doing' }),
+    );
+  });
+
+  it('rolls back the move when logging fails', async () => {
+    const { todo, doing, cardA } = await seedTwoColumns();
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await moveCard({
+      cardId: cardA.id,
+      sourceColumnId: todo.id,
+      targetColumnId: doing.id,
+    });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows.find((row) => row.id === cardA.id)).toEqual(
+      expect.objectContaining({ columnId: todo.id }),
+    );
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

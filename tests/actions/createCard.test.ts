@@ -89,6 +89,18 @@ describe('createCard', () => {
     });
     expect(db.card.rows).toHaveLength(2);
     expect(db.project.rows[0]?.cardCounter).toBe(1);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'CARD_CREATED',
+        projectId: project.id,
+        actorId: sessionUser.id,
+        payload: expect.objectContaining({
+          actorName: 'Ada',
+          cardTitle: 'Second',
+          columnTitle: 'To do',
+        }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -256,6 +268,8 @@ describe('createCard', () => {
     });
     expect(db.cardAssignee.rows).toHaveLength(2);
     expect(db.project.rows[0]?.cardCounter).toBe(1);
+    expect(db.activityEvent.rows).toHaveLength(1);
+    expect(db.activityEvent.rows[0]?.type).toBe('CARD_CREATED');
   });
 
   it('assigns the creator when no assignees are picked', async () => {
@@ -286,6 +300,7 @@ describe('createCard', () => {
     expect(db.card.rows).toHaveLength(0);
     expect(db.cardAssignee.rows).toHaveLength(0);
     expect(db.project.rows[0]?.cardCounter ?? 0).toBe(0);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -331,5 +346,16 @@ describe('createCard', () => {
       await createCard({ columnId: 'column-1', title: 'Write tests', assigneeIds: [''] }),
     ).toEqual({ error: 'Unauthorized' });
     expect(db.column.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the card when logging fails', async () => {
+    const { column } = await seedOwnedColumn();
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await createCard({ columnId: column.id, title: 'Write tests' });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows).toHaveLength(0);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

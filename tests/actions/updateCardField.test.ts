@@ -86,6 +86,7 @@ describe('updateCardField', () => {
 
     expect(result).toEqual({ data: { value: 'New title' } });
     expect(db.card.rows[0]?.title).toBe('New title');
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -110,6 +111,7 @@ describe('updateCardField', () => {
 
     expect(result).toEqual({ data: { value: '' } });
     expect(db.card.rows[0]?.description).toBeNull();
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -124,6 +126,13 @@ describe('updateCardField', () => {
 
     expect(persisted).toEqual({ data: { value: '2026-08-25' } });
     expect(db.card.rows[0]?.dueDate).toEqual(new Date(Date.UTC(2026, 7, 25)));
+    expect(db.activityEvent.rows).toHaveLength(1);
+    expect(db.activityEvent.rows[0]).toEqual(
+      expect.objectContaining({
+        type: 'DUE_DATE_CHANGED',
+        payload: expect.objectContaining({ dueDate: '2026-08-25', cardTitle: 'Old title' }),
+      }),
+    );
 
     const cleared = await updateCardField({
       cardId: card.id,
@@ -133,7 +142,25 @@ describe('updateCardField', () => {
 
     expect(cleared).toEqual({ data: { value: '' } });
     expect(db.card.rows[0]?.dueDate).toBeNull();
+    expect(db.activityEvent.rows).toHaveLength(2);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+  });
+
+  it('does not write an event when the due date is unchanged', async () => {
+    const { card } = await seedOwnedCard();
+    await db.card.update({
+      where: { id: card.id },
+      data: { dueDate: new Date(Date.UTC(2026, 7, 25)) },
+    });
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+    });
+
+    expect(result).toEqual({ data: { value: '2026-08-25' } });
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('rejects an invalid due date with a field error', async () => {
@@ -229,5 +256,20 @@ describe('updateCardField', () => {
     expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the due date when logging fails', async () => {
+    const { card } = await seedOwnedCard();
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+    });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows[0]?.dueDate).toBeUndefined();
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

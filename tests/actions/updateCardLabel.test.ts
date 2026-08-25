@@ -75,6 +75,12 @@ describe('updateCardLabel', () => {
 
     expect(result).toEqual({ data: { labelId: label.id } });
     expect(db.card.rows[0]?.labelId).toBe(label.id);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'LABEL_CHANGED',
+        payload: expect.objectContaining({ labelId: label.id, labelName: 'Design' }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -105,6 +111,20 @@ describe('updateCardLabel', () => {
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
+  it('keeps the snapshotted label name after a rename', async () => {
+    const { project, card } = await seedOwnedCard();
+    const label = await db.label.create({
+      data: { name: 'Design', tone: 'blue', order: 0, projectId: project.id },
+    });
+
+    await updateCardLabel({ cardId: card.id, labelId: label.id });
+    await db.label.update({ where: { id: label.id }, data: { name: 'Product' } });
+
+    expect(db.activityEvent.rows[0]?.payload).toEqual(
+      expect.objectContaining({ labelName: 'Design' }),
+    );
+  });
+
   it('rejects a label from another project', async () => {
     const { project, card } = await seedOwnedCard();
     const local = await db.label.create({
@@ -126,6 +146,7 @@ describe('updateCardLabel', () => {
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.card.rows[0]?.labelId).toBe(local.id);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -161,5 +182,19 @@ describe('updateCardLabel', () => {
     expect(db.label.count).not.toHaveBeenCalled();
     expect(db.card.updateMany).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the label change when logging fails', async () => {
+    const { project, card } = await seedOwnedCard();
+    const label = await db.label.create({
+      data: { name: 'Design', tone: 'blue', order: 0, projectId: project.id },
+    });
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await updateCardLabel({ cardId: card.id, labelId: label.id });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows[0]?.labelId).toBeUndefined();
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });
