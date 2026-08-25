@@ -9,9 +9,11 @@
 // - Writes a typed event through recordActivityEvent
 // - Lists events newest first and returns a cursor after a full page
 // - A corrupt payload is returned as an invalid row instead of throwing
+// - Lists one actor across their current projects and hides others
 //
 // What is covered:
-// - Happy path, invalid payload, strict write, pagination, corrupt read
+// - Happy path, invalid payload, strict write, pagination, corrupt read,
+//   actor listing
 //
 // Run with: pnpm test:run tests/lib/activity.test.ts
 //
@@ -22,6 +24,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   ACTIVITY_PAGE_SIZE,
   activityEventFromRow,
+  listActivityForActor,
   listActivityForProject,
   parseActivityPayload,
   recordActivityEvent,
@@ -90,6 +93,10 @@ const validPayloads = {
     memberId: 'user-ada',
     memberName: 'Ada Lovelace',
     memberUsername: 'ada',
+  },
+  PROJECT_CREATED: {
+    ...actor,
+    projectTitle: 'Sprint board',
   },
 } as const;
 
@@ -203,5 +210,110 @@ describe('listActivityForProject', () => {
     });
     expect(item.valid).toBe(false);
     expect(item.payload.actorName).toBe('Ada Lovelace');
+  });
+});
+
+describe('listActivityForActor', () => {
+  const db = createPrismaFake();
+
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('returns only that actor’s events on projects they belong to', async () => {
+    await db.project.create({
+      data: { id: 'project-mine', title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    await db.project.create({
+      data: { id: 'project-left', title: 'Old board', ownerId: 'user-ada' },
+    });
+    await db.activityEvent.create({
+      data: {
+        id: 'evt-mine',
+        type: 'PROJECT_CREATED',
+        projectId: 'project-mine',
+        actorId: 'user-ada',
+        createdAt: new Date('2026-08-25T12:00:00.000Z'),
+        payload: validPayloads.PROJECT_CREATED,
+      },
+    });
+    await db.activityEvent.create({
+      data: {
+        id: 'evt-other-actor',
+        type: 'CARD_CREATED',
+        projectId: 'project-mine',
+        actorId: 'user-grace',
+        createdAt: new Date('2026-08-25T13:00:00.000Z'),
+        payload: validPayloads.CARD_CREATED,
+      },
+    });
+    await db.activityEvent.create({
+      data: {
+        id: 'evt-left',
+        type: 'CARD_CREATED',
+        projectId: 'project-left',
+        actorId: 'user-ada',
+        createdAt: new Date('2026-08-25T14:00:00.000Z'),
+        payload: validPayloads.CARD_CREATED,
+      },
+    });
+
+    const result = await listActivityForActor(db, {
+      actorId: 'user-ada',
+      projectIds: ['project-mine'],
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual(['evt-mine']);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        projectId: 'project-mine',
+        projectTitle: 'Sprint board',
+        type: 'PROJECT_CREATED',
+      }),
+    );
+    expect(result.nextCursor).toBeNull();
+  });
+
+  it('returns an empty page without querying when there are no project ids', async () => {
+    db.activityEvent.findMany.mockClear();
+
+    const result = await listActivityForActor(db, { actorId: 'user-ada', projectIds: [] });
+
+    expect(result).toEqual({ items: [], nextCursor: null });
+    expect(db.activityEvent.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns a cursor after a full page of the actor’s events', async () => {
+    await db.project.create({
+      data: { id: 'project-1', title: 'Sprint board', ownerId: 'user-ada' },
+    });
+    const created = new Date('2026-08-25T12:00:00.000Z');
+    for (let index = 0; index < ACTIVITY_PAGE_SIZE + 1; index += 1) {
+      await db.activityEvent.create({
+        data: {
+          id: `event-${String(index).padStart(3, '0')}`,
+          type: 'PROJECT_CREATED',
+          projectId: 'project-1',
+          actorId: 'user-ada',
+          createdAt: new Date(created.getTime() + index),
+          payload: validPayloads.PROJECT_CREATED,
+        },
+      });
+    }
+
+    const first = await listActivityForActor(db, {
+      actorId: 'user-ada',
+      projectIds: ['project-1'],
+    });
+    expect(first.items).toHaveLength(ACTIVITY_PAGE_SIZE);
+    expect(first.nextCursor).not.toBeNull();
+
+    const second = await listActivityForActor(db, {
+      actorId: 'user-ada',
+      projectIds: ['project-1'],
+      cursor: first.nextCursor,
+    });
+    expect(second.items).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
   });
 });

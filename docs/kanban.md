@@ -119,8 +119,15 @@ no-results. Board filters do not apply. Any member (VIEW+) can read.
 `listActivityEvents` loads when the log opens (including re-open), 50 raw
 events per page, keyset on `createdAt` + `id`. Consecutive same-type events by
 the same actor on the same card collapse on the client before day grouping;
-member events never collapse. Sentences come from `activityCopy` at display
-time. The phone uses the same header clock; stacked row layout is CSS only.
+member and project-created events never collapse. Sentences come from
+`activityCopy` at display time. The phone uses the same header clock; stacked
+row layout is CSS only.
+
+Account `?tab=activity` is the mirror: one actor across every project they
+currently belong to. `listMyActivityEvents` re-reads memberships each page so
+a project they left cannot leak. The first page loads in the account RSC;
+earlier pages use the same request-id append as the board log. Each row names
+its project. Assigned-card counts on the project grid ignore archived cards.
 
 The client owns an id list per column; a move persists
 `cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
@@ -257,10 +264,11 @@ src/lib/cardCode.ts                  project-title initials + sequence
 src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late; calendar-day persist
 src/lib/labelTones.ts               eight label tones as CSS token classes
 src/lib/labels.ts                   defaults, last-label guard, card pill sync
-src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject
+src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject, listActivityForActor
 src/lib/activityCopy.ts             English activity sentences and chrome copy
 src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
-src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor
+src/lib/accountActivity.ts          account Activity tab projects + assigned counts
+src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
 src/lib/projectLabels.ts            read/seed per-project labels
 src/lib/board.ts                    carousel width, long-press constants
 src/lib/boardView.ts                board filters, search match, visibility defaults, summary
@@ -291,6 +299,7 @@ src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + m
 src/components/projects/ColumnsEmptyState.tsx  empty column area when the project has no columns
 src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, activity clock, summary
 src/components/projects/BoardActivityLog.tsx  day-grouped activity rows, empty copy, load earlier
+src/components/account/AccountActivity.tsx    account Activity tab: project cards + personal timeline
 src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
 src/components/projects/ShareModalBody.tsx  invite, with-access list, public-link row
 src/components/projects/ShareMemberRow.tsx  permission menu + coalesced access/remove
@@ -324,6 +333,7 @@ src/actions/updateSubtaskField.ts       persist subtask text or done
 src/actions/deleteSubtask.ts            delete a subtask
 src/actions/createComment.ts            append a comment as the session user
 src/actions/listActivityEvents.ts       member-only project activity page (VIEW+)
+src/actions/listMyActivityEvents.ts      session user's events across current memberships
 ```
 
 ## SEE

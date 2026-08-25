@@ -96,17 +96,21 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 - `ActivityEvent` belongs to a `Project` and optionally a `User` as actor.
   `type` is `ActivityEventType` (`CARD_CREATED`, `CARD_MOVED`, `CARD_ARCHIVED`,
   `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
-  `COMMENT_ADDED`, `MEMBER_ADDED`, `MEMBER_REMOVED`). `payload` is JSON; the
+  `COMMENT_ADDED`, `PROJECT_CREATED`, `MEMBER_ADDED`, `MEMBER_REMOVED`).
+  `payload` is JSON; the
   app parses it with a per-type Zod map before write and again on read. Every
   payload snapshots `actorName` / `actorUsername` plus type-specific ids and
-  display names (card title, column title, and so on). There is no `cardId`
+  display names (card title, column title, project title, and so on). There is no `cardId`
   column and no FK to `Card`, so archive and delete history survives. `actorId`
   is `onDelete: SetNull` so deleting a user keeps the row. Sentences are not
   stored; the UI builds them from the snapshot at display time. Events are
   inserted in the same transaction as the change they describe. Creating a
-  card with a label, assignees, or due date is one `CARD_CREATED`. Title and
-  description edits, subtasks, column/label CRUD, invitations, and the
-  owner's `createProject` membership are not logged.
+  card with a label, assignees, or due date is one `CARD_CREATED`.
+  `createProject` writes `PROJECT_CREATED` next to the owner membership.
+  Title and
+  description edits, subtasks, column/label CRUD, and invitations are not
+  logged. Indexed on `(projectId, createdAt)` for the board log and
+  `(actorId, createdAt)` for the account timeline.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings:

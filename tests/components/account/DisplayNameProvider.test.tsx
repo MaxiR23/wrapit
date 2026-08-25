@@ -48,6 +48,9 @@ vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
 vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
 vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
 vi.mock('@/actions/deleteUserStatus', () => ({ deleteUserStatus: vi.fn() }));
+vi.mock('@/actions/listMyActivityEvents', () => ({
+  listMyActivityEvents: vi.fn(async () => ({ data: { items: [], nextCursor: null } })),
+}));
 
 const { default: ProjectsShell } = await import('@/components/projects/ProjectsShell');
 const { default: AccountScreen } = await import('@/components/account/AccountScreen');

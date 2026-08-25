@@ -174,6 +174,16 @@ describe('activitySentence', () => {
     expect(
       activitySentence(
         view({
+          id: 'e-project',
+          type: 'PROJECT_CREATED',
+          payload: { ...actor, projectTitle: 'Sprint board' },
+        }),
+      ),
+    ).toBe('Ada Lovelace created "Sprint board".');
+
+    expect(
+      activitySentence(
+        view({
           id: 'e9',
           type: 'MEMBER_REMOVED',
           payload: {

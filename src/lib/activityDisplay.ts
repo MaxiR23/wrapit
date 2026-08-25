@@ -164,6 +164,10 @@ function sentenceFor(
       const data = payload as ActivityPayloadFor<'COMMENT_ADDED'>;
       return copy.commentAdded({ actorName: data.actorName, cardTitle: data.cardTitle });
     }
+    case 'PROJECT_CREATED': {
+      const data = payload as ActivityPayloadFor<'PROJECT_CREATED'>;
+      return copy.projectCreated({ actorName: data.actorName, projectTitle: data.projectTitle });
+    }
     case 'MEMBER_ADDED': {
       const data = payload as ActivityPayloadFor<'MEMBER_ADDED'>;
       return copy.memberAdded({ actorName: data.actorName });

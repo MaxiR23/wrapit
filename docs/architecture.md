@@ -101,9 +101,12 @@ transaction inserts one `ActivityEvent` (`CARD_CREATED`) so a logging failure
 rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
 `updateCardAssignees`, `updateCardLabel`, due-date `updateCardField`,
 `createComment`, `acceptInvitation`, and `removeMember` do the same for their
-types. Title and description writes, subtasks, column/label CRUD, invitations,
-and the owner's create-project membership are not logged. `listActivityEvents`
+types. Title and description writes, subtasks, column/label CRUD, and
+invitations are not logged. `createProject` writes `PROJECT_CREATED` in the
+same transaction as the project and owner membership. `listActivityEvents`
 is membership-gated (VIEW+) and pages with a createdAt+id keyset.
+`listMyActivityEvents` is the same page for the session user as actor, across
+projects they currently belong to.
 Card detail writes follow the same pattern: `updateCardField` persists title,
 description, or due date (returning `{ data: { value } }` for
 `useProfileAutosave`, plus the resolved `dueDate` and `dueTimeZone` on the due
@@ -258,7 +261,8 @@ in `docs/kanban.md`.
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
-    src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject
+    src/lib/accountActivity.ts          account Activity tab projects + assigned counts
+    src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject, listActivityForActor
     src/lib/activityCopy.ts             English activity sentences and chrome copy
     src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
@@ -283,7 +287,7 @@ in `docs/kanban.md`.
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
     src/lib/validation/label.ts         label id, name, tone; create projectId
-    src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor
+    src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status
@@ -318,6 +322,7 @@ in `docs/kanban.md`.
     src/actions/deleteSubtask.ts        delete a subtask
     src/actions/createComment.ts        append a comment as the session user
     src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
+    src/actions/listMyActivityEvents.ts  session user's events across current memberships
     src/actions/deleteCard.ts           delete an accessible card (cascades comments and subtasks)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
     src/actions/updateLabelField.ts     persist one label name or tone for a member
@@ -326,7 +331,7 @@ in `docs/kanban.md`.
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
-    src/app/account/page.tsx            account shell, tab routing, profile, visibility
+    src/app/account/page.tsx            account shell, tab routing, profile, visibility, activity
     src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
@@ -336,7 +341,7 @@ in `docs/kanban.md`.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
-    src/components/account/             account screen, profile tab, menu, display name, sign-out hook
+    src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, viewer time zone, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider

@@ -43,6 +43,14 @@ vi.mock('@/lib/notifications', () => ({
   getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
 }));
 
+vi.mock('@/lib/accountActivity', () => ({
+  getAccountActivityForUser: vi.fn(async () => ({
+    projects: [],
+    items: [],
+    nextCursor: null,
+  })),
+}));
+
 vi.mock('@/actions/updateProfileField', () => ({ updateProfileField: vi.fn() }));
 vi.mock('@/actions/updateProfileVisibility', () => ({ updateProfileVisibility: vi.fn() }));
 vi.mock('@/actions/listNotifications', () => ({
@@ -56,6 +64,9 @@ vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
 vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
 vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
 vi.mock('@/actions/deleteUserStatus', () => ({ deleteUserStatus: vi.fn() }));
+vi.mock('@/actions/listMyActivityEvents', () => ({
+  listMyActivityEvents: vi.fn(async () => ({ data: { items: [], nextCursor: null } })),
+}));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),

@@ -1,5 +1,6 @@
 'use client';
 
+import AccountActivity from '@/components/account/AccountActivity';
 import AccountProfile from '@/components/account/AccountProfile';
 import AccountStatusPill from '@/components/account/AccountStatusPill';
 import AccountTabPlaceholder from '@/components/account/AccountTabPlaceholder';
@@ -7,6 +8,7 @@ import AccountTabs from '@/components/account/AccountTabs';
 import AccountVisibility from '@/components/account/AccountVisibility';
 import { ActiveStatusProvider } from '@/components/account/ActiveStatusProvider';
 import { useDisplayName } from '@/components/account/DisplayNameProvider';
+import type { AccountActivityView } from '@/lib/accountActivity';
 import type { AccountTab } from '@/lib/routes';
 import type { UserProfileView } from '@/lib/userProfile';
 import { parseUserStatusTone, type UserStatusesView } from '@/lib/userStatus';
@@ -15,10 +17,12 @@ export default function AccountScreen({
   tab,
   profile,
   statuses,
+  activity,
 }: {
   tab: AccountTab;
   profile: UserProfileView;
   statuses: UserStatusesView;
+  activity?: AccountActivityView;
 }) {
   const { name, initials } = useDisplayName(profile.name, profile.username);
   const active =
@@ -57,8 +61,14 @@ export default function AccountScreen({
             <AccountProfile profile={profile} />
           ) : tab === 'visibility' ? (
             <AccountVisibility statuses={statuses} username={profile.username} />
+          ) : tab === 'activity' ? (
+            <AccountActivity
+              projects={activity?.projects ?? []}
+              initialItems={activity?.items ?? []}
+              initialCursor={activity?.nextCursor ?? null}
+            />
           ) : (
-            <AccountTabPlaceholder tab={tab} />
+            <AccountTabPlaceholder tab="cards" />
           )}
         </div>
       </div>
