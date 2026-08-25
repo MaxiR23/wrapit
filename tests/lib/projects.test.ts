@@ -546,8 +546,18 @@ describe('listProjectMembersForUser', () => {
     const members = await listProjectMembersForUser(project.id, 'user-ada');
 
     expect(members).toEqual([
-      expect.objectContaining({ userId: 'user-ada', name: 'Ada Lovelace', role: 'OWNER' }),
-      expect.objectContaining({ userId: 'user-max', name: 'Maxi', role: 'MEMBER' }),
+      expect.objectContaining({
+        userId: 'user-ada',
+        name: 'Ada Lovelace',
+        role: 'OWNER',
+        access: 'EDIT',
+      }),
+      expect.objectContaining({
+        userId: 'user-max',
+        name: 'Maxi',
+        role: 'MEMBER',
+        access: 'EDIT',
+      }),
     ]);
   });
 

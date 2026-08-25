@@ -37,7 +37,8 @@ export async function updateSubtaskField(input: {
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getSubtaskForUser(parsed.data.subtaskId, session.user.id);
+  const minAccess = parsed.data.field === 'done' ? 'COMMENT' : 'EDIT';
+  const owned = await getSubtaskForUser(parsed.data.subtaskId, session.user.id, minAccess);
   if (!owned) {
     return { error: 'Unauthorized' };
   }

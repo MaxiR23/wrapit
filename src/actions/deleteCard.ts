@@ -23,7 +23,7 @@ export async function deleteCard(input: { cardId: string }): Promise<DeleteCardR
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getCardForUser(parsed.data.cardId, session.user.id);
+  const owned = await getCardForUser(parsed.data.cardId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

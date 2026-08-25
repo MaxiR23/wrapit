@@ -32,7 +32,7 @@ export async function updateLabelField(input: {
   const { labelId, field, value } = parsed.data;
 
   try {
-    const owned = await getLabelForUser(labelId, session.user.id);
+    const owned = await getLabelForUser(labelId, session.user.id, 'EDIT');
     if (!owned) {
       return { error: 'Unauthorized' };
     }

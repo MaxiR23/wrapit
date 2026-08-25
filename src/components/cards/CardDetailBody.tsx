@@ -27,6 +27,8 @@ export default function CardDetailBody({
   members,
   labels,
   currentUser,
+  canEdit = true,
+  canComment = true,
   askingDelete,
   onAskingDelete,
   onCardPatch,
@@ -40,6 +42,8 @@ export default function CardDetailBody({
   members: BoardMember[];
   labels: LabelView[];
   currentUser: BoardMember;
+  canEdit?: boolean;
+  canComment?: boolean;
   askingDelete: boolean;
   onAskingDelete: (value: boolean) => void;
   onCardPatch: (patch: Partial<BoardCardData>) => void;
@@ -116,6 +120,7 @@ export default function CardDetailBody({
       dueError={due.error}
       writeError={assignees.error ?? label.error}
       dueLate={card.dueDate != null && isCardDueLate(card.dueDate)}
+      canEdit={canEdit}
       askingDelete={askingDelete}
       onAskingDelete={onAskingDelete}
       onDueChange={(value) => {
@@ -147,23 +152,27 @@ export default function CardDetailBody({
     <div className="flex min-h-0 flex-1 flex-col tablet:grid tablet:grid-cols-[minmax(0,1fr)_276px]">
       <div className="flex min-h-0 flex-1 flex-col tablet:overflow-auto">
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-auto px-4 py-[18px] tablet:flex-none tablet:overflow-visible tablet:px-[22px] tablet:py-[22px]">
-          <CardDetailFields card={card} onCardPatch={onCardPatch} />
+          <CardDetailFields card={card} canEdit={canEdit} onCardPatch={onCardPatch} />
           <CardSubtaskList
             cardId={card.id}
             subtasks={subtasks}
+            canEdit={canEdit}
+            canCheck={canComment}
             onChange={(next) => onCardPatch({ subtasks: next })}
           />
           <div className="tablet:hidden">{properties}</div>
           <CardCommentThread comments={comments} />
         </div>
-        <div className="flex-none border-t border-border bg-surface px-4 py-[11px] pb-3.5 tablet:border-0 tablet:px-[22px] tablet:pt-0 tablet:pb-[22px]">
-          <CardCommentComposer
-            cardId={card.id}
-            comments={comments}
-            currentUser={currentUser}
-            onChange={(next) => onCardPatch({ comments: next })}
-          />
-        </div>
+        {canComment ? (
+          <div className="flex-none border-t border-border bg-surface px-4 py-[11px] pb-3.5 tablet:border-0 tablet:px-[22px] tablet:pt-0 tablet:pb-[22px]">
+            <CardCommentComposer
+              cardId={card.id}
+              comments={comments}
+              currentUser={currentUser}
+              onChange={(next) => onCardPatch({ comments: next })}
+            />
+          </div>
+        ) : null}
       </div>
       <aside className="hidden min-h-0 flex-col overflow-auto border-l border-border bg-background px-5 py-[22px] tablet:flex">
         {properties}
@@ -174,9 +183,11 @@ export default function CardDetailBody({
 
 function CardDetailFields({
   card,
+  canEdit,
   onCardPatch,
 }: {
   card: BoardCardData;
+  canEdit: boolean;
   onCardPatch: (patch: Partial<BoardCardData>) => void;
 }) {
   const title = useProfileAutosave({
@@ -201,7 +212,9 @@ function CardDetailFields({
           aria-label="Title"
           rows={2}
           value={title.value}
+          readOnly={!canEdit}
           onChange={(event) => {
+            if (!canEdit) return;
             const next = event.target.value;
             title.setValue(next);
             onCardPatch({ title: next });
@@ -227,8 +240,10 @@ function CardDetailFields({
           aria-label="Description"
           rows={4}
           value={description.value}
+          readOnly={!canEdit}
           placeholder="Add context, acceptance criteria, or links"
           onChange={(event) => {
+            if (!canEdit) return;
             const next = event.target.value;
             description.setValue(next);
             onCardPatch({ description: next });
@@ -261,6 +276,7 @@ function CardDetailProperties({
   dueError,
   writeError,
   dueLate,
+  canEdit,
   askingDelete,
   onAskingDelete,
   onDueChange,
@@ -282,6 +298,7 @@ function CardDetailProperties({
   dueError: string | null;
   writeError: string | null;
   dueLate: boolean;
+  canEdit: boolean;
   askingDelete: boolean;
   onAskingDelete: (value: boolean) => void;
   onDueChange: (value: string) => void;
@@ -308,7 +325,11 @@ function CardDetailProperties({
                 key={column.id}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onMoveColumn(column.id)}
+                disabled={!canEdit}
+                onClick={() => {
+                  if (!canEdit) return;
+                  onMoveColumn(column.id);
+                }}
                 className={cn(
                   shellFocusClassName,
                   'h-[38px] rounded-sm border text-[13px] font-medium tablet:h-8 tablet:text-[12.5px]',
@@ -338,7 +359,11 @@ function CardDetailProperties({
                 title={member.name}
                 aria-label={member.name}
                 aria-pressed={selected}
-                onClick={() => onToggleAssignee(member.id)}
+                disabled={!canEdit}
+                onClick={() => {
+                  if (!canEdit) return;
+                  onToggleAssignee(member.id);
+                }}
                 className={cn(
                   shellFocusClassName,
                   'inline-flex size-[38px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold tablet:size-8 tablet:text-[11px]',
@@ -367,7 +392,11 @@ function CardDetailProperties({
                 key={label.id}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => onPickLabel(selected ? null : label.id)}
+                disabled={!canEdit}
+                onClick={() => {
+                  if (!canEdit) return;
+                  onPickLabel(selected ? null : label.id);
+                }}
                 className={cn(
                   shellFocusClassName,
                   'rounded-full border px-[13px] py-[7px] text-[12.5px] font-medium tablet:px-[11px] tablet:py-[5px] tablet:text-[11.5px]',
@@ -392,7 +421,12 @@ function CardDetailProperties({
           id={`card-due-${card.id}`}
           type="date"
           value={dueValue}
-          onChange={(event) => onDueChange(event.target.value)}
+          readOnly={!canEdit}
+          disabled={!canEdit}
+          onChange={(event) => {
+            if (!canEdit) return;
+            onDueChange(event.target.value);
+          }}
           onBlur={onDueBlur}
           className={cn(
             shellFocusClassName,
@@ -413,62 +447,64 @@ function CardDetailProperties({
         </p>
       ) : null}
 
-      <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-[18px]">
-        {askingDelete ? (
-          <div className="flex flex-col gap-[9px] rounded-md border border-danger-edge bg-danger-soft p-3">
-            <p className="text-[12.5px] leading-[1.5] text-pretty">
-              This deletes the task and its comments. This cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onAskingDelete(false)}
-                className={cn(
-                  shellFocusClassName,
-                  'h-[30px] flex-1 rounded-sm border border-border-strong text-[12.5px] font-medium',
-                )}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={onDelete}
-                className={cn(
-                  shellFocusClassName,
-                  'h-[30px] flex-1 rounded-sm bg-danger text-[12.5px] font-semibold text-primary-foreground',
-                )}
-              >
-                Delete
-              </button>
+      {canEdit ? (
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-[18px]">
+          {askingDelete ? (
+            <div className="flex flex-col gap-[9px] rounded-md border border-danger-edge bg-danger-soft p-3">
+              <p className="text-[12.5px] leading-[1.5] text-pretty">
+                This deletes the task and its comments. This cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onAskingDelete(false)}
+                  className={cn(
+                    shellFocusClassName,
+                    'h-[30px] flex-1 rounded-sm border border-border-strong text-[12.5px] font-medium',
+                  )}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className={cn(
+                    shellFocusClassName,
+                    'h-[30px] flex-1 rounded-sm bg-danger text-[12.5px] font-semibold text-primary-foreground',
+                  )}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={onArchive}
-              className={cn(
-                shellFocusClassName,
-                'inline-flex h-[34px] items-center gap-2 rounded-md px-2.5 text-[13px] text-foreground hover:bg-card',
-              )}
-            >
-              <Archive className="size-[15px]" strokeWidth={1.8} />
-              Archive task
-            </button>
-            <button
-              type="button"
-              onClick={() => onAskingDelete(true)}
-              className={cn(
-                shellFocusClassName,
-                'inline-flex h-[34px] items-center gap-2 rounded-md px-2.5 text-[13px] text-danger hover:bg-danger-soft',
-              )}
-            >
-              <Trash2 className="size-[15px]" strokeWidth={1.8} />
-              Delete task
-            </button>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onArchive}
+                className={cn(
+                  shellFocusClassName,
+                  'inline-flex h-[34px] items-center gap-2 rounded-md px-2.5 text-[13px] text-foreground hover:bg-card',
+                )}
+              >
+                <Archive className="size-[15px]" strokeWidth={1.8} />
+                Archive task
+              </button>
+              <button
+                type="button"
+                onClick={() => onAskingDelete(true)}
+                className={cn(
+                  shellFocusClassName,
+                  'inline-flex h-[34px] items-center gap-2 rounded-md px-2.5 text-[13px] text-danger hover:bg-danger-soft',
+                )}
+              >
+                <Trash2 className="size-[15px]" strokeWidth={1.8} />
+                Delete task
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

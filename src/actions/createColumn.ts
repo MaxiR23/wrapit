@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
-import { accessibleByUser } from '@/lib/membership';
+import { withBoardAccess } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
@@ -35,7 +35,7 @@ export async function createColumn(input: {
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: parsed.data.projectId, ...accessibleByUser(session.user.id) },
+    where: { id: parsed.data.projectId, ...withBoardAccess(session.user.id, 'EDIT') },
   });
   if (!project) {
     return { error: 'Unauthorized' };

@@ -5,6 +5,8 @@
 //
 // Tested:
 // - accessibleByUser returns the membership some-userId where clause
+// - withBoardAccess filters by minimum board access
+// - administeredByUser filters to OWNER or ADMIN
 // - assertNotLastOwner throws LastOwnerError when deleting the last OWNER
 // - assertNotLastOwner throws LastOwnerError when demoting the last OWNER
 // - assertNotLastOwner does not throw when another OWNER remains
@@ -29,13 +31,41 @@ import { createPrismaFake } from '../helpers/prismaFake';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { LastOwnerError, accessibleByUser, assertNotLastOwner, backfillOwnerMemberships } =
-  await import('@/lib/membership');
+const {
+  LastOwnerError,
+  accessibleByUser,
+  administeredByUser,
+  assertNotLastOwner,
+  backfillOwnerMemberships,
+  withBoardAccess,
+} = await import('@/lib/membership');
 
 describe('accessibleByUser', () => {
   it('returns a membership some-filter for the given user id', () => {
     expect(accessibleByUser('user-ada')).toEqual({
       memberships: { some: { userId: 'user-ada' } },
+    });
+  });
+});
+
+describe('withBoardAccess', () => {
+  it('filters memberships to access at least COMMENT', () => {
+    expect(withBoardAccess('user-ada', 'COMMENT')).toEqual({
+      memberships: { some: { userId: 'user-ada', access: { in: ['COMMENT', 'EDIT'] } } },
+    });
+  });
+
+  it('filters memberships to EDIT only', () => {
+    expect(withBoardAccess('user-ada', 'EDIT')).toEqual({
+      memberships: { some: { userId: 'user-ada', access: { in: ['EDIT'] } } },
+    });
+  });
+});
+
+describe('administeredByUser', () => {
+  it('filters memberships to OWNER or ADMIN', () => {
+    expect(administeredByUser('user-ada')).toEqual({
+      memberships: { some: { userId: 'user-ada', role: { in: ['OWNER', 'ADMIN'] } } },
     });
   });
 });

@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { Plus } from 'lucide-react';
 
 import BoardFilterSummary from '@/components/projects/BoardFilterSummary';
 import BoardFiltersPopover from '@/components/projects/BoardFiltersPopover';
 import BoardVisibilityPopover from '@/components/projects/BoardVisibilityPopover';
 import MemberPopover from '@/components/projects/MemberPopover';
 import type { BoardMember } from '@/components/projects/boardTypes';
+import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
@@ -52,7 +54,9 @@ export default function BoardHeader({
 }) {
   const hasCards = taskCount > 0;
   const { query, setQuery } = useProjectsSearch();
+  const { openPanel, setOpenPanel } = useOpenPanel();
   const filterCount = activeFilterGroupCount(filters);
+  const shareOpen = openPanel === 'share';
 
   return (
     <header
@@ -97,8 +101,25 @@ export default function BoardHeader({
         </p>
       )}
       <div className="col-start-1 row-start-4 col-span-2 flex flex-wrap items-center gap-2 tablet:col-start-2 tablet:row-start-1 tablet:row-span-3 tablet:flex-nowrap tablet:self-end tablet:gap-2">
-        <div className="w-full tablet:w-auto">
+        <div className="flex w-full items-center gap-1 tablet:w-auto">
           <MemberPopover members={members} />
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={shareOpen}
+            onClick={() => setOpenPanel(shareOpen ? null : 'share')}
+            className={cn(
+              shellFocusClassName,
+              'ml-0.5 inline-flex h-7 items-center gap-[5px] rounded-full border border-border bg-surface px-[11px] pl-[9px]',
+              'text-[12.5px] font-medium text-muted-foreground tablet:ml-1 tablet:h-[30px] tablet:gap-1.5',
+              shareOpen
+                ? 'border-border-strong bg-card text-foreground'
+                : 'hover:border-border-strong hover:bg-card hover:text-foreground',
+            )}
+          >
+            <Plus className="size-[13px] tablet:size-3.5" strokeWidth={1.9} />
+            Share
+          </button>
         </div>
         <input
           type="search"

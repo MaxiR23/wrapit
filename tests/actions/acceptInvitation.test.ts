@@ -101,6 +101,7 @@ describe('acceptInvitation', () => {
           userId: invitee.id,
           projectId: project.id,
           role: 'MEMBER',
+          access: 'COMMENT',
         }),
       ]),
     );

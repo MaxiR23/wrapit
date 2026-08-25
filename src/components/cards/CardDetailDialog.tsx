@@ -26,6 +26,8 @@ export default function CardDetailDialog({
   members,
   labels,
   currentUser,
+  canEdit = true,
+  canComment = true,
   onCardPatch,
   onMoveColumn,
   onArchive,
@@ -40,6 +42,8 @@ export default function CardDetailDialog({
   members: BoardMember[];
   labels: LabelView[];
   currentUser: BoardMember;
+  canEdit?: boolean;
+  canComment?: boolean;
   onCardPatch: (patch: Partial<BoardCardData>) => void;
   onMoveColumn: (columnId: string) => void;
   onArchive: () => void;
@@ -116,6 +120,8 @@ export default function CardDetailDialog({
               members={members}
               labels={labels}
               currentUser={currentUser}
+              canEdit={canEdit}
+              canComment={canComment}
               askingDelete={askingDelete}
               onAskingDelete={setAskingDelete}
               onCardPatch={onCardPatch}

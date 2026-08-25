@@ -149,26 +149,38 @@ data must still load the real session on the server. See `docs/auth.md`.
 ## Access
 
 A project is accessible when the user has a `Membership` on it, any role
-(`OWNER`, `ADMIN`, `MEMBER`). `Project.ownerId` is creator metadata, not an
-access filter. Columns belong to projects; cards belong to columns. Mutations
-walk that chain — card → column → project → membership — so a forged id for
-someone else's card cannot succeed.
+(`OWNER`, `ADMIN`, `MEMBER`) and any board access (`EDIT`, `COMMENT`, `VIEW`).
+`Project.ownerId` is creator metadata, not an access filter. Columns belong to
+projects; cards belong to columns. Mutations walk that chain — card → column →
+project → membership — so a forged id for someone else's card cannot succeed.
 
-`src/lib/membership.ts` owns the Prisma where clause (`accessibleByUser`) and the
-last-OWNER invariant (`assertNotLastOwner` / `LastOwnerError`).
-`src/lib/ownership.ts` centralizes the column/card/label lookups (`getColumnForUser`,
-`getCardForUser`, `getLabelForUser`) using that where clause. Actions return `{ error: 'Unauthorized' }`
-when any link is missing or the user is not a member. That is deliberate: pages
-hide existence with `notFound()`; mutations refuse without confirming whether
-the row exists for another user.
+`src/lib/membership.ts` owns the Prisma where clauses (`accessibleByUser` for
+any member, `withBoardAccess` for a minimum board access, `administeredByUser`
+for OWNER/ADMIN team administration) and the last-OWNER invariant
+(`assertNotLastOwner` / `LastOwnerError`). `src/lib/ownership.ts` centralizes
+the column/card/label lookups (`getColumnForUser`, `getCardForUser`,
+`getLabelForUser`) using `withBoardAccess`. Actions return `{ error: 'Unauthorized' }`
+when any link is missing, the user is not a member, or their access is too
+weak. That is deliberate: pages hide existence with `notFound()`; mutations
+refuse without confirming whether the row exists for another user.
+
+`Membership.role` governs the team: inviting, removing people, changing board
+access, and toggling the public link. OWNER and ADMIN always have `EDIT` board
+access (schema default plus a check constraint). `Membership.access` governs
+the board: EDIT can create, edit, move, archive and delete cards, edit labels,
+and comment; COMMENT can comment and check subtasks; VIEW is read only.
+Existing memberships backfill to EDIT.
 
 A project must keep at least one OWNER membership. `createProject` inserts the
 creator's OWNER row in the same transaction as the project. `assertNotLastOwner`
-throws `LastOwnerError` (`Cannot remove the last OWNER`) and does not write;
-membership delete and role-change actions in a later slice must call it before
-mutating.
+throws `LastOwnerError` (`Cannot remove the last OWNER`) and does not write.
+`removeMember` confirms the actor administers the project first, then calls
+the guard, then `deleteMany` with a remaining-OWNER condition so two concurrent
+last-owner deletes cannot land on zero owners. A caller who does not administer
+the project gets Unauthorized even when the target is the last OWNER.
 
-Any member can invite by username (`createInvitation`). Non-invitable targets
+OWNER and ADMIN can invite by username (`createInvitation`). A MEMBER cannot.
+Non-invitable targets
 (unknown username, self, already a member, existing PENDING invitation) return
 the same generic message (`CANT_INVITE_USER_MESSAGE`) and write nothing; the
 server logs the real reason. `inviteUserToProject` in `src/lib/invitations.ts`
@@ -179,7 +191,7 @@ and writes nothing. The invitee accepts or rejects; only the invitee can.
 `acceptInvitation` runs in one transaction. The first write is a conditional
 `updateMany` (`id` + `PENDING` → `ACCEPTED`); if that does not claim exactly
 one row, the transaction rolls back and the action returns Unauthorized. Only
-then: `MEMBER` membership, `INVITATION_ACCEPTED` for the inviter, delete the
+then: `MEMBER` membership with `COMMENT` access, `INVITATION_ACCEPTED` for the inviter, delete the
 invitee's `INVITATION_RECEIVED`. `rejectInvitation` is the same without the
 membership write (`PENDING` → `REJECTED`). The invitee check stays outside the
 transaction; the status check does not. Neither action reads `ownerId` for
@@ -209,7 +221,8 @@ in `docs/kanban.md`.
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-    src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
+    src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, owner backfill
+    src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, public board URL
     src/lib/invitations.ts              invite-by-username checks, notification copy
     src/lib/notifications.ts            list/mark-read for the session user's notifications
     src/lib/relativeTime.ts             relative English time without a leading verb
@@ -261,8 +274,12 @@ in `docs/kanban.md`.
     src/actions/createUserStatus.ts     append a custom status (cap 20)
     src/actions/deleteUserStatus.ts     delete an owned status; lock the user; refuse the last remaining
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
-    src/actions/createInvitation.ts     invite a user by username (member only; generic deny)
-    src/actions/acceptInvitation.ts     invitee accepts: membership MEMBER + notify inviter
+    src/lib/validation/membership.ts    update access, remove member, public-link flag
+    src/actions/createInvitation.ts     invite a user by username (OWNER/ADMIN only; generic deny)
+    src/actions/acceptInvitation.ts     invitee accepts: MEMBER + COMMENT access + notify inviter
+    src/actions/updateMembershipAccess.ts  OWNER/ADMIN set a MEMBER's board access
+    src/actions/removeMember.ts         OWNER/ADMIN remove a person; last-OWNER guarded
+    src/actions/updatePublicLink.ts     OWNER/ADMIN persist Project.publicLinkEnabled
     src/actions/rejectInvitation.ts     invitee declines and notifies the inviter
     src/actions/listNotifications.ts    session user's notifications (newest first) + unread count
     src/actions/markNotificationRead.ts mark one of the session user's notifications read
@@ -303,7 +320,7 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, board filters/visibility, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, Share modal, board filters/visibility, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail

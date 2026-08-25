@@ -19,10 +19,14 @@ import { cn } from '@/lib/utils';
 export default function CardSubtaskList({
   cardId,
   subtasks,
+  canEdit = true,
+  canCheck = true,
   onChange,
 }: {
   cardId: string;
   subtasks: BoardSubtask[];
+  canEdit?: boolean;
+  canCheck?: boolean;
   onChange: (subtasks: BoardSubtask[]) => void;
 }) {
   const [draft, setDraft] = useState('');
@@ -96,6 +100,8 @@ export default function CardSubtaskList({
           <SubtaskRow
             key={subtask.id}
             subtask={subtask}
+            canEdit={canEdit}
+            canCheck={canCheck}
             onDone={(done) => patchSubtask(subtask.id, { done })}
             onRename={(text) => patchSubtask(subtask.id, { text })}
             onRemove={() => void handleRemove(subtask)}
@@ -106,29 +112,33 @@ export default function CardSubtaskList({
         ) : null}
       </div>
 
-      <input
-        aria-label="Add a subtask"
-        placeholder="Add a subtask"
-        value={draft}
-        disabled={adding}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            void handleAdd();
-          }
-        }}
-        onBlur={() => void handleAdd()}
-        className={cn(
-          shellFocusClassName,
-          'h-9 rounded-md border border-transparent bg-transparent px-0.5 text-sm text-foreground',
-          'placeholder:text-subtle hover:border-border tablet:text-[13.5px]',
-        )}
-      />
-      {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+      {canEdit ? (
+        <>
+          <input
+            aria-label="Add a subtask"
+            placeholder="Add a subtask"
+            value={draft}
+            disabled={adding}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleAdd();
+              }
+            }}
+            onBlur={() => void handleAdd()}
+            className={cn(
+              shellFocusClassName,
+              'h-9 rounded-md border border-transparent bg-transparent px-0.5 text-sm text-foreground',
+              'placeholder:text-subtle hover:border-border tablet:text-[13.5px]',
+            )}
+          />
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -136,11 +146,15 @@ export default function CardSubtaskList({
 
 function SubtaskRow({
   subtask,
+  canEdit,
+  canCheck,
   onDone,
   onRename,
   onRemove,
 }: {
   subtask: BoardSubtask;
+  canEdit: boolean;
+  canCheck: boolean;
   onDone: (done: boolean) => void;
   onRename: (text: string) => void;
   onRemove: () => void;
@@ -165,7 +179,9 @@ function SubtaskRow({
       <input
         type="checkbox"
         checked={done.value}
+        disabled={!canCheck}
         onChange={() => {
+          if (!canCheck) return;
           const next = !done.value;
           done.setValue(next);
           onDone(next);
@@ -179,7 +195,9 @@ function SubtaskRow({
       <input
         aria-label="Subtask text"
         value={text.value}
+        readOnly={!canEdit}
         onChange={(event) => {
+          if (!canEdit) return;
           const next = event.target.value;
           text.setValue(next);
           onRename(next);
@@ -191,17 +209,19 @@ function SubtaskRow({
           subtask.done ? 'text-subtle line-through' : 'text-foreground',
         )}
       />
-      <button
-        type="button"
-        aria-label={`Remove ${subtask.text}`}
-        onClick={onRemove}
-        className={cn(
-          shellFocusClassName,
-          'inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-danger-soft hover:text-danger',
-        )}
-      >
-        <X className="size-3.5" strokeWidth={1.8} />
-      </button>
+      {canEdit ? (
+        <button
+          type="button"
+          aria-label={`Remove ${subtask.text}`}
+          onClick={onRemove}
+          className={cn(
+            shellFocusClassName,
+            'inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-danger-soft hover:text-danger',
+          )}
+        >
+          <X className="size-3.5" strokeWidth={1.8} />
+        </button>
+      ) : null}
       {text.error ? (
         <span role="alert" className="sr-only">
           {text.error}

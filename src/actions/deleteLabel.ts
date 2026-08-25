@@ -31,7 +31,7 @@ export async function deleteLabel(input: { labelId: string }): Promise<DeleteLab
   const { labelId } = parsed.data;
 
   try {
-    const owned = await getLabelForUser(labelId, session.user.id);
+    const owned = await getLabelForUser(labelId, session.user.id, 'EDIT');
     if (!owned) {
       return { error: 'Unauthorized' };
     }

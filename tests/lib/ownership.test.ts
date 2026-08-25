@@ -82,6 +82,22 @@ describe('getColumnForUser', () => {
     expect(await getColumnForUser(column.id, 'user-ada')).toBeNull();
   });
 
+  it('returns null when the member has COMMENT and EDIT is required', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Shared board',
+      userId: 'user-ada',
+      ownerId: 'user-other',
+      role: 'MEMBER',
+      access: 'COMMENT',
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+
+    expect(await getColumnForUser(column.id, 'user-ada', 'EDIT')).toBeNull();
+    expect(await getColumnForUser(column.id, 'user-ada', 'COMMENT')).not.toBeNull();
+  });
+
   it('returns null for an unknown column id', async () => {
     expect(await getColumnForUser('missing-column', 'user-ada')).toBeNull();
   });

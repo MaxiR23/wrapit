@@ -13,6 +13,7 @@ import {
   nextLabelName,
   type LabelView,
 } from '@/lib/labels';
+import { withBoardAccess } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { seedProjectLabelsIfEmpty } from '@/lib/projectLabels';
@@ -41,7 +42,7 @@ export async function createLabel(input: { projectId: string }): Promise<CreateL
       await lockProjectRow(tx, projectId);
 
       const project = await tx.project.findFirst({
-        where: { id: projectId, memberships: { some: { userId: session.user.id } } },
+        where: { id: projectId, ...withBoardAccess(session.user.id, 'EDIT') },
       });
       if (!project) {
         return { error: 'Unauthorized' as const };

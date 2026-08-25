@@ -33,7 +33,7 @@ export async function updateCardLabel(input: {
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getCardForUser(parsed.data.cardId, session.user.id);
+  const owned = await getCardForUser(parsed.data.cardId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

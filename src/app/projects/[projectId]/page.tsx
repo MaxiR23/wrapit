@@ -2,13 +2,14 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 
-import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import type { BoardCardData } from '@/components/projects/boardTypes';
 import RecordRecentProject from '@/components/projects/RecordRecentProject';
 import ProjectsShell from '@/components/projects/ProjectsShell';
 import { auth } from '@/lib/auth';
+import type { MembershipRole } from '@/lib/boardAccess';
 import { cardLabelFromRow, type LabelView } from '@/lib/labels';
+import type { BoardAccess } from '@/lib/membership';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { getProjectLabelsForUser } from '@/lib/projectLabels';
 import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
@@ -75,6 +76,10 @@ export default async function ProjectDetailPage({
   ]);
   const username = sessionUsername(session.user);
   const projectLabels = labels ?? [];
+  const memberList = members ?? [];
+  const viewer = memberList.find((member) => member.userId === session.user.id);
+  const boardAccess: BoardAccess = viewer?.access ?? 'VIEW';
+  const teamRole: MembershipRole = viewer?.role ?? 'MEMBER';
 
   return (
     <ProjectsShell
@@ -90,35 +95,39 @@ export default async function ProjectDetailPage({
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <RecordRecentProject projectId={project.id} />
-      {project.columns.length === 0 ? (
-        <div className="px-4 py-6 md:px-7">
-          <h1 className="text-[23px] font-semibold tracking-[-0.025em]">{project.title}</h1>
-          <ColumnsEmptyState />
-        </div>
-      ) : (
-        <ProjectBoard
-          title={project.title}
-          projectId={project.id}
-          labels={projectLabels}
-          currentUser={{
-            id: session.user.id,
-            name: session.user.name,
-            username,
-          }}
-          initialVisibility={preferences.boardVisibility}
-          members={(members ?? []).map((member) => ({
-            id: member.userId,
-            name: member.name,
-            username: member.username,
-          }))}
-          columns={project.columns.map((column) => ({
-            id: column.id,
-            title: column.title,
-            order: column.order,
-            cards: column.cards.map((card) => asCard(card, projectLabels)),
-          }))}
-        />
-      )}
+      <ProjectBoard
+        title={project.title}
+        projectId={project.id}
+        labels={projectLabels}
+        currentUser={{
+          id: session.user.id,
+          name: session.user.name,
+          username,
+        }}
+        initialVisibility={preferences.boardVisibility}
+        boardAccess={boardAccess}
+        teamRole={teamRole}
+        publicLinkEnabled={project.publicLinkEnabled === true}
+        members={memberList.map((member) => ({
+          id: member.userId,
+          name: member.name,
+          username: member.username,
+        }))}
+        shareMembers={memberList.map((member) => ({
+          id: member.userId,
+          membershipId: member.membershipId,
+          name: member.name,
+          username: member.username,
+          role: member.role,
+          access: member.access,
+        }))}
+        columns={project.columns.map((column) => ({
+          id: column.id,
+          title: column.title,
+          order: column.order,
+          cards: column.cards.map((card) => asCard(card, projectLabels)),
+        }))}
+      />
     </ProjectsShell>
   );
 }

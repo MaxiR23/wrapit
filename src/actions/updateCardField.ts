@@ -38,7 +38,7 @@ export async function updateCardField(input: {
 
   const { cardId, field, value } = parsed.data;
 
-  const owned = await getCardForUser(cardId, session.user.id);
+  const owned = await getCardForUser(cardId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

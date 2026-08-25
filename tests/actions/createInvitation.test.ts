@@ -3,7 +3,8 @@
 // Tests for the createInvitation server action.
 //
 // Tested:
-// - A member (including MEMBER who is not the creator) can invite by username
+// - An OWNER or ADMIN can invite by username
+// - A MEMBER cannot invite (team administration, not board access)
 // - Unknown username, self, existing member, and pending invitation all return
 //   the same generic error and write nothing
 // - Rejects the call when there is no session or the user is not a member
@@ -66,12 +67,12 @@ describe('createInvitation', () => {
     await db.user.create({ data: invitee });
   });
 
-  it('creates a PENDING invitation when the user is a MEMBER, not the creator', async () => {
+  it('creates a PENDING invitation when the user is an ADMIN, not the creator', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
       userId: sessionUser.id,
       ownerId: 'user-other',
-      role: 'MEMBER',
+      role: 'ADMIN',
     });
 
     const result = await createInvitation({ projectId: project.id, username: 'maxi' });
@@ -93,6 +94,21 @@ describe('createInvitation', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+  });
+
+  it('rejects when the user is a MEMBER', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      ownerId: 'user-other',
+      role: 'MEMBER',
+    });
+
+    const result = await createInvitation({ projectId: project.id, username: 'maxi' });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(logInfo).not.toHaveBeenCalled();
   });
 
   it.each([

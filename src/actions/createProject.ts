@@ -91,6 +91,7 @@ export async function createProject(input: {
           userId: session.user.id,
           projectId: created.id,
           role: 'OWNER',
+          access: 'EDIT',
           starred: parsed.data.featured === true,
         },
       });

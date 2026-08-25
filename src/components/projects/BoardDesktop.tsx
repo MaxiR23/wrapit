@@ -13,6 +13,7 @@ export default function BoardDesktop({
   draggingId,
   overColumnId,
   visibility = DEFAULT_BOARD_VISIBILITY,
+  canEdit = true,
   onDragStart,
   onDragEnd,
   onDragOverColumn,
@@ -26,12 +27,13 @@ export default function BoardDesktop({
   draggingId: string | null;
   overColumnId: string | null;
   visibility?: BoardVisibility;
+  canEdit?: boolean;
   onDragStart: (cardId: string) => void;
   onDragEnd: () => void;
   onDragOverColumn: (columnId: string | null) => void;
   onDropOnColumn: (columnId: string) => void;
   onMoveToColumn: (cardId: string, columnId: string) => void;
-  onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
+  onAddCard?: (columnId: string, trigger: HTMLButtonElement) => void;
   onOpenCard: (cardId: string, trigger: HTMLElement) => void;
 }) {
   return (
@@ -48,15 +50,23 @@ export default function BoardDesktop({
           className="w-[300px] flex-none lg:w-auto lg:flex-1 lg:min-w-0"
           highlighted={overColumnId === column.id}
           dimmedCardId={draggingId}
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-            onDragOverColumn(column.id);
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            onDropOnColumn(column.id);
-          }}
+          onDragOver={
+            canEdit
+              ? (event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  onDragOverColumn(column.id);
+                }
+              : undefined
+          }
+          onDrop={
+            canEdit
+              ? (event) => {
+                  event.preventDefault();
+                  onDropOnColumn(column.id);
+                }
+              : undefined
+          }
           onAddCard={onAddCard}
           renderCard={(card) => (
             <DesktopCard
@@ -64,6 +74,7 @@ export default function BoardDesktop({
               columns={columns}
               visibility={visibility}
               dimmed={draggingId === card.id}
+              canMove={canEdit}
               onDragStart={() => onDragStart(card.id)}
               onDragEnd={onDragEnd}
               onMoveToColumn={onMoveToColumn}
@@ -81,6 +92,7 @@ function DesktopCard({
   columns,
   visibility,
   dimmed,
+  canMove = true,
   onDragStart,
   onDragEnd,
   onMoveToColumn,
@@ -90,6 +102,7 @@ function DesktopCard({
   columns: BoardColumnData[];
   visibility: BoardVisibility;
   dimmed: boolean;
+  canMove?: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
   onMoveToColumn: (cardId: string, columnId: string) => void;
@@ -115,25 +128,33 @@ function DesktopCard({
       card={card}
       visibility={visibility}
       dimmed={dimmed}
-      draggable
-      onDragStart={(event) => {
-        draggedRef.current = true;
-        event.dataTransfer.setData('text/plain', card.id);
-        event.dataTransfer.effectAllowed = 'move';
-        onDragStart();
-      }}
-      onDragEnd={() => {
-        onDragEnd();
-        requestAnimationFrame(() => {
-          draggedRef.current = false;
-        });
-      }}
+      draggable={canMove}
+      onDragStart={
+        canMove
+          ? (event) => {
+              draggedRef.current = true;
+              event.dataTransfer.setData('text/plain', card.id);
+              event.dataTransfer.effectAllowed = 'move';
+              onDragStart();
+            }
+          : undefined
+      }
+      onDragEnd={
+        canMove
+          ? () => {
+              onDragEnd();
+              requestAnimationFrame(() => {
+                draggedRef.current = false;
+              });
+            }
+          : undefined
+      }
       onClick={(event) => {
         if (draggedRef.current) return;
         onOpenCard(card.id, event.currentTarget);
       }}
       moveMenu={
-        destinations.length > 0 ? (
+        canMove && destinations.length > 0 ? (
           <div className="relative">
             <button
               type="button"
