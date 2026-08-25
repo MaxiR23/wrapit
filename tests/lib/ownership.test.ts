@@ -1,6 +1,6 @@
 // tests/lib/ownership.test.ts
 //
-// Tests for column, card, and label access helpers.
+// Tests for column, card, label, and subtask access helpers.
 //
 // Tested:
 // - Resolves a column on a project the user is a member of
@@ -10,9 +10,12 @@
 // - Returns null for a card on a project the user is not a member of
 // - Resolves a label on a project the user is a member of
 // - Returns null for a label the user is not a member of
+// - Resolves a subtask through card, column, and project membership
+// - Returns null for a subtask on a project the user is not a member of
+// - Returns null for an unknown subtask id
 //
 // What is covered:
-// - Membership chain for columns, cards, and labels
+// - Membership chain for columns, cards, labels, and subtasks
 //
 // Run with: pnpm test:run tests/lib/ownership.test.ts
 //
@@ -26,7 +29,8 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { getColumnForUser, getCardForUser, getLabelForUser } = await import('@/lib/ownership');
+const { getColumnForUser, getCardForUser, getLabelForUser, getSubtaskForUser } =
+  await import('@/lib/ownership');
 
 describe('getColumnForUser', () => {
   beforeEach(() => {
@@ -180,5 +184,57 @@ describe('getLabelForUser', () => {
 
   it('returns null for an unknown label id', async () => {
     expect(await getLabelForUser('missing-label', 'user-ada')).toBeNull();
+  });
+});
+
+describe('getSubtaskForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('resolves a subtask through card, column, and project membership', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Write tests', order: 1, columnId: column.id },
+    });
+    const subtask = await db.subtask.create({
+      data: { text: 'First step', done: false, order: 1, cardId: card.id },
+    });
+
+    const result = await getSubtaskForUser(subtask.id, 'user-ada');
+
+    expect(result).toEqual({
+      subtask: expect.objectContaining({ id: subtask.id, text: 'First step' }),
+      card: expect.objectContaining({ id: card.id }),
+      column: expect.objectContaining({ id: column.id }),
+      project: expect.objectContaining({ id: project.id, ownerId: 'user-ada' }),
+    });
+  });
+
+  it('returns null for a subtask on a project the user is not a member of', async () => {
+    const project = await db.project.create({
+      data: { title: 'Other board', ownerId: 'user-other' },
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Stolen', order: 1, columnId: column.id },
+    });
+    const subtask = await db.subtask.create({
+      data: { text: 'Secret', done: false, order: 1, cardId: card.id },
+    });
+
+    expect(await getSubtaskForUser(subtask.id, 'user-ada')).toBeNull();
+  });
+
+  it('returns null for an unknown subtask id', async () => {
+    expect(await getSubtaskForUser('missing-subtask', 'user-ada')).toBeNull();
   });
 });

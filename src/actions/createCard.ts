@@ -38,6 +38,8 @@ type CreateCardResult =
         dueDate: Date | null;
         labelId: string | null;
         assignees: CreatedCardAssignee[];
+        comments: [];
+        subtasks: [];
       };
     }
   | { fieldErrors: CardFieldErrors }
@@ -177,6 +179,8 @@ export async function createCard(input: {
         dueDate: card.dueDate,
         labelId: card.labelId,
         assignees,
+        comments: [],
+        subtasks: [],
       },
     };
   } catch (error) {

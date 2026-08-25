@@ -52,6 +52,7 @@ describe('BoardMobile', () => {
         jumpToColumnId={null}
         onMoveToColumn={vi.fn()}
         onAddCard={vi.fn()}
+        onOpenCard={vi.fn()}
       />,
     );
 
@@ -75,6 +76,7 @@ describe('BoardMobile', () => {
         jumpToColumnId={null}
         onMoveToColumn={onMoveToColumn}
         onAddCard={vi.fn()}
+        onOpenCard={vi.fn()}
       />,
     );
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import BoardCard from '@/components/cards/BoardCard';
 import BoardColumn from '@/components/projects/BoardColumn';
@@ -17,6 +17,7 @@ export default function BoardDesktop({
   onDropOnColumn,
   onMoveToColumn,
   onAddCard,
+  onOpenCard,
 }: {
   columns: BoardColumnData[];
   cardsById: Record<string, BoardCardData>;
@@ -28,6 +29,7 @@ export default function BoardDesktop({
   onDropOnColumn: (columnId: string) => void;
   onMoveToColumn: (cardId: string, columnId: string) => void;
   onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
+  onOpenCard: (cardId: string, trigger: HTMLElement) => void;
 }) {
   return (
     <div
@@ -61,6 +63,7 @@ export default function BoardDesktop({
               onDragStart={() => onDragStart(card.id)}
               onDragEnd={onDragEnd}
               onMoveToColumn={onMoveToColumn}
+              onOpenCard={onOpenCard}
             />
           )}
         />
@@ -76,6 +79,7 @@ function DesktopCard({
   onDragStart,
   onDragEnd,
   onMoveToColumn,
+  onOpenCard,
 }: {
   card: BoardCardData;
   columns: BoardColumnData[];
@@ -83,8 +87,10 @@ function DesktopCard({
   onDragStart: () => void;
   onDragEnd: () => void;
   onMoveToColumn: (cardId: string, columnId: string) => void;
+  onOpenCard: (cardId: string, trigger: HTMLElement) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const draggedRef = useRef(false);
   const destinations = columns.filter(
     (column) => !column.cards.some((item) => item.id === card.id),
   );
@@ -104,11 +110,21 @@ function DesktopCard({
       dimmed={dimmed}
       draggable
       onDragStart={(event) => {
+        draggedRef.current = true;
         event.dataTransfer.setData('text/plain', card.id);
         event.dataTransfer.effectAllowed = 'move';
         onDragStart();
       }}
-      onDragEnd={onDragEnd}
+      onDragEnd={() => {
+        onDragEnd();
+        requestAnimationFrame(() => {
+          draggedRef.current = false;
+        });
+      }}
+      onClick={(event) => {
+        if (draggedRef.current) return;
+        onOpenCard(card.id, event.currentTarget);
+      }}
       moveMenu={
         destinations.length > 0 ? (
           <div className="relative">

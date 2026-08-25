@@ -23,9 +23,12 @@ function asCard(
     id: string;
     title: string;
     code: string;
+    description?: string | null;
     dueDate: Date | null;
     labelId?: string | null;
     assignees?: Array<{ id: string; name: string; username: string }>;
+    comments?: BoardCardData['comments'];
+    subtasks?: BoardCardData['subtasks'];
   },
   labels: LabelView[],
 ): BoardCardData {
@@ -34,9 +37,12 @@ function asCard(
     id: card.id,
     title: card.title,
     code: card.code,
+    description: card.description ?? null,
     dueDate: card.dueDate,
     label: cardLabelFromRow(row),
     assignees: card.assignees ?? [],
+    comments: card.comments ?? [],
+    subtasks: card.subtasks ?? [],
   };
 }
 
@@ -90,6 +96,11 @@ export default async function ProjectDetailPage({
           title={project.title}
           projectId={project.id}
           labels={projectLabels}
+          currentUser={{
+            id: session.user.id,
+            name: session.user.name,
+            username,
+          }}
           members={(members ?? []).map((member) => ({
             id: member.userId,
             name: member.name,

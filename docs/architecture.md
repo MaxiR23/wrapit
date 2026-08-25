@@ -96,6 +96,16 @@ increments `cardCounter`, appends the card, stores the code, optional label and
 due date, and `CardAssignee` rows. An empty assignee list writes the session
 user. Label and assignee ids must belong to the target column's project
 (count guards); a mismatch rolls back.
+Card detail writes follow the same pattern: `updateCardField` persists title,
+description, or due date (returning `{ data: { value } }` for
+`useProfileAutosave`); `updateCardAssignees` and `updateCardLabel` replace
+those fields with membership/label count guards and go through the same
+hook (debounce 0, one in-flight write per card) so overlapping replacements
+cannot commit out of order; subtask done uses one in-flight write per
+subtask and reverts that row only. `archiveCard` claims
+`archivedAt: null`; `createSubtask` appends `(max order)+1`; subtask and
+comment mutations walk the card ownership chain. `deleteCard` is
+`deleteMany` with a count guard; comments and subtasks cascade.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -210,13 +220,14 @@ in `docs/kanban.md`.
     src/lib/localTime.ts                12-hour local time with a GMT offset
     src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
-    src/lib/ownership.ts                column/card/label access chain (membership)
+    src/lib/ownership.ts                column/card/label/subtask access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
     src/lib/kanbanItems.ts              column→card id lists; append to a column
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
     src/lib/cardCode.ts                 stored card code from project title + counter
     src/lib/cardDue.ts                  due labels, overdue, calendar-day persist
+    src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
@@ -232,7 +243,9 @@ in `docs/kanban.md`.
     src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
     src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
     src/lib/validation/column.ts        column title rules; create/delete action ids
-    src/lib/validation/card.ts          card title, optional description/due date/label/assignees; create/update/delete action ids
+    src/lib/validation/card.ts          card title, optional description/due date/label/assignees; create/update/delete/archive/field action ids
+    src/lib/validation/subtask.ts       subtask text and done; create/update/delete ids
+    src/lib/validation/comment.ts       comment body; create cardId
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
@@ -257,8 +270,16 @@ in `docs/kanban.md`.
     src/actions/createColumn.ts         create a column on an accessible project
     src/actions/deleteColumn.ts         delete a column from an accessible project
     src/actions/createCard.ts           create a card on an accessible column (code, counter, label, assignees, due date)
-    src/actions/updateCard.ts           update an accessible card
-    src/actions/deleteCard.ts           delete an accessible card
+    src/actions/updateCard.ts           update an accessible card title and description
+    src/actions/updateCardField.ts      persist one card title, description, or due date
+    src/actions/updateCardAssignees.ts  replace assignees; membership count guard
+    src/actions/updateCardLabel.ts      set or clear the card label
+    src/actions/archiveCard.ts          set archivedAt when it is currently null
+    src/actions/createSubtask.ts        append a subtask on an accessible card
+    src/actions/updateSubtaskField.ts   persist subtask text or done
+    src/actions/deleteSubtask.ts        delete a subtask
+    src/actions/createComment.ts        append a comment as the session user
+    src/actions/deleteCard.ts           delete an accessible card (cascades comments and subtasks)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
     src/actions/updateLabelField.ts     persist one label name or tone for a member
     src/actions/createLabel.ts          append a label (cap 20; seeds defaults if empty)
@@ -281,7 +302,7 @@ in `docs/kanban.md`.
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
-    src/components/cards/               board cards, new-task dialog
+    src/components/cards/               board cards, new-task dialog, card detail
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

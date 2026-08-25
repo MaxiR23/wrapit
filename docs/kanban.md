@@ -37,7 +37,9 @@ example `RS-14`), using the same `initials()` helper as avatars (first and last
 word). Empty titles fall back to `PR`. `Project.cardCounter` increments atomically
 inside the create transaction (`increment: 1`); renaming the project or the card
 does not rewrite stored codes. `Card.archivedAt` hides a card from board reads
-when it is set; nothing in the UI archives yet.
+when it is set. Archive from the card detail writes `archivedAt` with a
+count guard (`archivedAt: null`); delete hard-removes the card and cascades
+comments and subtasks.
 
 `createProject` also accepts optional `invitees` (usernames). The list is
 validated with the project (strings only, username length bounds, at most 20
@@ -52,7 +54,19 @@ The project detail page loads ordered columns and visible cards (those with
 `archivedAt` unset) server-side via `getProjectForUser`, and project labels via
 `getProjectLabelsForUser` (seeding six defaults when the project has none).
 Non-members get `notFound()`. Cards with a `labelId` render a pill from
-`cardLabelFromRow`; unlabeled cards omit it. The new-task dialog opens from a
+`cardLabelFromRow`; unlabeled cards omit it. Clicking a board card opens the
+detail dialog: title, description, due date, assignees, label, and subtask
+done all go through `useProfileAutosave` (debounce 0 for assignees, label,
+and done). One write is in flight per card for assignees and for label, and
+per subtask for done; a successful stale response still advances persisted
+so the loop can write the correction. Column writes immediately and updates
+the board without a remount. Subtasks (add, rename, check, remove)
+and comments (create) live on the card; footer counters on the board face
+are derived from those lists (`commentCount` / `subtaskProgress` in
+`src/lib/cardCounters.ts`), including `0` and `0/0`. Archive and delete
+close the dialog, drop the card from the board, and show a board toast.
+
+The new-task dialog opens from a
 column plus with that column preselected. Its pencil opens the same `LabelEditor`
 used for project labels: renaming a label updates every card that points at it;
 removing one reassigns those cards to the first remaining label. The last label
@@ -230,7 +244,21 @@ src/components/projects/memberPopoverPosition.ts  left offset so the popover sta
 src/components/labels/LabelEditor.tsx     reusable editor (inline in new task)
 src/components/cards/NewCardDialog.tsx  new-task dialog (540px tablet+, full screen on phone)
 src/components/cards/NewCardFields.tsx  shared new-task form body
-src/components/cards/BoardCard.tsx      card face (label, code, title, footer slots)
+src/components/cards/BoardCard.tsx      card face (label, code, title, derived footer)
+src/components/cards/CardDetailDialog.tsx  card detail (900px two-column tablet+, full screen on phone)
+src/components/cards/CardDetailBody.tsx    shared detail body (CSS breakpoints only)
+src/components/cards/CardSubtaskList.tsx   subtask add/rename/check/remove and progress
+src/components/cards/CardCommentThread.tsx comments list and pinned/in-column composer
+src/components/projects/BoardToast.tsx     archive/delete toast on the board
+src/lib/cardCounters.ts                 comment count and subtask done/total
+src/actions/updateCardField.ts          persist one card title, description, or due date
+src/actions/updateCardAssignees.ts      replace card assignees (members only)
+src/actions/updateCardLabel.ts          set or clear the card label
+src/actions/archiveCard.ts              set archivedAt (occupancy on unset)
+src/actions/createSubtask.ts            append a subtask (max order + 1)
+src/actions/updateSubtaskField.ts       persist subtask text or done
+src/actions/deleteSubtask.ts            delete a subtask
+src/actions/createComment.ts            append a comment as the session user
 ```
 
 ## SEE

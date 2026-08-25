@@ -30,7 +30,7 @@ See: https://hub.docker.com/_/postgres
 Defined in `prisma/schema.prisma`. The models and their relations:
 
 - `User` has many `Project`, many `Membership`, many `RecentProject`, many
-  `UserStatus`, many `CardAssignee`, at most one `UserPreferences`, and at most
+  `UserStatus`, many `CardAssignee`, many `Comment` (as card-comment author), at most one `UserPreferences`, and at most
   one `UserProfile`.
   `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
@@ -73,7 +73,11 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   an optional `archivedAt`; archived cards are omitted from board reads. An
   optional `labelId` points at one project label. An optional `dueDate` is a
   calendar day stored as UTC midnight. Relative labels and overdue compare that
-  stored day to the viewer's local calendar day.
+  stored day to the viewer's local calendar day. `Subtask` belongs to a `Card`
+  (`text`, `done`, `Float` `order`); creates append `(max order)+1`. `Comment`
+  belongs to a `Card` and a `User` as author (`body`, `createdAt`). Deleting a
+  card cascades both. Board footer counters are derived from these lists, not
+  stored on `Card`.
 - `CardAssignee` joins a `Card` and a `User`. One row per `(cardId, userId)`.
   Deleting a card or a user cascades the rows. `createCard` writes the chosen
   members, or the session user when nobody was picked.

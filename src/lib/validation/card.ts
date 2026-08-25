@@ -48,6 +48,47 @@ export const deleteCardSchema = z.object({
   cardId: idSchema,
 });
 
+export const archiveCardSchema = z.object({
+  cardId: idSchema,
+});
+
+export const CARD_FIELDS = ['title', 'description', 'dueDate'] as const;
+
+export const updateCardFieldSchema = z
+  .object({
+    cardId: idSchema,
+    field: z.enum(CARD_FIELDS),
+    value: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.field === 'title') {
+      const title = data.value.trim();
+      if (title.length < 1) {
+        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Title is required' });
+      }
+    }
+    if (data.field === 'dueDate') {
+      const trimmed = data.value.trim();
+      if (trimmed === '') return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed) || dueDateFromCalendarDay(trimmed) === null) {
+        ctx.addIssue({ code: 'custom', path: ['value'], message: DUE_DATE_MESSAGE });
+      }
+    }
+  });
+
+export type UpdateCardFieldInput = z.infer<typeof updateCardFieldSchema>;
+export type UpdateCardFieldErrors = FieldErrors<{ value: string }>;
+
+export const updateCardAssigneesSchema = z.object({
+  cardId: idSchema,
+  assigneeIds: z.array(idSchema).max(MAX_CARD_ASSIGNEES),
+});
+
+export const updateCardLabelSchema = z.object({
+  cardId: idSchema,
+  labelId: idSchema.optional().nullable(),
+});
+
 /**
  * Validates the card fields and returns the first error for each invalid
  * field, ready to render next to its input. An empty object means valid input.

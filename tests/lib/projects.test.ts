@@ -9,6 +9,8 @@
 // - Returns an empty list when the user has no memberships
 // - Returns the project with columns in order for a member
 // - Returns each column with its cards in order
+// - Attaches ordered subtasks and comments (with author) on each card
+// - Omits archived cards so their subtasks and comments are not loaded
 // - Returns null for a non-member or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
 // - Recents are at most 4 after membership access filtering, most recent first,
@@ -17,7 +19,8 @@
 //
 // What is covered:
 // - Happy path, membership isolation, empty list, project detail with cards,
-//   grid summaries, recents membership access filter
+//   subtasks and comments, archived cards omitted, grid summaries, recents
+//   membership access filter
 //
 // Run with: pnpm test:run tests/lib/projects.test.ts
 //
@@ -185,6 +188,55 @@ describe('getProjectForUser', () => {
     ]);
   });
 
+  it('attaches ordered subtasks and comments with author on each card', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'First', order: 1, columnId: todo.id },
+    });
+    await db.subtask.create({
+      data: { text: 'Later', done: false, order: 2, cardId: card.id },
+    });
+    await db.subtask.create({
+      data: { text: 'First step', done: true, order: 1, cardId: card.id },
+    });
+    await db.comment.create({
+      data: {
+        body: 'Second note',
+        cardId: card.id,
+        authorId: 'user-ada',
+        createdAt: new Date('2026-08-02'),
+      },
+    });
+    await db.comment.create({
+      data: {
+        body: 'First note',
+        cardId: card.id,
+        authorId: 'user-ada',
+        createdAt: new Date('2026-08-01'),
+      },
+    });
+
+    const result = await getProjectForUser(project.id, 'user-ada');
+    const loaded = result?.columns[0]?.cards[0];
+
+    expect(loaded?.subtasks.map((subtask) => subtask.text)).toEqual(['First step', 'Later']);
+    expect(loaded?.comments.map((comment) => comment.body)).toEqual(['First note', 'Second note']);
+    expect(loaded?.comments[0]?.author).toEqual({
+      id: 'user-ada',
+      name: 'Ada Lovelace',
+      username: 'ada',
+    });
+  });
+
   it('omits archived cards from the board payload', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
@@ -203,6 +255,56 @@ describe('getProjectForUser', () => {
     const result = await getProjectForUser(project.id, 'user-ada');
 
     expect(result?.columns[0]?.cards.map((card) => card.title)).toEqual(['Open']);
+  });
+
+  it('does not load subtasks or comments for archived cards', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const open = await db.card.create({
+      data: { title: 'Open', order: 1, columnId: todo.id },
+    });
+    const archived = await db.card.create({
+      data: { title: 'Archived', order: 2, columnId: todo.id, archivedAt: new Date('2026-08-01') },
+    });
+    await db.subtask.create({
+      data: { text: 'Open step', done: false, order: 1, cardId: open.id },
+    });
+    await db.subtask.create({
+      data: { text: 'Archived step', done: false, order: 1, cardId: archived.id },
+    });
+    await db.comment.create({
+      data: { body: 'Open note', cardId: open.id, authorId: 'user-ada' },
+    });
+    await db.comment.create({
+      data: { body: 'Archived note', cardId: archived.id, authorId: 'user-ada' },
+    });
+
+    db.subtask.findMany.mockClear();
+    db.comment.findMany.mockClear();
+
+    const result = await getProjectForUser(project.id, 'user-ada');
+
+    expect(result?.columns[0]?.cards.map((card) => card.title)).toEqual(['Open']);
+    expect(result?.columns[0]?.cards[0]?.subtasks.map((subtask) => subtask.text)).toEqual([
+      'Open step',
+    ]);
+    expect(result?.columns[0]?.cards[0]?.comments.map((comment) => comment.body)).toEqual([
+      'Open note',
+    ]);
+    expect(db.subtask.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { cardId: { in: [open.id] } } }),
+    );
+    expect(db.comment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { cardId: { in: [open.id] } } }),
+    );
   });
 
   it('returns null for a non-member', async () => {

@@ -72,6 +72,75 @@ export async function getProjectForUser(projectId: string, userId: string) {
     assigneesByCardId.set(row.cardId, current);
   }
 
+  const subtaskRows =
+    visibleCardIds.length === 0
+      ? []
+      : await prisma.subtask.findMany({
+          where: { cardId: { in: visibleCardIds } },
+        });
+  const subtasksByCardId = new Map<
+    string,
+    Array<{ id: string; text: string; done: boolean; order: number }>
+  >();
+  const sortedSubtasks = [...subtaskRows].sort((left, right) => {
+    if (left.order !== right.order) return left.order - right.order;
+    return left.id.localeCompare(right.id);
+  });
+  for (const row of sortedSubtasks) {
+    const current = subtasksByCardId.get(row.cardId) ?? [];
+    current.push({
+      id: row.id,
+      text: row.text,
+      done: row.done,
+      order: row.order,
+    });
+    subtasksByCardId.set(row.cardId, current);
+  }
+
+  const commentRows =
+    visibleCardIds.length === 0
+      ? []
+      : await prisma.comment.findMany({
+          where: { cardId: { in: visibleCardIds } },
+        });
+  const commentAuthorIds = [...new Set(commentRows.map((row) => row.authorId))];
+  const commentAuthors =
+    commentAuthorIds.length === 0
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: commentAuthorIds } },
+        });
+  const commentAuthorsById = new Map(commentAuthors.map((user) => [user.id, user]));
+  const commentsByCardId = new Map<
+    string,
+    Array<{
+      id: string;
+      body: string;
+      createdAt: Date;
+      author: { id: string; name: string; username: string };
+    }>
+  >();
+  const sortedComments = [...commentRows].sort((left, right) => {
+    const byTime = left.createdAt.getTime() - right.createdAt.getTime();
+    if (byTime !== 0) return byTime;
+    return left.id.localeCompare(right.id);
+  });
+  for (const row of sortedComments) {
+    const author = commentAuthorsById.get(row.authorId);
+    const current = commentsByCardId.get(row.cardId) ?? [];
+    current.push({
+      id: row.id,
+      body: row.body,
+      createdAt: row.createdAt,
+      author: {
+        id: row.authorId,
+        name: author?.name ?? '',
+        username: author?.username ?? '',
+      },
+    });
+    commentsByCardId.set(row.cardId, current);
+  }
+
   const columnsWithCards = columns.map((column) => ({
     ...column,
     cards: visibleCards
@@ -79,6 +148,8 @@ export async function getProjectForUser(projectId: string, userId: string) {
       .map((card) => ({
         ...card,
         assignees: assigneesByCardId.get(card.id) ?? [],
+        subtasks: subtasksByCardId.get(card.id) ?? [],
+        comments: commentsByCardId.get(card.id) ?? [],
       })),
   }));
 

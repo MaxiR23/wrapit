@@ -65,6 +65,7 @@ model User {
   recentProjects       RecentProject[]
   statuses             UserStatus[]
   cardAssignments      CardAssignee[]
+  cardComments         Comment[]
   activeStatusId       String?     @unique
   activeStatus         UserStatus? @relation("UserActiveStatus", fields: [activeStatusId], references: [id], onDelete: SetNull)
 }
@@ -162,8 +163,37 @@ model Card {
   label   Label?  @relation(fields: [labelId], references: [id], onDelete: Restrict)
 
   assignees CardAssignee[]
+  subtasks  Subtask[]
+  comments  Comment[]
 
   @@index([labelId])
+}
+
+model Subtask {
+  id     String  @id @default(cuid())
+  text   String
+  done   Boolean @default(false)
+  order  Float
+
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([authorId])
 }
 
 model CardAssignee {

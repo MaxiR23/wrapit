@@ -13,9 +13,11 @@
 // - The column plus opens New task aimed at that column
 // - Create is disabled without a title
 // - A created card lands at the end of the chosen column
+// - Clicking a card opens the detail dialog
+// - Archive removes the card and shows a status toast
 //
 // What is covered:
-// - Render layout, optimistic rollback, serialized persist races, progress, new task modal
+// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail
 //
 // Run with: pnpm test:run tests/components/projects/ProjectBoard.test.tsx
 //
@@ -39,6 +41,29 @@ vi.mock('@/actions/moveCard', () => ({
 vi.mock('@/actions/createCard', () => ({
   createCard,
 }));
+vi.mock('@/actions/archiveCard', () => ({
+  archiveCard: vi.fn(async ({ cardId }: { cardId: string }) => ({ data: { id: cardId } })),
+}));
+vi.mock('@/actions/deleteCard', () => ({
+  deleteCard: vi.fn(async ({ cardId }: { cardId: string }) => ({ data: { id: cardId } })),
+}));
+vi.mock('@/actions/updateCardField', () => ({
+  updateCardField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
+}));
+vi.mock('@/actions/updateCardAssignees', () => ({
+  updateCardAssignees: vi.fn(async () => ({ data: { assignees: [] } })),
+}));
+vi.mock('@/actions/updateCardLabel', () => ({
+  updateCardLabel: vi.fn(async () => ({ data: { labelId: null } })),
+}));
+vi.mock('@/actions/createSubtask', () => ({ createSubtask: vi.fn() }));
+vi.mock('@/actions/updateSubtaskField', () => ({
+  updateSubtaskField: vi.fn(async (input: { value: string | boolean }) => ({
+    data: { value: input.value },
+  })),
+}));
+vi.mock('@/actions/deleteSubtask', () => ({ deleteSubtask: vi.fn() }));
+vi.mock('@/actions/createComment', () => ({ createComment: vi.fn() }));
 vi.mock('@/actions/updateLabelField', () => ({
   updateLabelField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
 }));
@@ -101,6 +126,7 @@ describe('ProjectBoard', () => {
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -132,6 +158,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -178,6 +205,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -217,6 +245,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -284,6 +313,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -333,6 +363,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -387,6 +418,7 @@ describe('ProjectBoard', () => {
           ref={ref}
           title="Sprint board"
           projectId="project-1"
+          currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
           labels={[]}
           columns={columnsAfterFirstPersist}
           members={[]}
@@ -452,6 +484,7 @@ describe('ProjectBoard', () => {
         ref={ref}
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[]}
         columns={columns}
         members={[]}
@@ -474,6 +507,7 @@ describe('ProjectBoard', () => {
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }]}
         columns={columns}
         members={[{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]}
@@ -511,6 +545,7 @@ describe('ProjectBoard', () => {
       <ProjectBoard
         title="Sprint board"
         projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
         labels={[{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }]}
         columns={columns}
         members={[{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]}
@@ -534,5 +569,44 @@ describe('ProjectBoard', () => {
     });
     expect(cardTitlesInColumn('Doing')).toEqual(['Card C', 'New work']);
     expect(within(desktopColumn('Doing')).getByText('SB-4')).toBeInTheDocument();
+  });
+
+  it('opens the card detail when a board card is clicked', async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+
+    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+    expect(screen.getByRole('dialog')).toHaveTextContent('CA-1');
+  });
+
+  it('archives a card, removes it from the board, and shows a toast', async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    await user.click(screen.getAllByRole('button', { name: 'Archive task' })[0]!);
+
+    expect(within(desktopColumn('To do')).queryByText('Card A')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Task archived');
   });
 });
