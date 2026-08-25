@@ -64,6 +64,7 @@ model User {
   profile              UserProfile?
   recentProjects       RecentProject[]
   statuses             UserStatus[]
+  cardAssignments      CardAssignee[]
   activeStatusId       String?     @unique
   activeStatus         UserStatus? @relation("UserActiveStatus", fields: [activeStatusId], references: [id], onDelete: SetNull)
 }
@@ -160,7 +161,19 @@ model Card {
   labelId String?
   label   Label?  @relation(fields: [labelId], references: [id], onDelete: Restrict)
 
+  assignees CardAssignee[]
+
   @@index([labelId])
+}
+
+model CardAssignee {
+  cardId String
+  card   Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, userId])
+  @@index([userId])
 }
 
 model Label {

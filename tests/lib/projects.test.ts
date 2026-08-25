@@ -157,6 +157,32 @@ describe('getProjectForUser', () => {
 
     expect(result?.columns[0]?.cards.map((card) => card.title)).toEqual(['First', 'Second']);
     expect(result?.columns[1]?.cards.map((card) => card.title)).toEqual(['Finished']);
+    expect(result?.columns[0]?.cards.every((card) => card.assignees.length === 0)).toBe(true);
+  });
+
+  it('returns assignees on each card', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'First', order: 1, columnId: todo.id },
+    });
+    await db.cardAssignee.create({
+      data: { cardId: card.id, userId: 'user-ada' },
+    });
+
+    const result = await getProjectForUser(project.id, 'user-ada');
+
+    expect(result?.columns[0]?.cards[0]?.assignees).toEqual([
+      { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    ]);
   });
 
   it('omits archived cards from the board payload', async () => {

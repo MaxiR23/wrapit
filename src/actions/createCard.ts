@@ -5,12 +5,26 @@ import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
 import { cardCode } from '@/lib/cardCode';
+import { dueDateFromCalendarDay } from '@/lib/cardDue';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import { createCardSchema, type CardFieldErrors } from '@/lib/validation/card';
+
+class UnauthorizedWriteError extends Error {
+  constructor() {
+    super('Unauthorized');
+    this.name = 'UnauthorizedWriteError';
+  }
+}
+
+export type CreatedCardAssignee = {
+  id: string;
+  name: string;
+  username: string;
+};
 
 type CreateCardResult =
   | {
@@ -21,15 +35,29 @@ type CreateCardResult =
         code: string;
         order: number;
         columnId: string;
+        dueDate: Date | null;
+        labelId: string | null;
+        assignees: CreatedCardAssignee[];
       };
     }
   | { fieldErrors: CardFieldErrors }
   | { error: string };
 
+function uniqueIds(ids: string[]): string[] {
+  return [...new Set(ids)];
+}
+
+function sessionUsername(user: { username?: unknown }): string {
+  return typeof user.username === 'string' ? user.username : '';
+}
+
 export async function createCard(input: {
   columnId: string;
   title: string;
   description?: string;
+  labelId?: string;
+  dueDate?: string;
+  assigneeIds?: string[];
 }): Promise<CreateCardResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -38,13 +66,20 @@ export async function createCard(input: {
 
   const parsed = createCardSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldFailed = parsed.error.issues.some(
-      (issue) => issue.path[0] === 'title' || issue.path[0] === 'description',
-    );
+    const fieldFailed = parsed.error.issues.some((issue) => {
+      const field = issue.path[0];
+      return field === 'title' || field === 'description' || field === 'dueDate';
+    });
     if (fieldFailed) {
       return { fieldErrors: firstErrorPerField(parsed.error) as CardFieldErrors };
     }
     return { error: 'Unauthorized' };
+  }
+
+  const dueDate =
+    parsed.data.dueDate === undefined ? null : dueDateFromCalendarDay(parsed.data.dueDate);
+  if (parsed.data.dueDate !== undefined && dueDate === null) {
+    return { fieldErrors: { dueDate: 'Enter a valid date' } };
   }
 
   const owned = await getColumnForUser(parsed.data.columnId, session.user.id);
@@ -52,8 +87,30 @@ export async function createCard(input: {
     return { error: 'Unauthorized' };
   }
 
+  const assigneeIds = uniqueIds(
+    parsed.data.assigneeIds && parsed.data.assigneeIds.length > 0
+      ? parsed.data.assigneeIds
+      : [session.user.id],
+  );
+
   try {
     const card = await prisma.$transaction(async (tx) => {
+      if (parsed.data.labelId) {
+        const labelCount = await tx.label.count({
+          where: { id: parsed.data.labelId, projectId: owned.project.id },
+        });
+        if (labelCount !== 1) {
+          throw new UnauthorizedWriteError();
+        }
+      }
+
+      const memberCount = await tx.membership.count({
+        where: { projectId: owned.project.id, userId: { in: assigneeIds } },
+      });
+      if (memberCount !== assigneeIds.length) {
+        throw new UnauthorizedWriteError();
+      }
+
       const project = await tx.project.update({
         where: { id: owned.project.id },
         data: { cardCounter: { increment: 1 } },
@@ -68,15 +125,43 @@ export async function createCard(input: {
       const description = parsed.data.description ? parsed.data.description : null;
       const code = cardCode(project.title, project.cardCounter);
 
-      return tx.card.create({
+      const created = await tx.card.create({
         data: {
           title: parsed.data.title,
           description,
           code,
           order,
           columnId: owned.column.id,
+          dueDate,
+          labelId: parsed.data.labelId ?? null,
         },
       });
+
+      await tx.cardAssignee.createMany({
+        data: assigneeIds.map((userId) => ({ cardId: created.id, userId })),
+      });
+
+      return created;
+    });
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: assigneeIds } },
+      select: { id: true, name: true, username: true },
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const assignees = assigneeIds.map((userId) => {
+      const user = usersById.get(userId);
+      if (user) {
+        return { id: user.id, name: user.name, username: user.username };
+      }
+      if (userId === session.user.id) {
+        return {
+          id: userId,
+          name: session.user.name,
+          username: sessionUsername(session.user),
+        };
+      }
+      return { id: userId, name: '', username: '' };
     });
 
     revalidatePath(projectPath(owned.project.id));
@@ -89,9 +174,15 @@ export async function createCard(input: {
         code: card.code,
         order: card.order,
         columnId: card.columnId,
+        dueDate: card.dueDate,
+        labelId: card.labelId,
+        assignees,
       },
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof UnauthorizedWriteError) {
+      return { error: 'Unauthorized' };
+    }
     return { error: GENERIC_ERROR_MESSAGE };
   }
 }

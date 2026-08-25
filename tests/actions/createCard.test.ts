@@ -12,9 +12,12 @@
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 // - Rejects an empty, oversized, or non-string column id without a lookup
+// - Persists an optional due date, label, and assignees in the same transaction
+// - Assigns the creator when no assignees are picked
+// - Rejects a non-member assignee or a label from another project
 //
 // What is covered:
-// - Happy path, optional description, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
+// - Happy path, optional description, due date, label, assignees, creator fallback, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/createCard.test.ts
 //
@@ -217,5 +220,116 @@ describe('createCard', () => {
     expect(db.card.create).not.toHaveBeenCalled();
     expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('persists a due date, label, and assignees in the same transaction', async () => {
+    const { project, column } = await seedOwnedColumn();
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+    await db.membership.create({
+      data: { userId: 'user-max', projectId: project.id, role: 'MEMBER' },
+    });
+    const label = await db.label.create({
+      data: { name: 'Design', tone: 'blue', order: 0, projectId: project.id },
+    });
+
+    const result = await createCard({
+      columnId: column.id,
+      title: 'Ship the modal',
+      labelId: label.id,
+      dueDate: '2026-08-25',
+      assigneeIds: ['user-max', sessionUser.id],
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        title: 'Ship the modal',
+        code: 'SB-1',
+        labelId: label.id,
+        dueDate: new Date(Date.UTC(2026, 7, 25)),
+        assignees: [
+          { id: 'user-max', name: 'Maxi', username: 'maxi' },
+          { id: sessionUser.id, name: 'Ada', username: '' },
+        ],
+      }),
+    });
+    expect(db.cardAssignee.rows).toHaveLength(2);
+    expect(db.project.rows[0]?.cardCounter).toBe(1);
+  });
+
+  it('assigns the creator when no assignees are picked', async () => {
+    const { column } = await seedOwnedColumn();
+
+    const result = await createCard({ columnId: column.id, title: 'Solo' });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        assignees: [{ id: sessionUser.id, name: 'Ada', username: '' }],
+      }),
+    });
+    expect(db.cardAssignee.rows).toEqual([
+      expect.objectContaining({ userId: sessionUser.id, cardId: expect.any(String) }),
+    ]);
+  });
+
+  it('rejects a non-member assignee without writing a card', async () => {
+    const { column } = await seedOwnedColumn();
+
+    const result = await createCard({
+      columnId: column.id,
+      title: 'Stolen',
+      assigneeIds: ['user-stranger'],
+    });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.card.rows).toHaveLength(0);
+    expect(db.cardAssignee.rows).toHaveLength(0);
+    expect(db.project.rows[0]?.cardCounter ?? 0).toBe(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects a label from another project without writing a card', async () => {
+    const { column } = await seedOwnedColumn();
+    const other = await seedAccessibleProject(db, {
+      title: 'Other board',
+      userId: 'user-other',
+    });
+    const foreignLabel = await db.label.create({
+      data: { name: 'Secret', tone: 'red', order: 0, projectId: other.id },
+    });
+
+    const result = await createCard({
+      columnId: column.id,
+      title: 'Leak',
+      labelId: foreignLabel.id,
+    });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.card.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid due date without a lookup', async () => {
+    db.column.findFirst.mockClear();
+
+    const result = await createCard({
+      columnId: 'column-1',
+      title: 'Write tests',
+      dueDate: '25 ago',
+    });
+
+    expect(result).toEqual({ fieldErrors: { dueDate: 'Enter a valid date' } });
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.card.rows).toHaveLength(0);
+  });
+
+  it('rejects an invalid assignee id without a lookup', async () => {
+    db.column.findFirst.mockClear();
+
+    expect(
+      await createCard({ columnId: 'column-1', title: 'Write tests', assigneeIds: [''] }),
+    ).toEqual({ error: 'Unauthorized' });
+    expect(db.column.findFirst).not.toHaveBeenCalled();
   });
 });

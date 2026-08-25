@@ -25,6 +25,7 @@ function asCard(
     code: string;
     dueDate: Date | null;
     labelId?: string | null;
+    assignees?: Array<{ id: string; name: string; username: string }>;
   },
   labels: LabelView[],
 ): BoardCardData {
@@ -35,6 +36,7 @@ function asCard(
     code: card.code,
     dueDate: card.dueDate,
     label: cardLabelFromRow(row),
+    assignees: card.assignees ?? [],
   };
 }
 

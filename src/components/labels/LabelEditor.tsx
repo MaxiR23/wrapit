@@ -58,7 +58,7 @@ export default function LabelEditor({
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border bg-background p-3">
+    <div className="flex flex-col gap-1.5 rounded-md border border-border bg-background p-[13px] tablet:p-3">
       <p className="pb-0.5 text-[11.5px] text-subtle">
         Edit the name, click the color to change it
       </p>
@@ -78,7 +78,7 @@ export default function LabelEditor({
           type="button"
           className={cn(
             shellFocusClassName,
-            'inline-flex h-[30px] items-center gap-1.5 rounded-sm border border-border bg-surface px-[11px] text-[12.5px] font-medium',
+            'inline-flex h-9 items-center gap-1.5 rounded-sm border border-border bg-surface px-[11px] text-[12.5px] font-medium tablet:h-[30px]',
           )}
           onClick={() => void handleAdd()}
         >
@@ -89,7 +89,7 @@ export default function LabelEditor({
           type="button"
           className={cn(
             shellFocusClassName,
-            'ml-auto h-[30px] px-[11px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground',
+            'ml-auto h-9 px-[11px] text-[12.5px] font-medium text-muted-foreground hover:text-foreground tablet:h-[30px]',
           )}
           onClick={onDone}
         >

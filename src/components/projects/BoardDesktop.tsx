@@ -16,6 +16,7 @@ export default function BoardDesktop({
   onDragOverColumn,
   onDropOnColumn,
   onMoveToColumn,
+  onAddCard,
 }: {
   columns: BoardColumnData[];
   cardsById: Record<string, BoardCardData>;
@@ -26,6 +27,7 @@ export default function BoardDesktop({
   onDragOverColumn: (columnId: string | null) => void;
   onDropOnColumn: (columnId: string) => void;
   onMoveToColumn: (cardId: string, columnId: string) => void;
+  onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
 }) {
   return (
     <div
@@ -50,6 +52,7 @@ export default function BoardDesktop({
             event.preventDefault();
             onDropOnColumn(column.id);
           }}
+          onAddCard={onAddCard}
           renderCard={(card) => (
             <DesktopCard
               card={cardsById[card.id] ?? card}

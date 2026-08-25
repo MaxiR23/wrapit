@@ -23,6 +23,7 @@ export default function BoardMobile({
   jumpToColumnId,
   jumpToken = 0,
   onMoveToColumn,
+  onAddCard,
 }: {
   columns: BoardColumnData[];
   cardsById: Record<string, BoardCardData>;
@@ -30,6 +31,7 @@ export default function BoardMobile({
   jumpToColumnId: string | null;
   jumpToken?: number;
   onMoveToColumn: (cardId: string, columnId: string) => void;
+  onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -218,6 +220,7 @@ export default function BoardMobile({
               cards={column.cards}
               highlighted={overColumnId === column.id}
               liftedCardId={liftedId}
+              onAddCard={onAddCard}
               renderCard={(card) => (
                 <BoardCard
                   card={cardsById[card.id] ?? card}

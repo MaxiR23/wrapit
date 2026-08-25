@@ -49,7 +49,7 @@ export default function LabelRow({
         aria-label="Change color"
         className={cn(
           shellFocusClassName,
-          'size-[22px] shrink-0 rounded-full border',
+          'size-7 shrink-0 rounded-full border tablet:size-[22px]',
           classes.swatch,
         )}
         onClick={() => {
@@ -62,7 +62,7 @@ export default function LabelRow({
         aria-label={`${label.name} name`}
         className={cn(
           shellFocusClassName,
-          'h-8 min-w-0 flex-1 rounded-sm border border-border bg-surface px-2.5 text-[13px] text-foreground',
+          'h-[38px] min-w-0 flex-1 rounded-sm border border-border bg-surface px-2.5 text-[13.5px] text-foreground tablet:h-8 tablet:text-[13px]',
         )}
         value={label.name}
         onChange={(event) => {
@@ -79,7 +79,7 @@ export default function LabelRow({
         disabled={!canDelete}
         className={cn(
           shellFocusClassName,
-          'inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
+          'inline-flex size-[34px] shrink-0 items-center justify-center rounded-sm text-muted-foreground tablet:size-7',
           'hover:bg-danger-soft hover:text-danger',
           'disabled:pointer-events-none disabled:opacity-40',
         )}

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 
-export type OpenPanelId = 'notifications' | 'account' | 'labels' | null;
+export type OpenPanelId = 'notifications' | 'account' | null;
 
 type OpenPanelContextValue = {
   openPanel: OpenPanelId;

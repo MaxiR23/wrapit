@@ -45,6 +45,7 @@ describe('BoardDesktop', () => {
         onDragOverColumn={vi.fn()}
         onDropOnColumn={vi.fn()}
         onMoveToColumn={onMoveToColumn}
+        onAddCard={vi.fn()}
       />,
     );
 

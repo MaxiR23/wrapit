@@ -41,10 +41,45 @@ export async function getProjectForUser(projectId: string, userId: string) {
           orderBy: [{ order: 'asc' }, { id: 'asc' }],
         });
   const visibleCards = cards.filter((card) => card.archivedAt == null);
+  const visibleCardIds = visibleCards.map((card) => card.id);
+  const assignmentRows =
+    visibleCardIds.length === 0
+      ? []
+      : await prisma.cardAssignee.findMany({
+          where: { cardId: { in: visibleCardIds } },
+        });
+  const assigneeUserIds = [...new Set(assignmentRows.map((row) => row.userId))];
+  const assigneeUsers =
+    assigneeUserIds.length === 0
+      ? []
+      : await prisma.user.findMany({
+          where: { id: { in: assigneeUserIds } },
+        });
+  const assigneeUsersById = new Map(assigneeUsers.map((user) => [user.id, user]));
+  const assigneesByCardId = new Map<
+    string,
+    Array<{ id: string; name: string; username: string }>
+  >();
+  for (const row of assignmentRows) {
+    const user = assigneeUsersById.get(row.userId);
+    const assignee = {
+      id: row.userId,
+      name: user?.name ?? '',
+      username: user?.username ?? '',
+    };
+    const current = assigneesByCardId.get(row.cardId) ?? [];
+    current.push(assignee);
+    assigneesByCardId.set(row.cardId, current);
+  }
 
   const columnsWithCards = columns.map((column) => ({
     ...column,
-    cards: visibleCards.filter((card) => card.columnId === column.id),
+    cards: visibleCards
+      .filter((card) => card.columnId === column.id)
+      .map((card) => ({
+        ...card,
+        assignees: assigneesByCardId.get(card.id) ?? [],
+      })),
   }));
 
   return { ...project, columns: columnsWithCards };

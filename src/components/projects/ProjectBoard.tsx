@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { moveCard } from '@/actions/moveCard';
+import NewCardDialog, { type CreatedBoardCard } from '@/components/cards/NewCardDialog';
 import BoardDesktop from '@/components/projects/BoardDesktop';
 import BoardHeader from '@/components/projects/BoardHeader';
 import BoardMobile from '@/components/projects/BoardMobile';
@@ -77,9 +78,20 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const persistedItemsRef = useRef(itemsByColumn);
   const persistChainRef = useRef(Promise.resolve());
   const persistQueueRef = useRef<Array<{ cardId: string; targetColumnId: string }>>([]);
+  const createdCardsRef = useRef<Map<string, { card: BoardCardData; columnId: string }>>(new Map());
+  const addTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [addColumnId, setAddColumnId] = useState<string | null>(null);
 
   useEffect(() => {
     const next = buildInitialState(columns);
+    for (const [id, entry] of createdCardsRef.current) {
+      if (next.cardsById[id]) {
+        createdCardsRef.current.delete(id);
+        continue;
+      }
+      next.cardsById[id] = entry.card;
+      next.itemsByColumn[entry.columnId] = [...(next.itemsByColumn[entry.columnId] ?? []), id];
+    }
     persistedItemsRef.current = next.itemsByColumn;
     const display = applyPendingJobs(next.itemsByColumn, persistQueueRef.current);
     itemsRef.current = display;
@@ -161,6 +173,33 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
 
   useImperativeHandle(ref, () => ({ commitMove }), [commitMove]);
 
+  function handleAddCard(columnId: string, trigger: HTMLButtonElement) {
+    addTriggerRef.current = trigger;
+    setAddColumnId(columnId);
+  }
+
+  function handleCardCreated(card: CreatedBoardCard) {
+    const { columnId, ...boardCard } = card;
+    createdCardsRef.current.set(boardCard.id, { card: boardCard, columnId });
+    cardsById.current = { ...cardsById.current, [boardCard.id]: boardCard };
+    setItemsByColumn((current) => {
+      const next = {
+        ...current,
+        [columnId]: [...(current[columnId] ?? []), boardCard.id],
+      };
+      itemsRef.current = next;
+      persistedItemsRef.current = {
+        ...persistedItemsRef.current,
+        [columnId]: persistedItemsRef.current[columnId]?.includes(boardCard.id)
+          ? persistedItemsRef.current[columnId]
+          : [...(persistedItemsRef.current[columnId] ?? []), boardCard.id],
+      };
+      return next;
+    });
+    setJumpToColumnId(columnId);
+    setJumpToken((token) => token + 1);
+  }
+
   function dropDraggingOn(columnId: string) {
     const cardId = draggingId;
     setDraggingId(null);
@@ -177,9 +216,6 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         taskCount={progress.taskCount}
         percent={progress.percent}
         members={members}
-        projectId={projectId}
-        labels={labels}
-        onLabelsChange={handleLabelsChange}
       />
 
       {error ? (
@@ -206,6 +242,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         onMoveToColumn={(cardId, columnId) => {
           void commitMove(cardId, columnId);
         }}
+        onAddCard={handleAddCard}
       />
 
       <BoardMobile
@@ -217,6 +254,23 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         onMoveToColumn={(cardId, columnId) => {
           void commitMove(cardId, columnId);
         }}
+        onAddCard={handleAddCard}
+      />
+
+      <NewCardDialog
+        open={addColumnId !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setAddColumnId(null);
+        }}
+        projectId={projectId}
+        projectTitle={title}
+        initialColumnId={addColumnId ?? columnMeta.current[0]?.id ?? ''}
+        columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
+        members={members}
+        labels={labels}
+        onLabelsChange={handleLabelsChange}
+        onCreated={handleCardCreated}
+        onRestoreFocus={() => addTriggerRef.current?.focus()}
       />
     </div>
   );
