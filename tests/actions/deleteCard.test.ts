@@ -4,13 +4,14 @@
 //
 // Tested:
 // - Deletes a card that belongs to the signed-in user's project
+// - Deletes comments and subtasks that belong to the card
 // - Rejects deleting a card on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
 // - Rejects an empty, oversized, or non-string card id without a lookup
 //
 // What is covered:
-// - Happy path, ownership, unauthorized, unexpected Prisma failure, invalid id
+// - Happy path, cascade delete, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/deleteCard.test.ts
 //
@@ -71,6 +72,32 @@ describe('deleteCard', () => {
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
+  it('deletes comments and subtasks that belong to the card', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Write tests', order: 1, columnId: column.id },
+    });
+    await db.subtask.create({
+      data: { text: 'First step', done: false, order: 1, cardId: card.id },
+    });
+    await db.comment.create({
+      data: { body: 'Looks good', cardId: card.id, authorId: sessionUser.id },
+    });
+
+    const result = await deleteCard({ cardId: card.id });
+
+    expect(result).toEqual({ data: { id: card.id } });
+    expect(db.card.rows).toHaveLength(0);
+    expect(db.subtask.rows).toHaveLength(0);
+    expect(db.comment.rows).toHaveLength(0);
+  });
+
   it('rejects deleting a card on another user project', async () => {
     const project = await db.project.create({
       data: { title: 'Other board', ownerId: 'user-other' },
@@ -122,7 +149,7 @@ describe('deleteCard', () => {
     });
     const leakyMessage =
       'PrismaClientKnownRequestError: connection to 10.0.0.5:5432 refused for user "wrapit"';
-    db.card.delete.mockRejectedValueOnce(new Error(leakyMessage));
+    db.card.deleteMany.mockRejectedValueOnce(new Error(leakyMessage));
 
     const result = await deleteCard({ cardId: card.id });
 
@@ -142,7 +169,7 @@ describe('deleteCard', () => {
     });
     expect(await deleteCard({ cardId: 1 as unknown as string })).toEqual({ error: 'Unauthorized' });
     expect(db.card.findFirst).not.toHaveBeenCalled();
-    expect(db.card.delete).not.toHaveBeenCalled();
+    expect(db.card.deleteMany).not.toHaveBeenCalled();
     expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });

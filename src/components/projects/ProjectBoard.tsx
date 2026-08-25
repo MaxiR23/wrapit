@@ -2,13 +2,17 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
+import { archiveCard } from '@/actions/archiveCard';
+import { deleteCard } from '@/actions/deleteCard';
 import { moveCard } from '@/actions/moveCard';
+import CardDetailDialog from '@/components/cards/CardDetailDialog';
 import NewCardDialog, { type CreatedBoardCard } from '@/components/cards/NewCardDialog';
 import BoardDesktop from '@/components/projects/BoardDesktop';
 import BoardHeader from '@/components/projects/BoardHeader';
 import BoardMobile from '@/components/projects/BoardMobile';
+import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
 import type { BoardCardData, BoardColumnData, BoardMember } from '@/components/projects/boardTypes';
-import { commitMoveToColumn, type ItemsByColumn } from '@/lib/kanbanItems';
+import { commitMoveToColumn, findContainer, type ItemsByColumn } from '@/lib/kanbanItems';
 import {
   applyPendingJobs,
   isMoveCardErrorResult,
@@ -16,6 +20,7 @@ import {
   reducePersistFinish,
 } from '@/lib/kanbanPersist';
 import { syncCardLabels, type LabelView } from '@/lib/labels';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
 
 export type ProjectBoardHandle = {
@@ -28,6 +33,7 @@ type ProjectBoardProps = {
   columns: BoardColumnData[];
   members: BoardMember[];
   labels: LabelView[];
+  currentUser: BoardMember;
 };
 
 function buildInitialState(columns: BoardColumnData[]) {
@@ -60,7 +66,7 @@ function columnsFromItems(
 }
 
 const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function ProjectBoard(
-  { title, projectId, columns, members, labels: initialLabels },
+  { title, projectId, columns, members, labels: initialLabels, currentUser },
   ref,
 ) {
   const initial = buildInitialState(columns);
@@ -80,7 +86,11 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const persistQueueRef = useRef<Array<{ cardId: string; targetColumnId: string }>>([]);
   const createdCardsRef = useRef<Map<string, { card: BoardCardData; columnId: string }>>(new Map());
   const addTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const openTriggerRef = useRef<HTMLElement | null>(null);
+  const pendingCardWritesRef = useRef<Map<string, BoardCardData>>(new Map());
   const [addColumnId, setAddColumnId] = useState<string | null>(null);
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [toast, setToast] = useState<BoardToastMessage | null>(null);
 
   useEffect(() => {
     const next = buildInitialState(columns);
@@ -91,6 +101,13 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
       }
       next.cardsById[id] = entry.card;
       next.itemsByColumn[entry.columnId] = [...(next.itemsByColumn[entry.columnId] ?? []), id];
+    }
+    for (const [id, local] of pendingCardWritesRef.current) {
+      if (next.cardsById[id]) {
+        next.cardsById[id] = local;
+      } else {
+        pendingCardWritesRef.current.delete(id);
+      }
     }
     persistedItemsRef.current = next.itemsByColumn;
     const display = applyPendingJobs(next.itemsByColumn, persistQueueRef.current);
@@ -200,6 +217,72 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     setJumpToken((token) => token + 1);
   }
 
+  function bumpBoard() {
+    setItemsByColumn((current) => ({ ...current }));
+  }
+
+  function handleOpenCard(cardId: string, trigger: HTMLElement) {
+    openTriggerRef.current = trigger;
+    setOpenCardId(cardId);
+  }
+
+  function patchOpenCard(patch: Partial<BoardCardData>) {
+    if (!openCardId) return;
+    const current = cardsById.current[openCardId];
+    if (!current) return;
+    const next = { ...current, ...patch };
+    cardsById.current = { ...cardsById.current, [openCardId]: next };
+    pendingCardWritesRef.current.set(openCardId, next);
+    bumpBoard();
+  }
+
+  function removeCardFromBoard(cardId: string) {
+    pendingCardWritesRef.current.delete(cardId);
+    createdCardsRef.current.delete(cardId);
+    const nextCards = { ...cardsById.current };
+    delete nextCards[cardId];
+    cardsById.current = nextCards;
+    setItemsByColumn((current) => {
+      const next: ItemsByColumn = {};
+      for (const [columnId, ids] of Object.entries(current)) {
+        next[columnId] = ids.filter((id) => id !== cardId);
+      }
+      itemsRef.current = next;
+      const persisted: ItemsByColumn = {};
+      for (const [columnId, ids] of Object.entries(persistedItemsRef.current)) {
+        persisted[columnId] = ids.filter((id) => id !== cardId);
+      }
+      persistedItemsRef.current = persisted;
+      return next;
+    });
+  }
+
+  async function handleArchive() {
+    if (!openCardId) return;
+    const cardId = openCardId;
+    const result = await archiveCard({ cardId });
+    if ('error' in result) {
+      setError(GENERIC_ERROR_MESSAGE);
+      return;
+    }
+    setOpenCardId(null);
+    removeCardFromBoard(cardId);
+    setToast({ message: 'Task archived', role: 'status' });
+  }
+
+  async function handleDelete() {
+    if (!openCardId) return;
+    const cardId = openCardId;
+    const result = await deleteCard({ cardId });
+    if ('error' in result) {
+      setError(GENERIC_ERROR_MESSAGE);
+      return;
+    }
+    setOpenCardId(null);
+    removeCardFromBoard(cardId);
+    setToast({ message: 'Task deleted', role: 'alert' });
+  }
+
   function dropDraggingOn(columnId: string) {
     const cardId = draggingId;
     setDraggingId(null);
@@ -243,6 +326,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           void commitMove(cardId, columnId);
         }}
         onAddCard={handleAddCard}
+        onOpenCard={handleOpenCard}
       />
 
       <BoardMobile
@@ -255,6 +339,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           void commitMove(cardId, columnId);
         }}
         onAddCard={handleAddCard}
+        onOpenCard={handleOpenCard}
       />
 
       <NewCardDialog
@@ -272,6 +357,29 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         onCreated={handleCardCreated}
         onRestoreFocus={() => addTriggerRef.current?.focus()}
       />
+
+      <CardDetailDialog
+        open={openCardId !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setOpenCardId(null);
+        }}
+        card={openCardId ? (cardsById.current[openCardId] ?? null) : null}
+        columnId={openCardId ? (findContainer(itemsByColumn, openCardId) ?? '') : ''}
+        columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
+        members={members}
+        labels={labels}
+        currentUser={currentUser}
+        onCardPatch={patchOpenCard}
+        onMoveColumn={(columnId) => {
+          if (!openCardId) return;
+          void commitMove(openCardId, columnId);
+        }}
+        onArchive={() => void handleArchive()}
+        onDelete={() => void handleDelete()}
+        onRestoreFocus={() => openTriggerRef.current?.focus()}
+      />
+
+      <BoardToast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 });

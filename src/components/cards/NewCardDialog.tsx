@@ -138,6 +138,9 @@ export default function NewCardDialog({
       dueDate: result.data.dueDate,
       label: cardLabelFromRow(labelRow),
       assignees: result.data.assignees,
+      comments: result.data.comments ?? [],
+      subtasks: result.data.subtasks ?? [],
+      description: result.data.description,
       columnId: result.data.columnId,
     });
     setSubmitting(false);

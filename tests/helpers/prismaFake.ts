@@ -309,6 +309,10 @@ export function createPrismaFake() {
         return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
       case 'assignees':
         return (models.cardAssignee?.rows ?? []).filter((assignee) => assignee.cardId === row.id);
+      case 'subtasks':
+        return (models.subtask?.rows ?? []).filter((subtask) => subtask.cardId === row.id);
+      case 'comments':
+        return (models.comment?.rows ?? []).filter((comment) => comment.cardId === row.id);
       default:
         return [];
     }
@@ -344,9 +348,46 @@ export function createPrismaFake() {
     userStatus: createModel(getRelated),
     label: createModel(getRelated),
     cardAssignee: createModel(getRelated),
+    subtask: createModel(getRelated),
+    comment: createModel(getRelated),
     recentProject: createModel(getRelated),
   };
   Object.assign(models, fake);
+
+  function cascadeCardChildren(cardIds: unknown[]) {
+    const ids = new Set(cardIds);
+    fake.cardAssignee.rows.splice(
+      0,
+      fake.cardAssignee.rows.length,
+      ...fake.cardAssignee.rows.filter((row) => !ids.has(row.cardId)),
+    );
+    fake.subtask.rows.splice(
+      0,
+      fake.subtask.rows.length,
+      ...fake.subtask.rows.filter((row) => !ids.has(row.cardId)),
+    );
+    fake.comment.rows.splice(
+      0,
+      fake.comment.rows.length,
+      ...fake.comment.rows.filter((row) => !ids.has(row.cardId)),
+    );
+  }
+
+  const originalCardDelete = fake.card.delete;
+  fake.card.delete = vi.fn(async (args: { where?: Row }) => {
+    const matched = fake.card.rows.find((row) => matches(row, args.where, getRelated));
+    const deleted = await originalCardDelete(args);
+    if (matched?.id != null) cascadeCardChildren([matched.id]);
+    return deleted;
+  });
+
+  const originalCardDeleteMany = fake.card.deleteMany;
+  fake.card.deleteMany = vi.fn(async (args: { where?: Row } = {}) => {
+    const matched = fake.card.rows.filter((row) => matches(row, args.where, getRelated));
+    const result = await originalCardDeleteMany(args);
+    cascadeCardChildren(matched.map((row) => row.id));
+    return result;
+  });
 
   function nullifyActiveStatuses(deletedStatusIds: unknown[]) {
     const ids = new Set(deletedStatusIds);

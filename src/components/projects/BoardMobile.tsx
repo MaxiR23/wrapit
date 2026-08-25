@@ -24,6 +24,7 @@ export default function BoardMobile({
   jumpToken = 0,
   onMoveToColumn,
   onAddCard,
+  onOpenCard,
 }: {
   columns: BoardColumnData[];
   cardsById: Record<string, BoardCardData>;
@@ -32,6 +33,7 @@ export default function BoardMobile({
   jumpToken?: number;
   onMoveToColumn: (cardId: string, columnId: string) => void;
   onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
+  onOpenCard: (cardId: string, trigger: HTMLElement) => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -231,7 +233,9 @@ export default function BoardMobile({
                     if (didLongPressRef.current || liftedIdRef.current) {
                       event.preventDefault();
                       event.stopPropagation();
+                      return;
                     }
+                    onOpenCard(card.id, event.currentTarget);
                   }}
                 />
               )}

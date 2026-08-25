@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Renders title and stored code
-// - Omits label, comments, subtasks, due, and assignees when they are absent
+// - Shows 0 comments and 0/0 subtasks when lists are empty
 // - Shows a due label and the late token when the date is before today
 // - Renders a label pill for a known tone
 //
@@ -36,11 +36,12 @@ describe('BoardCard', () => {
     expect(screen.getByText('WB-1')).toBeInTheDocument();
   });
 
-  it('omits footer slots when comments, subtasks, due, and assignees are absent', () => {
-    const { container } = render(<BoardCard card={base} />);
+  it('shows zero comment and subtask counts when lists are empty', () => {
+    render(<BoardCard card={base} />);
 
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('0/0')).toBeInTheDocument();
     expect(screen.queryByText('Today')).not.toBeInTheDocument();
-    expect(container.querySelector('svg')).toBeNull();
   });
 
   it('marks an overdue due date with the late token', () => {

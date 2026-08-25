@@ -36,6 +36,22 @@ export async function getCardForUser(cardId: string, userId: string) {
 }
 
 /**
+ * A subtask reached through its card, column, and project membership.
+ * Returns null when any link in the chain is missing or not accessible.
+ */
+export async function getSubtaskForUser(subtaskId: string, userId: string) {
+  const subtask = await prisma.subtask.findFirst({
+    where: { id: subtaskId },
+  });
+  if (!subtask) return null;
+
+  const owned = await getCardForUser(subtask.cardId, userId);
+  if (!owned) return null;
+
+  return { subtask, card: owned.card, column: owned.column, project: owned.project };
+}
+
+/**
  * A label on a project the given user can access.
  * Returns null when the label is missing or the user has no membership.
  */
