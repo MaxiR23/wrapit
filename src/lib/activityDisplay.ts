@@ -6,7 +6,7 @@ import type {
 } from '@/lib/activity';
 import { parseActivityPayload } from '@/lib/activity';
 import { activityCopy, type ActivityCopy } from '@/lib/activityCopy';
-import { dueDateFromCalendarDay } from '@/lib/cardDue';
+import { cardDueLabel, dueDateFromCalendarDay, instantFromZonedWallTime } from '@/lib/cardDue';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,15 +55,27 @@ export function formatActivityClockTime(date: Date, locale = activityCopy.locale
   });
 }
 
-export function formatActivityDueDate(day: string, locale = activityCopy.locale): string | null {
-  const date = dueDateFromCalendarDay(day);
-  if (!date) return null;
-  return date.toLocaleDateString(locale, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+/**
+ * The due date an event recorded, read back through the shared formatter. The
+ * payload keeps wall parts plus a zone, so the instant is rebuilt here and then
+ * converted into the viewer's zone.
+ */
+export function formatActivityDue(
+  due: { dueDate: string; dueTime?: string | null; dueTimeZone?: string | null },
+  viewerTimeZone: string | null = null,
+  locale = activityCopy.locale,
+): { label: string; zoneNote: string | null } | null {
+  const isMoment = due.dueTime != null && due.dueTimeZone != null;
+  const instant = isMoment
+    ? instantFromZonedWallTime(due.dueDate, due.dueTime as string, due.dueTimeZone as string)
+    : dueDateFromCalendarDay(due.dueDate);
+  if (!instant) return null;
+
+  const label = cardDueLabel(
+    { dueDate: instant, dueTimeZone: isMoment ? (due.dueTimeZone as string) : null },
+    { style: 'long', locale, viewerTimeZone },
+  );
+  return { label: label.text, zoneNote: label.zoneNote };
 }
 
 export function formatActivityDayLabel(
@@ -84,6 +96,7 @@ function sentenceFor(
   type: ActivityEventType,
   payload: ActivityPayload,
   copy: ActivityCopy,
+  viewerTimeZone: string | null,
 ): string {
   switch (type) {
     case 'CARD_CREATED': {
@@ -129,10 +142,22 @@ function sentenceFor(
     }
     case 'DUE_DATE_CHANGED': {
       const data = payload as ActivityPayloadFor<'DUE_DATE_CHANGED'>;
+      const due = data.dueDate
+        ? formatActivityDue(
+            {
+              dueDate: data.dueDate,
+              dueTime: data.dueTime,
+              dueTimeZone: data.dueTimeZone,
+            },
+            viewerTimeZone,
+            copy.locale,
+          )
+        : null;
       return copy.dueDateChanged({
         actorName: data.actorName,
         cardTitle: data.cardTitle,
-        dueDateLabel: data.dueDate ? formatActivityDueDate(data.dueDate, copy.locale) : null,
+        dueDateLabel: due?.label ?? null,
+        zoneNote: due?.zoneNote ?? null,
       });
     }
     case 'COMMENT_ADDED': {
@@ -153,6 +178,7 @@ function sentenceFor(
 export function activitySentence(
   event: ActivityEventView,
   copy: ActivityCopy = activityCopy,
+  viewerTimeZone: string | null = null,
 ): string {
   if (!event.valid) {
     return copy.fallback({ actorName: actorNameOf(event.payload) });
@@ -161,7 +187,7 @@ export function activitySentence(
   if (!parsed.success) {
     return copy.fallback({ actorName: actorNameOf(event.payload) });
   }
-  return sentenceFor(event.type, parsed.data, copy);
+  return sentenceFor(event.type, parsed.data, copy, viewerTimeZone);
 }
 
 export function activityQuote(event: ActivityEventView): string | null {

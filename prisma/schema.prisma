@@ -175,6 +175,7 @@ model Card {
   code        String
   order       Float
   dueDate     DateTime?
+  dueTimeZone String?
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

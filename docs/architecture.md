@@ -106,7 +106,13 @@ and the owner's create-project membership are not logged. `listActivityEvents`
 is membership-gated (VIEW+) and pages with a createdAt+id keyset.
 Card detail writes follow the same pattern: `updateCardField` persists title,
 description, or due date (returning `{ data: { value } }` for
-`useProfileAutosave`); `updateCardAssignees` and `updateCardLabel` replace
+`useProfileAutosave`, plus the resolved `dueDate` and `dueTimeZone` on the due
+field so the board's copy of the card matches the row without the browser doing
+zone arithmetic). A due write carries the day and, for a moment, the wall time
+and the sender's IANA zone; the action resolves that to an instant. The stored
+zone is the provenance of the moment, so a save that resolves to the instant
+already stored keeps it, and only a genuinely new instant takes the sender's
+zone. `updateCardAssignees` and `updateCardLabel` replace
 those fields with membership/label count guards and go through the same
 hook (debounce 0, one in-flight write per card) so overlapping replacements
 cannot commit out of order; subtask done uses one in-flight write per
@@ -248,7 +254,7 @@ in `docs/kanban.md`.
     src/lib/kanbanItems.ts              column→card id lists; append to a column
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
     src/lib/cardCode.ts                 stored card code from project title + counter
-    src/lib/cardDue.ts                  due labels, overdue, calendar-day persist
+    src/lib/cardDue.ts                  the one due formatter, overdue, calendar-day persist, zone math
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
@@ -268,7 +274,7 @@ in `docs/kanban.md`.
     src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
     src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
     src/lib/validation/column.ts        column title rules; create/delete action ids
-    src/lib/validation/card.ts          card title, optional description/due date/label/assignees; create/update/delete/archive/field action ids
+    src/lib/validation/card.ts          card title, optional description/due date+time+zone/label/assignees; create/update/delete/archive/field action ids
     src/lib/validation/subtask.ts       subtask text and done; create/update/delete ids
     src/lib/validation/comment.ts       comment body; create cardId
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
@@ -332,10 +338,10 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, viewer time zone, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
-    src/components/cards/               board cards, new-task dialog, card detail
+    src/components/cards/               board cards, new-task dialog, card detail, due date+time control
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

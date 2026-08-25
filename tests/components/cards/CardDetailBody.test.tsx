@@ -5,17 +5,19 @@
 // Tested:
 // - Rapid assignee toggles persist the last selection regardless of response order
 // - Rapid label selections persist the last label chosen
+// - After the viewer zone resolves, a due moment shows that zone's wall time
 //
 // What is covered:
 // - One in-flight write per card for assignees and for label; a stale success
 //   still advances persisted so the correction write can run
+// - Due value resync when the viewer zone becomes known
 //
 // Run with: pnpm test:run tests/components/cards/CardDetailBody.test.tsx
 //
 // SEE: src/components/cards/CardDetailBody.tsx
 
 import { useState } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -39,6 +41,11 @@ vi.mock('@/actions/updateSubtaskField', () => ({
 }));
 vi.mock('@/actions/deleteSubtask', () => ({ deleteSubtask: vi.fn() }));
 vi.mock('@/actions/createComment', () => ({ createComment: vi.fn() }));
+
+const useViewerTimeZone = vi.fn((): string | null => null);
+vi.mock('@/components/projects/ViewerTimeZoneProvider', () => ({
+  useViewerTimeZone: () => useViewerTimeZone(),
+}));
 
 const { default: CardDetailBody } = await import('@/components/cards/CardDetailBody');
 const { updateCardAssignees } = await import('@/actions/updateCardAssignees');
@@ -87,6 +94,9 @@ function Harness({ card: initialCard }: { card?: BoardCardData }) {
 }
 
 describe('CardDetailBody', () => {
+  beforeEach(() => {
+    useViewerTimeZone.mockReturnValue(null);
+  });
   it('writes the last assignee selection even when an earlier response arrives last', async () => {
     const user = userEvent.setup();
     let releaseFirst: (value: { data: { assignees: BoardMember[] } }) => void = () => {};
@@ -149,5 +159,22 @@ describe('CardDetailBody', () => {
 
     await waitFor(() => expect(updateCardLabel).toHaveBeenCalledTimes(2));
     expect(updateCardLabel).toHaveBeenLastCalledWith({ cardId: 'card-1', labelId: 'l2' });
+  });
+
+  it('shows the viewer-zone wall time once the viewer zone resolves', () => {
+    const madridCard: BoardCardData = {
+      ...baseCard,
+      dueDate: new Date(Date.UTC(2026, 7, 25, 14, 0)),
+      dueTimeZone: 'Europe/Madrid',
+    };
+    useViewerTimeZone.mockReturnValue(null);
+    const { rerender } = render(<Harness card={madridCard} />);
+
+    expect(screen.getAllByLabelText('Due time')[0]).toHaveValue('16:00');
+
+    useViewerTimeZone.mockReturnValue('America/Argentina/Buenos_Aires');
+    rerender(<Harness card={madridCard} />);
+
+    expect(screen.getAllByLabelText('Due time')[0]).toHaveValue('11:00');
   });
 });

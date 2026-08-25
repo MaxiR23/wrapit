@@ -10,10 +10,11 @@
 // - Reverts to the last persisted value when the save fails
 // - A late success of B after returning to A writes A so persisted matches desired
 // - A stale failure of the first B does not revert a later selection of B
+// - Adopts a new initial when resetKey changes, unless the field was edited
 //
 // What is covered:
 // - Debounce, in-flight coalescing, stored-value apply, failure revert, A-B-A
-//   correction write, same-id stale failure
+//   correction write, same-id stale failure, resetKey sync
 //
 // Run with: pnpm test:run tests/components/account/useProfileAutosave.test.tsx
 //
@@ -31,12 +32,16 @@ function Probe({
   save,
   debounceMs,
   onSuccess,
+  initial = 'Ada',
+  resetKey,
 }: {
   save: (value: string) => Promise<{ data: { value: string } } | { error: string }>;
   debounceMs?: number;
   onSuccess?: (value: string) => void;
+  initial?: string;
+  resetKey?: unknown;
 }) {
-  const field = useProfileAutosave({ initial: 'Ada', save, debounceMs, onSuccess });
+  const field = useProfileAutosave({ initial, save, debounceMs, onSuccess, resetKey });
   return (
     <div>
       <p>value:{field.value}</p>
@@ -197,5 +202,52 @@ describe('useProfileAutosave', () => {
     expect(save).toHaveBeenLastCalledWith('A');
     expect(screen.getByText('value:A')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('adopts a new initial when resetKey changes and the field was not edited', () => {
+    const save = vi.fn(async (value: string) => ({ data: { value } }));
+    const { rerender } = render(
+      <Probe save={save} initial="16:00" resetKey={null} debounceMs={0} />,
+    );
+
+    expect(screen.getByText('value:16:00')).toBeInTheDocument();
+
+    rerender(
+      <Probe
+        save={save}
+        initial="11:00"
+        resetKey="America/Argentina/Buenos_Aires"
+        debounceMs={0}
+      />,
+    );
+
+    expect(screen.getByText('value:11:00')).toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('keeps an in-progress edit when resetKey changes', () => {
+    const save = vi.fn(async (value: string) => ({ data: { value } }));
+    const { rerender } = render(
+      <Probe
+        save={save}
+        initial="16:00"
+        resetKey={null}
+        debounceMs={PROFILE_AUTOSAVE_DEBOUNCE_MS}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'set-a' }));
+    expect(screen.getByText('value:A')).toBeInTheDocument();
+
+    rerender(
+      <Probe
+        save={save}
+        initial="11:00"
+        resetKey="America/Argentina/Buenos_Aires"
+        debounceMs={PROFILE_AUTOSAVE_DEBOUNCE_MS}
+      />,
+    );
+
+    expect(screen.getByText('value:A')).toBeInTheDocument();
   });
 });

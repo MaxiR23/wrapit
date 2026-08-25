@@ -3,6 +3,8 @@
 import { useRef } from 'react';
 import { Archive, Trash2 } from 'lucide-react';
 
+import DueDateField, { splitDueValue } from '@/components/cards/DueDateField';
+
 import { updateCardAssignees } from '@/actions/updateCardAssignees';
 import { updateCardField } from '@/actions/updateCardField';
 import { updateCardLabel } from '@/actions/updateCardLabel';
@@ -14,11 +16,21 @@ import CardCommentThread, { CardCommentComposer } from '@/components/cards/CardC
 import CardSubtaskList from '@/components/cards/CardSubtaskList';
 import type { BoardCardData, BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
-import { calendarDayFromDueDate, isCardDueLate } from '@/lib/cardDue';
+import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
+import { cardDueLabel, calendarDayFromDueDate, zonedWallTime } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
 import { cardLabelFromRow, type LabelView } from '@/lib/labels';
 import { cn } from '@/lib/utils';
+
+/** A stored due date as the control shows it: a day, or a day plus a wall time. */
+function dueControlValue(card: BoardCardData, viewerTimeZone: string | null): string {
+  if (card.dueDate == null) return '';
+  const storedZone = card.dueTimeZone ?? null;
+  if (storedZone == null) return calendarDayFromDueDate(card.dueDate);
+  const wall = zonedWallTime(card.dueDate, viewerTimeZone ?? storedZone);
+  return `${wall.day}T${wall.time}`;
+}
 
 export default function CardDetailBody({
   card,
@@ -53,19 +65,37 @@ export default function CardDetailBody({
 }) {
   const comments = card.comments ?? [];
   const subtasks = card.subtasks ?? [];
-  const dueInitial = card.dueDate ? calendarDayFromDueDate(card.dueDate) : '';
+  const viewerTimeZone = useViewerTimeZone();
+  const dueInitial = dueControlValue(card, viewerTimeZone);
+  // The server owns every wall-time-to-instant conversion, so the resolved due
+  // date comes back from the action rather than being recomputed here.
+  const resolvedDueRef = useRef(new Map<string, Pick<BoardCardData, 'dueDate' | 'dueTimeZone'>>());
+  function patchDue(value: string) {
+    const resolved = resolvedDueRef.current.get(value);
+    if (resolved) onCardPatch(resolved);
+  }
   const due = useProfileAutosave({
     initial: dueInitial,
     debounceMs: PROFILE_AUTOSAVE_DEBOUNCE_MS,
-    save: (value) => updateCardField({ cardId: card.id, field: 'dueDate', value }),
-    onSuccess: (value) =>
-      onCardPatch({
-        dueDate: value === '' ? null : new Date(`${value}T00:00:00.000Z`),
-      }),
-    onRevert: (value) =>
-      onCardPatch({
-        dueDate: value === '' ? null : new Date(`${value}T00:00:00.000Z`),
-      }),
+    resetKey: viewerTimeZone,
+    save: async (value) => {
+      const { day, time } = splitDueValue(value);
+      const result = await updateCardField({
+        cardId: card.id,
+        field: 'dueDate',
+        value: day,
+        ...(time === '' ? {} : { time, timeZone: viewerTimeZone ?? undefined }),
+      });
+      if ('data' in result) {
+        resolvedDueRef.current.set(result.data.value, {
+          dueDate: result.data.dueDate ?? null,
+          dueTimeZone: result.data.dueTimeZone ?? null,
+        });
+      }
+      return result;
+    },
+    onSuccess: patchDue,
+    onRevert: patchDue,
   });
 
   const assigneeIdsRef = useRef((card.assignees ?? []).map((member) => member.id));
@@ -119,16 +149,22 @@ export default function CardDetailBody({
       dueValue={due.value}
       dueError={due.error}
       writeError={assignees.error ?? label.error}
-      dueLate={card.dueDate != null && isCardDueLate(card.dueDate)}
+      dueLate={
+        card.dueDate != null &&
+        cardDueLabel(
+          { dueDate: card.dueDate, dueTimeZone: card.dueTimeZone ?? null },
+          { viewerTimeZone },
+        ).late
+      }
+      // Untouched, the moment keeps the zone it was set in; editing the time
+      // makes it a new moment on the viewer's clock.
+      dueHintTimeZone={
+        due.value === dueInitial && card.dueTimeZone ? card.dueTimeZone : viewerTimeZone
+      }
       canEdit={canEdit}
       askingDelete={askingDelete}
       onAskingDelete={onAskingDelete}
-      onDueChange={(value) => {
-        due.setValue(value);
-        onCardPatch({
-          dueDate: value === '' ? null : new Date(`${value}T00:00:00.000Z`),
-        });
-      }}
+      onDueChange={(value) => due.setValue(value)}
       onDueBlur={() => void due.flush()}
       onToggleAssignee={(userId) => {
         const current = assigneeIdsRef.current;
@@ -276,6 +312,7 @@ function CardDetailProperties({
   dueError,
   writeError,
   dueLate,
+  dueHintTimeZone,
   canEdit,
   askingDelete,
   onAskingDelete,
@@ -298,6 +335,7 @@ function CardDetailProperties({
   dueError: string | null;
   writeError: string | null;
   dueLate: boolean;
+  dueHintTimeZone: string | null;
   canEdit: boolean;
   askingDelete: boolean;
   onAskingDelete: (value: boolean) => void;
@@ -412,33 +450,21 @@ function CardDetailProperties({
 
       <section className="flex flex-col gap-2">
         <label
-          htmlFor={`card-due-${card.id}`}
+          htmlFor={`card-due-${card.id}-date`}
           className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase"
         >
           Due date
         </label>
-        <input
-          id={`card-due-${card.id}`}
-          type="date"
+        <DueDateField
+          idPrefix={`card-due-${card.id}`}
           value={dueValue}
-          readOnly={!canEdit}
-          disabled={!canEdit}
-          onChange={(event) => {
-            if (!canEdit) return;
-            onDueChange(event.target.value);
-          }}
+          onChange={onDueChange}
           onBlur={onDueBlur}
-          className={cn(
-            shellFocusClassName,
-            'h-10 rounded-md border border-border bg-background px-3 text-sm tablet:h-9 tablet:bg-surface tablet:text-[13px]',
-            dueLate ? 'text-late' : 'text-foreground',
-          )}
+          canEdit={canEdit}
+          error={dueError ?? undefined}
+          late={dueLate}
+          hintTimeZone={dueHintTimeZone}
         />
-        {dueError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {dueError}
-          </p>
-        ) : null}
       </section>
 
       {writeError ? (

@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { cardCode } from '@/lib/cardCode';
-import { dueDateFromCalendarDay } from '@/lib/cardDue';
+import { dueDateFromCalendarDay, instantFromZonedWallTime } from '@/lib/cardDue';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
@@ -37,6 +37,7 @@ type CreateCardResult =
         order: number;
         columnId: string;
         dueDate: Date | null;
+        dueTimeZone: string | null;
         labelId: string | null;
         assignees: CreatedCardAssignee[];
         comments: [];
@@ -60,6 +61,8 @@ export async function createCard(input: {
   description?: string;
   labelId?: string;
   dueDate?: string;
+  dueTime?: string;
+  dueTimeZone?: string;
   assigneeIds?: string[];
 }): Promise<CreateCardResult> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -71,7 +74,13 @@ export async function createCard(input: {
   if (!parsed.success) {
     const fieldFailed = parsed.error.issues.some((issue) => {
       const field = issue.path[0];
-      return field === 'title' || field === 'description' || field === 'dueDate';
+      return (
+        field === 'title' ||
+        field === 'description' ||
+        field === 'dueDate' ||
+        field === 'dueTime' ||
+        field === 'dueTimeZone'
+      );
     });
     if (fieldFailed) {
       return { fieldErrors: firstErrorPerField(parsed.error) as CardFieldErrors };
@@ -79,10 +88,18 @@ export async function createCard(input: {
     return { error: 'Unauthorized' };
   }
 
-  const dueDate =
-    parsed.data.dueDate === undefined ? null : dueDateFromCalendarDay(parsed.data.dueDate);
-  if (parsed.data.dueDate !== undefined && dueDate === null) {
-    return { fieldErrors: { dueDate: 'Enter a valid date' } };
+  // A time only arrives with a zone; the schema rejects one without the other.
+  const dueTimeZone =
+    parsed.data.dueTime !== undefined ? (parsed.data.dueTimeZone as string) : null;
+  let dueDate: Date | null = null;
+  if (parsed.data.dueDate !== undefined) {
+    dueDate =
+      dueTimeZone == null
+        ? dueDateFromCalendarDay(parsed.data.dueDate)
+        : instantFromZonedWallTime(parsed.data.dueDate, parsed.data.dueTime as string, dueTimeZone);
+    if (dueDate === null) {
+      return { fieldErrors: { dueDate: 'Enter a valid date' } };
+    }
   }
 
   const owned = await getColumnForUser(parsed.data.columnId, session.user.id, 'EDIT');
@@ -136,6 +153,7 @@ export async function createCard(input: {
           order,
           columnId: owned.column.id,
           dueDate,
+          dueTimeZone,
           labelId: parsed.data.labelId ?? null,
         },
       });
@@ -191,6 +209,7 @@ export async function createCard(input: {
         order: card.order,
         columnId: card.columnId,
         dueDate: card.dueDate,
+        dueTimeZone: card.dueTimeZone,
         labelId: card.labelId,
         assignees,
         comments: [],

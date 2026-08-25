@@ -7,6 +7,11 @@
 // - Rejects an empty title with a clear field error
 // - Clears the description to null and returns an empty value
 // - Persists a YYYY-MM-DD due date and clears it when empty
+// - Resolves a wall time in the sender's zone to an instant
+// - Keeps the stored zone when a save from elsewhere lands on the same instant
+// - Takes the sender's zone when the instant actually changes
+// - Clears the zone when a moment is downgraded to a calendar day
+// - Stamps a zone when a calendar day is upgraded to the same instant
 // - Rejects an invalid due date with a field error
 // - Rejects updating a card the user does not own
 // - Rejects the call when there is no session
@@ -14,7 +19,8 @@
 // - Returns a generic error when Prisma fails unexpectedly
 //
 // What is covered:
-// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
+// - Happy path, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id,
+//   zone resolution and zone provenance across viewers in different zones
 //
 // Run with: pnpm test:run tests/actions/updateCardField.test.ts
 //
@@ -49,6 +55,12 @@ const { updateCardField } = await import('@/actions/updateCardField');
 
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada', username: 'ada' };
 
+const TZ_MADRID = 'Europe/Madrid';
+const TZ_BUENOS_AIRES = 'America/Argentina/Buenos_Aires';
+
+/** 2026-08-25 16:00 in Madrid, which is 11:00 in Buenos Aires. */
+const MADRID_INSTANT = new Date(Date.UTC(2026, 7, 25, 14, 0));
+
 async function seedOwnedCard() {
   const project = await seedAccessibleProject(db, {
     title: 'Sprint board',
@@ -66,6 +78,16 @@ async function seedOwnedCard() {
     },
   });
   return { project, column, card };
+}
+
+/** A card whose due date is a real moment set by someone in Madrid. */
+async function seedMadridCard() {
+  const seeded = await seedOwnedCard();
+  await db.card.update({
+    where: { id: seeded.card.id },
+    data: { dueDate: MADRID_INSTANT, dueTimeZone: TZ_MADRID },
+  });
+  return seeded;
 }
 
 describe('updateCardField', () => {
@@ -124,13 +146,21 @@ describe('updateCardField', () => {
       value: '2026-08-25',
     });
 
-    expect(persisted).toEqual({ data: { value: '2026-08-25' } });
+    expect(persisted).toEqual({
+      data: { value: '2026-08-25', dueDate: new Date(Date.UTC(2026, 7, 25)), dueTimeZone: null },
+    });
     expect(db.card.rows[0]?.dueDate).toEqual(new Date(Date.UTC(2026, 7, 25)));
+    expect(db.card.rows[0]?.dueTimeZone).toBeNull();
     expect(db.activityEvent.rows).toHaveLength(1);
     expect(db.activityEvent.rows[0]).toEqual(
       expect.objectContaining({
         type: 'DUE_DATE_CHANGED',
-        payload: expect.objectContaining({ dueDate: '2026-08-25', cardTitle: 'Old title' }),
+        payload: expect.objectContaining({
+          dueDate: '2026-08-25',
+          dueTime: null,
+          dueTimeZone: null,
+          cardTitle: 'Old title',
+        }),
       }),
     );
 
@@ -140,7 +170,7 @@ describe('updateCardField', () => {
       value: '',
     });
 
-    expect(cleared).toEqual({ data: { value: '' } });
+    expect(cleared).toEqual({ data: { value: '', dueDate: null, dueTimeZone: null } });
     expect(db.card.rows[0]?.dueDate).toBeNull();
     expect(db.activityEvent.rows).toHaveLength(2);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
@@ -159,7 +189,9 @@ describe('updateCardField', () => {
       value: '2026-08-25',
     });
 
-    expect(result).toEqual({ data: { value: '2026-08-25' } });
+    expect(result).toEqual({
+      data: { value: '2026-08-25', dueDate: new Date(Date.UTC(2026, 7, 25)), dueTimeZone: null },
+    });
     expect(db.activityEvent.rows).toHaveLength(0);
   });
 
@@ -173,6 +205,144 @@ describe('updateCardField', () => {
     });
 
     expect(result).toEqual({ fieldErrors: { value: 'Enter a valid date' } });
+    expect(db.card.rows[0]?.dueDate).toBeUndefined();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('resolves a wall time in the sender zone to an instant', async () => {
+    const { card } = await seedOwnedCard();
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+      time: '16:00',
+      timeZone: TZ_MADRID,
+    });
+
+    expect(result).toEqual({
+      data: {
+        value: '2026-08-25T16:00',
+        dueDate: MADRID_INSTANT,
+        dueTimeZone: TZ_MADRID,
+      },
+    });
+    expect(db.card.rows[0]?.dueDate).toEqual(MADRID_INSTANT);
+    expect(db.card.rows[0]?.dueTimeZone).toBe(TZ_MADRID);
+    expect(db.activityEvent.rows[0]).toEqual(
+      expect.objectContaining({
+        type: 'DUE_DATE_CHANGED',
+        payload: expect.objectContaining({
+          dueDate: '2026-08-25',
+          dueTime: '16:00',
+          dueTimeZone: TZ_MADRID,
+        }),
+      }),
+    );
+  });
+
+  it('keeps the stored zone when a save from another zone lands on the same instant', async () => {
+    const { card } = await seedMadridCard();
+
+    // 16:00 in Madrid is 11:00 in Buenos Aires: the same moment, retyped.
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+      time: '11:00',
+      timeZone: TZ_BUENOS_AIRES,
+    });
+
+    expect(result).toEqual({
+      data: {
+        value: '2026-08-25T11:00',
+        dueDate: MADRID_INSTANT,
+        dueTimeZone: TZ_MADRID,
+      },
+    });
+    expect(db.card.rows[0]?.dueDate).toEqual(MADRID_INSTANT);
+    expect(db.card.rows[0]?.dueTimeZone).toBe(TZ_MADRID);
+    expect(db.activityEvent.rows).toHaveLength(0);
+  });
+
+  it('takes the sender zone when the instant actually changes', async () => {
+    const { card } = await seedMadridCard();
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+      time: '12:00',
+      timeZone: TZ_BUENOS_AIRES,
+    });
+
+    const moved = new Date(Date.UTC(2026, 7, 25, 15, 0));
+    expect(result).toEqual({
+      data: {
+        value: '2026-08-25T12:00',
+        dueDate: moved,
+        dueTimeZone: TZ_BUENOS_AIRES,
+      },
+    });
+    expect(db.card.rows[0]?.dueDate).toEqual(moved);
+    expect(db.card.rows[0]?.dueTimeZone).toBe(TZ_BUENOS_AIRES);
+    expect(db.activityEvent.rows).toHaveLength(1);
+  });
+
+  it('clears the zone when a moment is downgraded to a calendar day', async () => {
+    const { card } = await seedMadridCard();
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+    });
+
+    expect(result).toEqual({
+      data: { value: '2026-08-25', dueDate: new Date(Date.UTC(2026, 7, 25)), dueTimeZone: null },
+    });
+    expect(db.card.rows[0]?.dueTimeZone).toBeNull();
+    expect(db.activityEvent.rows).toHaveLength(1);
+  });
+
+  it('stamps a zone when a calendar day is upgraded to the same instant', async () => {
+    const { card } = await seedOwnedCard();
+    await db.card.update({
+      where: { id: card.id },
+      data: { dueDate: new Date(Date.UTC(2026, 7, 25)), dueTimeZone: null },
+    });
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+      time: '00:00',
+      timeZone: 'UTC',
+    });
+
+    expect(result).toEqual({
+      data: {
+        value: '2026-08-25T00:00',
+        dueDate: new Date(Date.UTC(2026, 7, 25)),
+        dueTimeZone: 'UTC',
+      },
+    });
+    expect(db.card.rows[0]?.dueTimeZone).toBe('UTC');
+    expect(db.activityEvent.rows).toHaveLength(1);
+  });
+
+  it('rejects a time the schema does not accept', async () => {
+    const { card } = await seedOwnedCard();
+
+    const result = await updateCardField({
+      cardId: card.id,
+      field: 'dueDate',
+      value: '2026-08-25',
+      time: '25:00',
+      timeZone: TZ_MADRID,
+    });
+
+    expect(result).toEqual({ fieldErrors: { value: 'Enter a valid time' } });
     expect(db.card.rows[0]?.dueDate).toBeUndefined();
     expect(revalidatePath).not.toHaveBeenCalled();
   });

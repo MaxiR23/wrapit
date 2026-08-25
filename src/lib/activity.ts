@@ -70,6 +70,8 @@ export const activityPayloadSchemas = {
     labelId: idSchema.nullable(),
     labelName: z.string().nullable(),
   }),
+  // The time and zone are optional so events written before due dates could
+  // carry a time still parse, and keep their sentence.
   DUE_DATE_CHANGED: z.object({
     ...actorFields,
     cardId: idSchema,
@@ -78,6 +80,12 @@ export const activityPayloadSchemas = {
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
+    dueTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .nullable()
+      .optional(),
+    dueTimeZone: z.string().nullable().optional(),
   }),
   COMMENT_ADDED: z.object({
     ...actorFields,

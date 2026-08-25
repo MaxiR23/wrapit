@@ -15,9 +15,12 @@
 // - Persists an optional due date, label, and assignees in the same transaction
 // - Assigns the creator when no assignees are picked
 // - Rejects a non-member assignee or a label from another project
+// - Resolves a due time in the sender zone to an instant and stores the zone
+// - Stores a date without a time as a calendar day with no zone
+// - Rejects a due time sent without a zone without a lookup
 //
 // What is covered:
-// - Happy path, optional description, due date, label, assignees, creator fallback, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
+// - Happy path, optional description, due date, due time and zone, label, assignees, creator fallback, invalid input, ownership, unauthorized, unexpected Prisma failure, invalid id
 //
 // Run with: pnpm test:run tests/actions/createCard.test.ts
 //
@@ -323,6 +326,55 @@ describe('createCard', () => {
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('resolves a due time in the sender zone to an instant', async () => {
+    const { column } = await seedOwnedColumn();
+
+    const result = await createCard({
+      columnId: column.id,
+      title: 'Ship the modal',
+      dueDate: '2026-08-25',
+      dueTime: '16:00',
+      dueTimeZone: 'Europe/Madrid',
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        dueDate: new Date(Date.UTC(2026, 7, 25, 14, 0)),
+        dueTimeZone: 'Europe/Madrid',
+      }),
+    });
+    expect(db.card.rows[0]?.dueDate).toEqual(new Date(Date.UTC(2026, 7, 25, 14, 0)));
+    expect(db.card.rows[0]?.dueTimeZone).toBe('Europe/Madrid');
+  });
+
+  it('stores a date without a time as a calendar day with no zone', async () => {
+    const { column } = await seedOwnedColumn();
+
+    await createCard({
+      columnId: column.id,
+      title: 'Ship the modal',
+      dueDate: '2026-08-25',
+    });
+
+    expect(db.card.rows[0]?.dueDate).toEqual(new Date(Date.UTC(2026, 7, 25)));
+    expect(db.card.rows[0]?.dueTimeZone).toBeNull();
+  });
+
+  it('rejects a due time without a zone without a lookup', async () => {
+    db.column.findFirst.mockClear();
+
+    const result = await createCard({
+      columnId: 'column-1',
+      title: 'Write tests',
+      dueDate: '2026-08-25',
+      dueTime: '16:00',
+    });
+
+    expect('fieldErrors' in result).toBe(true);
+    expect(db.column.findFirst).not.toHaveBeenCalled();
+    expect(db.card.rows).toHaveLength(0);
   });
 
   it('rejects an invalid due date without a lookup', async () => {

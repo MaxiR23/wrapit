@@ -32,6 +32,8 @@ export type BoardCardData = {
   code: string;
   description?: string | null;
   dueDate: Date | null;
+  /** The zone the due date was set in. Absent means it is a calendar day. */
+  dueTimeZone?: string | null;
   comments?: BoardComment[];
   subtasks?: BoardSubtask[];
   assignees?: BoardMember[];

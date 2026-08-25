@@ -75,10 +75,25 @@ used for project labels: renaming a label updates every card that points at it;
 removing one reassigns those cards to the first remaining label. The last label
 cannot be removed. Create is disabled without a title. The card is appended to
 the chosen column with the next stored code. Assignees are members of the
-project; if none are picked, the creator is assigned. `Card.dueDate` is an
-optional calendar day stored as UTC midnight and shown through `formatCardDue`
-/ `isCardDueLate`. Overdue and Today / Yesterday / Tomorrow use the viewer's
-local calendar day, not UTC.
+project; if none are picked, the creator is assigned. `Card.dueDate` is
+optional and can be either a calendar day or a moment; `Card.dueTimeZone` being
+empty or set is what tells the two apart. The same `DueDateField` control edits
+both on the new task modal and the card detail: a date alone is a day, adding a
+time upgrades it to a moment, clearing the time returns it to a day. The client
+sends the parts it has (day, optional time, optional IANA zone) and the server
+resolves the instant, so no wall-time arithmetic happens in the browser.
+
+Every surface reads due dates through one formatter, `cardDueLabel` in
+`src/lib/cardDue.ts`; nothing formats a due date locally. A day gives Today /
+Yesterday / Tomorrow against the viewer's local calendar day, not UTC, which is
+the rule that has always applied. A moment is converted into the viewer's zone,
+gains its time, and names the zone it was set in whenever the two zones read
+different clocks at that instant. Overdue comes from the same call: a day turns
+late at the viewer's local midnight, a moment when its instant passes.
+`ViewerTimeZoneProvider`, mounted in `ProjectBoard`, publishes the viewer's
+zone to the card face, the detail, and the activity log. It reads empty on the
+server, where consumers fall back to the card's own zone, so nothing mismatches
+on hydration.
 
 The page sits in `ProjectsShell` with Projects as the active nav. The topbar
 search on this screen filters the board live by title and label
@@ -298,6 +313,8 @@ src/components/cards/CardSubtaskList.tsx   subtask add/rename/check/remove and p
 src/components/cards/CardCommentThread.tsx comments list and pinned/in-column composer
 src/components/projects/BoardToast.tsx     archive/delete toast on the board
 src/lib/cardCounters.ts                 comment count and subtask done/total
+src/components/cards/DueDateField.tsx      shared date + optional time control
+src/components/projects/ViewerTimeZoneProvider.tsx  the viewer's IANA zone
 src/actions/updateCardField.ts          persist one card title, description, or due date
 src/actions/updateCardAssignees.ts      replace card assignees (members only)
 src/actions/updateCardLabel.ts          set or clear the card label
