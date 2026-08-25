@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
@@ -97,6 +98,22 @@ export async function moveCard(input: {
       if (!moved) {
         throw new OccupancyError();
       }
+
+      await recordActivityEvent(tx, {
+        projectId: ownedTarget.project.id,
+        actorId: session.user.id,
+        type: 'CARD_MOVED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          cardId: moved.id,
+          cardTitle: moved.title,
+          fromColumnId: ownedSource.column.id,
+          fromColumnTitle: ownedSource.column.title,
+          toColumnId: ownedTarget.column.id,
+          toColumnTitle: ownedTarget.column.title,
+        },
+      });
+
       return moved;
     });
 

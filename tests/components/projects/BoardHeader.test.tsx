@@ -10,9 +10,11 @@
 // - Does not render a Labels control
 // - Shows a filter badge for active groups and a summary bar
 // - Clear on the summary resets filters
+// - Shows a clock control after visibility that toggles the activity log
+// - Lights the clock when the log is open and closes open popovers on toggle
 //
 // What is covered:
-// - Back link, progress labels, empty copy, member avatars, filters chrome
+// - Back link, progress labels, empty copy, member avatars, filters chrome, activity clock
 //
 // Run with: pnpm test:run tests/components/projects/BoardHeader.test.tsx
 //
@@ -120,5 +122,46 @@ describe('BoardHeader', () => {
       onlyMine: false,
       onlyOverdue: false,
     });
+  });
+
+  it('renders an activity clock after visibility and reports pressed styles', () => {
+    const { rerender } = renderHeader({ logOpen: false, onToggleLog: vi.fn() });
+    const clock = screen.getByRole('button', { name: 'Activity log' });
+    expect(clock).toHaveAttribute('aria-pressed', 'false');
+
+    rerender(
+      <BoardHeader
+        title="Sprint board"
+        doneCount={0}
+        taskCount={0}
+        percent={0}
+        members={[]}
+        labels={[]}
+        filters={emptyBoardFilters()}
+        onFiltersChange={() => {}}
+        visibility={DEFAULT_BOARD_VISIBILITY}
+        onVisibilityChange={() => {}}
+        visibleCount={0}
+        logOpen
+        onToggleLog={() => {}}
+      />,
+    );
+
+    const pressed = screen.getByRole('button', { name: 'Activity log' });
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
+    expect(pressed).toHaveClass('border-border-strong', 'bg-card', 'text-foreground');
+  });
+
+  it('calls onToggleLog and closes an open filters popover', async () => {
+    const events = userEvent.setup();
+    const onToggleLog = vi.fn();
+    renderHeader({ onToggleLog, labels });
+
+    await events.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.getAllByRole('dialog', { name: 'Filters' }).length).toBeGreaterThan(0);
+
+    await events.click(screen.getByRole('button', { name: 'Activity log' }));
+    expect(onToggleLog).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
   });
 });

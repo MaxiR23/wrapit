@@ -69,6 +69,13 @@ describe('deleteCard', () => {
 
     expect(result).toEqual({ data: { id: card.id } });
     expect(db.card.rows).toHaveLength(0);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'CARD_DELETED',
+        projectId: project.id,
+        payload: expect.objectContaining({ cardTitle: 'Write tests', cardId: card.id }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -172,5 +179,25 @@ describe('deleteCard', () => {
     expect(db.card.deleteMany).not.toHaveBeenCalled();
     expect(db.card.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the delete when logging fails', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Write tests', order: 1, columnId: column.id },
+    });
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await deleteCard({ cardId: card.id });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.card.rows).toHaveLength(1);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

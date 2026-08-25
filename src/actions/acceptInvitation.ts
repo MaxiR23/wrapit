@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import {
   claimPendingInvitation,
@@ -35,8 +36,9 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
   }
 
   const invitee = await prisma.user.findFirst({ where: { id: session.user.id } });
+  const inviter = await prisma.user.findFirst({ where: { id: invitation.inviterId } });
   const project = await prisma.project.findFirst({ where: { id: invitation.projectId } });
-  if (!invitee || !project) {
+  if (!invitee || !inviter || !project) {
     return { error: 'Unauthorized' };
   }
 
@@ -65,6 +67,20 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
           invitationId: invitation.id,
           type: 'INVITATION_RECEIVED',
           recipientId: invitation.inviteeId,
+        },
+      });
+      await recordActivityEvent(tx, {
+        projectId: invitation.projectId,
+        actorId: session.user.id,
+        type: 'MEMBER_ADDED',
+        payload: {
+          ...activityActorFromSession(invitee),
+          memberId: invitee.id,
+          memberName: invitee.name,
+          memberUsername: invitee.username,
+          inviterId: inviter.id,
+          inviterName: inviter.name,
+          inviterUsername: inviter.username,
         },
       });
     });

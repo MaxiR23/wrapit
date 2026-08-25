@@ -62,6 +62,9 @@ describe('removeMember', () => {
     await db.membership.create({
       data: { userId: 'user-owner', projectId: project.id, role: 'OWNER' },
     });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
     const member = await db.membership.create({
       data: { userId: 'user-max', projectId: project.id, role: 'MEMBER' },
     });
@@ -70,6 +73,18 @@ describe('removeMember', () => {
 
     expect(result).toEqual({ data: { id: member.id } });
     expect(db.membership.rows.some((row) => row.id === member.id)).toBe(false);
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'MEMBER_REMOVED',
+        projectId: project.id,
+        actorId: sessionUser.id,
+        payload: expect.objectContaining({
+          actorName: 'Ada',
+          memberId: 'user-max',
+          memberName: 'Maxi',
+        }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -82,6 +97,9 @@ describe('removeMember', () => {
     });
     await db.membership.create({
       data: { userId: 'user-owner', projectId: project.id, role: 'OWNER' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
     });
     const otherOwner = await db.membership.create({
       data: { userId: 'user-max', projectId: project.id, role: 'OWNER' },
@@ -103,17 +121,24 @@ describe('removeMember', () => {
     const owner = await db.membership.create({
       data: { userId: 'user-owner', projectId: project.id, role: 'OWNER' },
     });
+    await db.user.create({
+      data: { id: 'user-owner', name: 'Owner', username: 'owner' },
+    });
 
     const result = await removeMember({ projectId: project.id, membershipId: owner.id });
 
     expect(result).toEqual({ error: LAST_OWNER_MESSAGE });
     expect(db.membership.rows.some((row) => row.id === owner.id)).toBe(true);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('rejects removing the session user', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
       userId: sessionUser.id,
+    });
+    await db.user.create({
+      data: { id: sessionUser.id, name: 'Ada', username: 'ada' },
     });
     await db.membership.create({
       data: { userId: 'user-max', projectId: project.id, role: 'OWNER' },
@@ -127,6 +152,7 @@ describe('removeMember', () => {
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.membership.rows.some((row) => row.userId === sessionUser.id)).toBe(true);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('rejects when the actor is a MEMBER', async () => {
@@ -147,6 +173,7 @@ describe('removeMember', () => {
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.membership.rows.some((row) => row.id === other.id)).toBe(true);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('returns Unauthorized when a non-admin probes a last-owner membership', async () => {
@@ -181,5 +208,31 @@ describe('removeMember', () => {
       await removeMember({ projectId: 'p'.repeat(MAX_ID_LENGTH + 1), membershipId: 'mem-1' }),
     ).toEqual({ error: 'Unauthorized' });
     expect(db.membership.deleteMany).not.toHaveBeenCalled();
+    expect(db.activityEvent.rows).toHaveLength(0);
+  });
+
+  it('rolls back the removal when logging fails', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      ownerId: 'user-owner',
+      role: 'ADMIN',
+    });
+    await db.membership.create({
+      data: { userId: 'user-owner', projectId: project.id, role: 'OWNER' },
+    });
+    await db.user.create({
+      data: { id: 'user-max', name: 'Maxi', username: 'maxi' },
+    });
+    const member = await db.membership.create({
+      data: { userId: 'user-max', projectId: project.id, role: 'MEMBER' },
+    });
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await removeMember({ projectId: project.id, membershipId: member.id });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.membership.rows.some((row) => row.id === member.id)).toBe(true);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

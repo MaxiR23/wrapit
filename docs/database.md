@@ -30,11 +30,12 @@ See: https://hub.docker.com/_/postgres
 Defined in `prisma/schema.prisma`. The models and their relations:
 
 - `User` has many `Project`, many `Membership`, many `RecentProject`, many
-  `UserStatus`, many `CardAssignee`, many `Comment` (as card-comment author), at most one `UserPreferences`, and at most
+  `UserStatus`, many `CardAssignee`, many `Comment` (as card-comment author), many
+  `ActivityEvent` (as actor), at most one `UserPreferences`, and at most
   one `UserProfile`.
   `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
-  `Membership`, `Invitation`, `RecentProject`, and `Label`. It
+  `Membership`, `Invitation`, `RecentProject`, `Label`, and `ActivityEvent`. It
   has an optional `description`, a `status` (`ProjectStatus`: `NEW`,
   `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`), and `cardCounter` (integer,
   default 0) used to issue stored card codes. Access is through
@@ -84,6 +85,20 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 - `CardAssignee` joins a `Card` and a `User`. One row per `(cardId, userId)`.
   Deleting a card or a user cascades the rows. `createCard` writes the chosen
   members, or the session user when nobody was picked.
+- `ActivityEvent` belongs to a `Project` and optionally a `User` as actor.
+  `type` is `ActivityEventType` (`CARD_CREATED`, `CARD_MOVED`, `CARD_ARCHIVED`,
+  `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
+  `COMMENT_ADDED`, `MEMBER_ADDED`, `MEMBER_REMOVED`). `payload` is JSON; the
+  app parses it with a per-type Zod map before write and again on read. Every
+  payload snapshots `actorName` / `actorUsername` plus type-specific ids and
+  display names (card title, column title, and so on). There is no `cardId`
+  column and no FK to `Card`, so archive and delete history survives. `actorId`
+  is `onDelete: SetNull` so deleting a user keeps the row. Sentences are not
+  stored; the UI builds them from the snapshot at display time. Events are
+  inserted in the same transaction as the change they describe. Creating a
+  card with a label, assignees, or due date is one `CARD_CREATED`. Title and
+  description edits, subtasks, column/label CRUD, invitations, and the
+  owner's `createProject` membership are not logged.
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings:
@@ -113,7 +128,7 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   per user.
 
 Deleting a record cascades to its children (deleting a project deletes its columns,
-cards, and labels; deleting a user deletes their preferences, profile, and statuses). `Column` and `Card` use a
+cards, labels, and activity events; deleting a user deletes their preferences, profile, and statuses, and nulls `ActivityEvent.actorId`). `Column` and `Card` use a
 `Float` `order` field so siblings can be reordered without rewriting every row on
 each move. The board UI today only appends to a column; midpoints and later
 intra-column reorder: `docs/kanban.md`.

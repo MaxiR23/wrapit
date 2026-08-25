@@ -34,9 +34,24 @@ function applyUpdateData(row: Row, data: Row) {
   }
 }
 
+function compareValues(left: unknown, right: unknown): number {
+  if (left instanceof Date && right instanceof Date) {
+    return left.getTime() - right.getTime();
+  }
+  if (left === right) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 function matchesValue(actual: unknown, condition: unknown): boolean {
   if (condition === null) {
     return actual == null;
+  }
+  if (condition instanceof Date) {
+    return actual instanceof Date && actual.getTime() === condition.getTime();
   }
   if (typeof condition !== 'object') {
     return actual === condition;
@@ -44,18 +59,26 @@ function matchesValue(actual: unknown, condition: unknown): boolean {
   return Object.entries(condition as Row).every(([operator, expected]) => {
     switch (operator) {
       case 'equals':
-        return actual === expected;
+        return matchesValue(actual, expected);
       case 'not':
-        return actual !== expected;
+        return !matchesValue(actual, expected);
       case 'in':
         return (expected as unknown[]).includes(actual);
+      case 'lt':
+        return compareValues(actual, expected) < 0;
+      case 'gt':
+        return compareValues(actual, expected) > 0;
+      case 'lte':
+        return compareValues(actual, expected) <= 0;
+      case 'gte':
+        return compareValues(actual, expected) >= 0;
       default:
         throw new Error(`unsupported where operator: ${operator}`);
     }
   });
 }
 
-const SCALAR_WHERE_OPS = new Set(['equals', 'not', 'in']);
+const SCALAR_WHERE_OPS = new Set(['equals', 'not', 'in', 'lt', 'gt', 'lte', 'gte']);
 
 function isCompoundUniqueWhere(key: string, condition: unknown): condition is Row {
   return (
@@ -226,17 +249,16 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
       } = {}) => {
         let matched = rows.filter((r) => matches(r, where, getRelated));
 
-        const order = Array.isArray(orderBy) ? orderBy[0] : orderBy;
-        if (order && typeof order === 'object') {
-          const [[field, direction]] = Object.entries(order);
+        const orders = Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [];
+        if (orders.length > 0) {
           matched = [...matched].sort((a, b) => {
-            const left = a[field];
-            const right = b[field];
-            if (left === right) return 0;
-            if (left == null) return 1;
-            if (right == null) return -1;
-            const cmp = left < right ? -1 : 1;
-            return direction === 'desc' ? -cmp : cmp;
+            for (const order of orders) {
+              if (!order || typeof order !== 'object') continue;
+              const [[field, direction]] = Object.entries(order);
+              const cmp = compareValues(a[field], b[field]);
+              if (cmp !== 0) return direction === 'desc' ? -cmp : cmp;
+            }
+            return 0;
           });
         }
 
@@ -330,6 +352,10 @@ export function createPrismaFake() {
         return (models.subtask?.rows ?? []).filter((subtask) => subtask.cardId === row.id);
       case 'comments':
         return (models.comment?.rows ?? []).filter((comment) => comment.cardId === row.id);
+      case 'activityEvents':
+        return (models.activityEvent?.rows ?? []).filter((event) => event.projectId === row.id);
+      case 'actor':
+        return (models.user?.rows ?? []).filter((user) => user.id === row.actorId);
       default:
         return [];
     }
@@ -368,6 +394,7 @@ export function createPrismaFake() {
     subtask: createModel(getRelated),
     comment: createModel(getRelated),
     recentProject: createModel(getRelated),
+    activityEvent: createModel(getRelated),
   };
   Object.assign(models, fake);
 
@@ -428,6 +455,56 @@ export function createPrismaFake() {
     const matched = fake.userStatus.rows.filter((row) => matches(row, args.where, getRelated));
     const result = await originalStatusDeleteMany(args);
     nullifyActiveStatuses(matched.map((row) => row.id));
+    return result;
+  });
+
+  function cascadeProjectChildren(projectIds: unknown[]) {
+    const ids = new Set(projectIds);
+    fake.activityEvent.rows.splice(
+      0,
+      fake.activityEvent.rows.length,
+      ...fake.activityEvent.rows.filter((row) => !ids.has(row.projectId)),
+    );
+  }
+
+  const originalProjectDelete = fake.project.delete;
+  fake.project.delete = vi.fn(async (args: { where?: Row }) => {
+    const matched = fake.project.rows.find((row) => matches(row, args.where, getRelated));
+    const deleted = await originalProjectDelete(args);
+    if (matched?.id != null) cascadeProjectChildren([matched.id]);
+    return deleted;
+  });
+
+  const originalProjectDeleteMany = fake.project.deleteMany;
+  fake.project.deleteMany = vi.fn(async (args: { where?: Row } = {}) => {
+    const matched = fake.project.rows.filter((row) => matches(row, args.where, getRelated));
+    const result = await originalProjectDeleteMany(args);
+    cascadeProjectChildren(matched.map((row) => row.id));
+    return result;
+  });
+
+  function nullifyActivityActors(deletedUserIds: unknown[]) {
+    const ids = new Set(deletedUserIds);
+    for (const event of fake.activityEvent.rows) {
+      if (ids.has(event.actorId)) {
+        event.actorId = null;
+      }
+    }
+  }
+
+  const originalUserDelete = fake.user.delete;
+  fake.user.delete = vi.fn(async (args: { where?: Row }) => {
+    const matched = fake.user.rows.find((row) => matches(row, args.where, getRelated));
+    const deleted = await originalUserDelete(args);
+    if (matched?.id != null) nullifyActivityActors([matched.id]);
+    return deleted;
+  });
+
+  const originalUserDeleteMany = fake.user.deleteMany;
+  fake.user.deleteMany = vi.fn(async (args: { where?: Row } = {}) => {
+    const matched = fake.user.rows.filter((row) => matches(row, args.where, getRelated));
+    const result = await originalUserDeleteMany(args);
+    nullifyActivityActors(matched.map((row) => row.id));
     return result;
   });
 

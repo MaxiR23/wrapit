@@ -96,7 +96,14 @@ At most 20 labels per project. Board cards render a pill only when
 increments `cardCounter`, appends the card, stores the code, optional label and
 due date, and `CardAssignee` rows. An empty assignee list writes the session
 user. Label and assignee ids must belong to the target column's project
-(count guards); a mismatch rolls back.
+(count guards); a mismatch rolls back. After that occupancy write the same
+transaction inserts one `ActivityEvent` (`CARD_CREATED`) so a logging failure
+rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
+`updateCardAssignees`, `updateCardLabel`, due-date `updateCardField`,
+`createComment`, `acceptInvitation`, and `removeMember` do the same for their
+types. Title and description writes, subtasks, column/label CRUD, invitations,
+and the owner's create-project membership are not logged. `listActivityEvents`
+is membership-gated (VIEW+) and pages with a createdAt+id keyset.
 Card detail writes follow the same pattern: `updateCardField` persists title,
 description, or due date (returning `{ data: { value } }` for
 `useProfileAutosave`); `updateCardAssignees` and `updateCardLabel` replace
@@ -245,6 +252,9 @@ in `docs/kanban.md`.
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
+    src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject
+    src/lib/activityCopy.ts             English activity sentences and chrome copy
+    src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
     src/lib/board.ts                    mobile carousel and long-press constants
     src/lib/validation/fieldErrors.ts   first error per field
@@ -267,6 +277,7 @@ in `docs/kanban.md`.
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
     src/lib/validation/label.ts         label id, name, tone; create projectId
+    src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status
@@ -300,6 +311,7 @@ in `docs/kanban.md`.
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
     src/actions/createComment.ts        append a comment as the session user
+    src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
     src/actions/deleteCard.ts           delete an accessible card (cascades comments and subtasks)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
     src/actions/updateLabelField.ts     persist one label name or tone for a member
@@ -320,7 +332,7 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile tab, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, Share modal, board filters/visibility, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail

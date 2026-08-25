@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
@@ -68,13 +69,28 @@ export async function createComment(input: {
         throw new UnauthorizedWriteError();
       }
 
-      return tx.comment.create({
+      const created = await tx.comment.create({
         data: {
           body: parsed.data.body,
           cardId: owned.card.id,
           authorId: session.user.id,
         },
       });
+
+      await recordActivityEvent(tx, {
+        projectId: owned.project.id,
+        actorId: session.user.id,
+        type: 'COMMENT_ADDED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          cardId: owned.card.id,
+          cardTitle: owned.card.title,
+          commentId: created.id,
+          body: created.body,
+        },
+      });
+
+      return created;
     });
 
     revalidatePath(projectPath(owned.project.id));

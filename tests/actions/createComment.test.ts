@@ -90,6 +90,15 @@ describe('createComment', () => {
     expect(db.comment.rows).toHaveLength(1);
     expect(db.comment.rows[0]?.authorId).toBe(sessionUser.id);
     expect(db.comment.rows[0]?.authorId).not.toBe('user-forged');
+    expect(db.activityEvent.rows).toEqual([
+      expect.objectContaining({
+        type: 'COMMENT_ADDED',
+        payload: expect.objectContaining({
+          cardTitle: 'Write tests',
+          body: 'Looks good',
+        }),
+      }),
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
@@ -100,6 +109,7 @@ describe('createComment', () => {
 
     expect(result).toEqual({ fieldErrors: { body: 'Comment is required' } });
     expect(db.comment.rows).toHaveLength(0);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -165,5 +175,16 @@ describe('createComment', () => {
     expect(result).not.toEqual(expect.objectContaining({ error: leakyMessage }));
     expect(db.comment.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the comment when logging fails', async () => {
+    const { card } = await seedOwnedCard();
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await createComment({ cardId: card.id, body: 'Looks good' });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.comment.rows).toHaveLength(0);
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 });

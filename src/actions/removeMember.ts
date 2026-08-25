@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import {
   administeredByUser,
@@ -51,6 +52,17 @@ export async function removeMember(input: {
 
       await assertNotLastOwner(tx, { projectId, membershipId });
 
+      const membership = await tx.membership.findFirst({
+        where: { id: membershipId, projectId },
+      });
+      if (!membership) {
+        throw new UnauthorizedWriteError();
+      }
+      const member = await tx.user.findFirst({ where: { id: String(membership.userId) } });
+      if (!member) {
+        throw new UnauthorizedWriteError();
+      }
+
       const deleted = await tx.membership.deleteMany({
         where: {
           id: membershipId,
@@ -64,6 +76,18 @@ export async function removeMember(input: {
       if (deleted.count !== 1) {
         throw new UnauthorizedWriteError();
       }
+
+      await recordActivityEvent(tx, {
+        projectId,
+        actorId: session.user.id,
+        type: 'MEMBER_REMOVED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          memberId: String(member.id),
+          memberName: String(member.name),
+          memberUsername: typeof member.username === 'string' ? member.username : '',
+        },
+      });
     });
 
     revalidatePath(projectPath(projectId));

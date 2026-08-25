@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { cardCode } from '@/lib/cardCode';
 import { dueDateFromCalendarDay } from '@/lib/cardDue';
@@ -141,6 +142,19 @@ export async function createCard(input: {
 
       await tx.cardAssignee.createMany({
         data: assigneeIds.map((userId) => ({ cardId: created.id, userId })),
+      });
+
+      await recordActivityEvent(tx, {
+        projectId: owned.project.id,
+        actorId: session.user.id,
+        type: 'CARD_CREATED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          cardId: created.id,
+          cardTitle: created.title,
+          columnId: owned.column.id,
+          columnTitle: owned.column.title,
+        },
       });
 
       return created;

@@ -4,10 +4,12 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 
 import { archiveCard } from '@/actions/archiveCard';
 import { deleteCard } from '@/actions/deleteCard';
+import { listActivityEvents } from '@/actions/listActivityEvents';
 import { moveCard } from '@/actions/moveCard';
 import { updateBoardVisibility } from '@/actions/updateBoardVisibility';
 import CardDetailDialog from '@/components/cards/CardDetailDialog';
 import NewCardDialog, { type CreatedBoardCard } from '@/components/cards/NewCardDialog';
+import BoardActivityLog from '@/components/projects/BoardActivityLog';
 import BoardDesktop from '@/components/projects/BoardDesktop';
 import BoardHeader from '@/components/projects/BoardHeader';
 import BoardMobile from '@/components/projects/BoardMobile';
@@ -47,6 +49,7 @@ import {
   type MembershipRole,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
+import type { ActivityCursor, ActivityEventListItem } from '@/lib/activity';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
 
@@ -132,6 +135,12 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const [jumpToColumnId, setJumpToColumnId] = useState<string | null>(null);
   const [jumpToken, setJumpToken] = useState(0);
+  const [surface, setSurface] = useState<'board' | 'log'>('board');
+  const [activityItems, setActivityItems] = useState<ActivityEventListItem[]>([]);
+  const [activityCursor, setActivityCursor] = useState<ActivityCursor | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const activityRequestIdRef = useRef(0);
   const cardsById = useRef(initial.cardsById);
   const columnMeta = useRef(initial.columnMeta);
   const itemsRef = useRef(itemsByColumn);
@@ -419,6 +428,45 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     void commitMove(cardId, columnId);
   }
 
+  async function loadActivity(cursor?: ActivityCursor) {
+    const requestId = activityRequestIdRef.current + 1;
+    activityRequestIdRef.current = requestId;
+    setActivityLoading(true);
+    try {
+      const result = await listActivityEvents({ projectId, cursor });
+      if (requestId !== activityRequestIdRef.current) return;
+      if ('error' in result) {
+        setActivityError(GENERIC_ERROR_MESSAGE);
+        return;
+      }
+      setActivityError(null);
+      setActivityItems((current) =>
+        cursor ? [...current, ...result.data.items] : result.data.items,
+      );
+      setActivityCursor(result.data.nextCursor);
+    } catch {
+      if (requestId !== activityRequestIdRef.current) return;
+      setActivityError(GENERIC_ERROR_MESSAGE);
+    } finally {
+      if (requestId === activityRequestIdRef.current) {
+        setActivityLoading(false);
+      }
+    }
+  }
+
+  function handleToggleLog() {
+    setOpenPanel(null);
+    if (surface === 'log') {
+      setSurface('board');
+      return;
+    }
+    setSurface('log');
+    setActivityItems([]);
+    setActivityCursor(null);
+    setActivityError(null);
+    void loadActivity();
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <BoardHeader
@@ -433,6 +481,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         visibility={visibility}
         onVisibilityChange={handleVisibilityChange}
         visibleCount={visibleCards.length}
+        logOpen={surface === 'log'}
+        onToggleLog={handleToggleLog}
       />
 
       {error ? (
@@ -441,59 +491,73 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         </p>
       ) : null}
 
-      {displayColumns.length === 0 ? (
-        <div className="flex-1 px-4 py-6 tablet:px-[18px] lg:px-7">
-          <ColumnsEmptyState />
-        </div>
-      ) : noResults ? (
-        <BoardNoResults
-          onClear={() => {
-            setFilters(emptyBoardFilters());
-            setQuery('');
+      {surface === 'log' ? (
+        <BoardActivityLog
+          items={activityItems}
+          loading={activityLoading}
+          error={activityError}
+          hasMore={activityCursor !== null}
+          onLoadMore={() => {
+            if (activityCursor) void loadActivity(activityCursor);
           }}
         />
-      ) : (
-        <>
-          <BoardDesktop
-            columns={displayColumns}
-            cardsById={cardsById.current}
-            draggingId={draggingId}
-            overColumnId={overColumnId}
-            visibility={visibility}
-            canEdit={canEdit}
-            onDragStart={(cardId) => {
-              setError(null);
-              setDraggingId(cardId);
-            }}
-            onDragEnd={() => {
-              setDraggingId(null);
-              setOverColumnId(null);
-            }}
-            onDragOverColumn={setOverColumnId}
-            onDropOnColumn={dropDraggingOn}
-            onMoveToColumn={(cardId, columnId) => {
-              void commitMove(cardId, columnId);
-            }}
-            onAddCard={canEdit ? handleAddCard : undefined}
-            onOpenCard={handleOpenCard}
-          />
+      ) : null}
 
-          <BoardMobile
-            columns={displayColumns}
-            cardsById={cardsById.current}
-            itemsByColumn={itemsByColumn}
-            jumpToColumnId={jumpToColumnId}
-            jumpToken={jumpToken}
-            visibility={visibility}
-            canEdit={canEdit}
-            onMoveToColumn={(cardId, columnId) => {
-              void commitMove(cardId, columnId);
+      <div className={surface === 'log' ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
+        {displayColumns.length === 0 ? (
+          <div className="flex-1 px-4 py-6 tablet:px-[18px] lg:px-7">
+            <ColumnsEmptyState />
+          </div>
+        ) : noResults ? (
+          <BoardNoResults
+            onClear={() => {
+              setFilters(emptyBoardFilters());
+              setQuery('');
             }}
-            onAddCard={canEdit ? handleAddCard : undefined}
-            onOpenCard={handleOpenCard}
           />
-        </>
-      )}
+        ) : (
+          <>
+            <BoardDesktop
+              columns={displayColumns}
+              cardsById={cardsById.current}
+              draggingId={draggingId}
+              overColumnId={overColumnId}
+              visibility={visibility}
+              canEdit={canEdit}
+              onDragStart={(cardId) => {
+                setError(null);
+                setDraggingId(cardId);
+              }}
+              onDragEnd={() => {
+                setDraggingId(null);
+                setOverColumnId(null);
+              }}
+              onDragOverColumn={setOverColumnId}
+              onDropOnColumn={dropDraggingOn}
+              onMoveToColumn={(cardId, columnId) => {
+                void commitMove(cardId, columnId);
+              }}
+              onAddCard={canEdit ? handleAddCard : undefined}
+              onOpenCard={handleOpenCard}
+            />
+
+            <BoardMobile
+              columns={displayColumns}
+              cardsById={cardsById.current}
+              itemsByColumn={itemsByColumn}
+              jumpToColumnId={jumpToColumnId}
+              jumpToken={jumpToken}
+              visibility={visibility}
+              canEdit={canEdit}
+              onMoveToColumn={(cardId, columnId) => {
+                void commitMove(cardId, columnId);
+              }}
+              onAddCard={canEdit ? handleAddCard : undefined}
+              onOpenCard={handleOpenCard}
+            />
+          </>
+        )}
+      </div>
 
       <NewCardDialog
         open={canEdit && addColumnId !== null}

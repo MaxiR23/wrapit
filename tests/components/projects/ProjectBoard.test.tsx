@@ -19,9 +19,13 @@
 // - Turning off card code hides it on every card
 // - A failed visibility persist reverts the face and shows a generic alert
 // - Opening card detail closes the filters popover
+// - The header clock swaps the column area for the activity log without unmounting the boards
+// - Opening the log does not drop an in-flight persist queue
+// - An older activity load that resolves after a newer one is dropped
+// - A rejected activity load clears loading and shows a generic error
 //
 // What is covered:
-// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail
+// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail, activity log surface
 //
 // Run with: pnpm test:run tests/components/projects/ProjectBoard.test.tsx
 //
@@ -94,6 +98,14 @@ vi.mock('@/actions/removeMember', () => ({
 vi.mock('@/actions/updatePublicLink', () => ({
   updatePublicLink: vi.fn(),
 }));
+const listActivityEvents = vi.fn(
+  async (): Promise<{ data: { items: unknown[]; nextCursor: null } } | { error: string }> => ({
+    data: { items: [], nextCursor: null },
+  }),
+);
+vi.mock('@/actions/listActivityEvents', () => ({
+  listActivityEvents,
+}));
 
 const { default: ProjectBoard } = await import('@/components/projects/ProjectBoard');
 const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
@@ -157,6 +169,7 @@ function cardTitlesInColumn(title: string): string[] {
 describe('ProjectBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
     HTMLElement.prototype.scrollTo = vi.fn();
   });
 
@@ -760,5 +773,171 @@ describe('ProjectBoard', () => {
     await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
     expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+  });
+
+  it('hides mounted columns while the activity log is open and keeps queued moves', async () => {
+    const user = userEvent.setup();
+    let resolveMove: (result: { data: { id: string } }) => void = () => {};
+    moveCard.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMove = resolve;
+        }),
+    );
+    listActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
+
+    const ref = createRef<ProjectBoardHandle>();
+    renderBoard(
+      <ProjectBoard
+        ref={ref}
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await act(async () => {
+      void ref.current!.commitMove('card-a', 'column-doing');
+      await Promise.resolve();
+    });
+    expect(within(desktopColumn('Doing')).getByText('Card A')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Activity log' })).toBeInTheDocument();
+    });
+    expect(listActivityEvents).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      cursor: undefined,
+    });
+    expect(document.querySelector('[data-board="desktop"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-board="mobile"]')).toBeInTheDocument();
+    expect(desktopBoard().parentElement).toHaveClass('hidden');
+    expect(screen.getByText('No activity yet.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    expect(screen.queryByRole('region', { name: 'Activity log' })).not.toBeInTheDocument();
+    expect(desktopBoard().parentElement).not.toHaveClass('hidden');
+    expect(within(desktopColumn('Doing')).getByText('Card A')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    await waitFor(() => {
+      expect(listActivityEvents).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      resolveMove({ data: { id: 'card-a' } });
+      await Promise.resolve();
+    });
+    expect(moveCard).toHaveBeenCalledWith({
+      cardId: 'card-a',
+      sourceColumnId: 'column-todo',
+      targetColumnId: 'column-doing',
+    });
+  });
+
+  it('does not let an older activity load overwrite a newer one', async () => {
+    const user = userEvent.setup();
+    const resolvers: Array<(result: { data: { items: unknown[]; nextCursor: null } }) => void> = [];
+    listActivityEvents.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    await waitFor(() => {
+      expect(resolvers).toHaveLength(1);
+    });
+    expect(screen.getByRole('region', { name: 'Activity log' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Activity log' })).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+    await waitFor(() => {
+      expect(resolvers).toHaveLength(2);
+    });
+    expect(screen.getByRole('region', { name: 'Activity log' })).toBeInTheDocument();
+
+    const older = {
+      id: 'evt-old',
+      type: 'CARD_CREATED' as const,
+      actorId: 'user-ada',
+      createdAt: new Date('2026-08-25T14:00:00').toISOString(),
+      valid: true,
+      payload: {
+        actorName: 'Ada Lovelace',
+        actorUsername: 'ada',
+        cardId: 'card-1',
+        cardTitle: 'Old task',
+        columnId: 'column-todo',
+        columnTitle: 'To do',
+      },
+    };
+    const newer = {
+      ...older,
+      id: 'evt-new',
+      createdAt: new Date('2026-08-25T15:00:00').toISOString(),
+      payload: { ...older.payload, cardTitle: 'New task' },
+    };
+
+    await act(async () => {
+      resolvers[1]!({ data: { items: [newer], nextCursor: null } });
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Ada Lovelace created "New task" in To do.')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      resolvers[0]!({ data: { items: [older], nextCursor: null } });
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Ada Lovelace created "New task" in To do.')).toBeInTheDocument();
+    expect(screen.queryByText('Ada Lovelace created "Old task" in To do.')).not.toBeInTheDocument();
+  });
+
+  it('clears activity loading and shows an error when the list rejects', async () => {
+    const user = userEvent.setup();
+    listActivityEvents.mockRejectedValue(new Error('db down'));
+
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Activity log' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(GENERIC_ERROR_MESSAGE);
+    });
+    expect(screen.getByRole('region', { name: 'Activity log' })).toHaveAttribute(
+      'aria-busy',
+      'false',
+    );
   });
 });
