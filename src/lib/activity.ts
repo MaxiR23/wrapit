@@ -11,6 +11,7 @@ export const ACTIVITY_EVENT_TYPES = [
   'LABEL_CHANGED',
   'DUE_DATE_CHANGED',
   'COMMENT_ADDED',
+  'PROJECT_CREATED',
   'MEMBER_ADDED',
   'MEMBER_REMOVED',
 ] as const;
@@ -94,6 +95,10 @@ export const activityPayloadSchemas = {
     commentId: idSchema,
     body: z.string().min(1).max(4000),
   }),
+  PROJECT_CREATED: z.object({
+    ...actorFields,
+    projectTitle: z.string(),
+  }),
   MEMBER_ADDED: z.object({
     ...actorFields,
     memberId: idSchema,
@@ -142,6 +147,12 @@ export type ActivityListDb = {
   };
 };
 
+export type ActorActivityListDb = ActivityListDb & {
+  project: {
+    findMany: (args: { where: Record<string, unknown> }) => Promise<Array<Record<string, unknown>>>;
+  };
+};
+
 export type ActivityCursor = {
   createdAt: string;
   id: string;
@@ -154,6 +165,11 @@ export type ActivityEventListItem = {
   createdAt: string;
   payload: Record<string, unknown>;
   valid: boolean;
+};
+
+export type AccountActivityEventListItem = ActivityEventListItem & {
+  projectId: string;
+  projectTitle: string;
 };
 
 const TYPE_SET = new Set<string>(ACTIVITY_EVENT_TYPES);
@@ -253,25 +269,33 @@ export function activityEventFromRow(row: Record<string, unknown>): ActivityEven
   };
 }
 
-export async function listActivityForProject(
-  db: ActivityListDb,
-  projectId: string,
+function withActivityCursor(
+  where: Record<string, unknown>,
   cursor?: ActivityCursor | null,
-): Promise<{ items: ActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
-  const where: Record<string, unknown> = cursor
-    ? {
-        projectId,
-        OR: [
-          { createdAt: { lt: new Date(cursor.createdAt) } },
-          {
-            AND: [{ createdAt: new Date(cursor.createdAt) }, { id: { lt: cursor.id } }],
-          },
-        ],
-      }
-    : { projectId };
+): Record<string, unknown> {
+  if (!cursor) return where;
+  return {
+    ...where,
+    OR: [
+      { createdAt: { lt: new Date(cursor.createdAt) } },
+      {
+        AND: [{ createdAt: new Date(cursor.createdAt) }, { id: { lt: cursor.id } }],
+      },
+    ],
+  };
+}
 
+async function listActivityPage(
+  db: ActivityListDb,
+  where: Record<string, unknown>,
+  cursor?: ActivityCursor | null,
+): Promise<{
+  rows: Array<Record<string, unknown>>;
+  items: ActivityEventListItem[];
+  nextCursor: ActivityCursor | null;
+}> {
   const rows = await db.activityEvent.findMany({
-    where,
+    where: withActivityCursor(where, cursor),
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: ACTIVITY_PAGE_SIZE + 1,
   });
@@ -280,5 +304,50 @@ export async function listActivityForProject(
   const last = items[items.length - 1];
   const nextCursor =
     rows.length > ACTIVITY_PAGE_SIZE && last ? { createdAt: last.createdAt, id: last.id } : null;
+  return { rows: page, items, nextCursor };
+}
+
+export async function listActivityForProject(
+  db: ActivityListDb,
+  projectId: string,
+  cursor?: ActivityCursor | null,
+): Promise<{ items: ActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
+  const { items, nextCursor } = await listActivityPage(db, { projectId }, cursor);
   return { items, nextCursor };
+}
+
+export async function listActivityForActor(
+  db: ActorActivityListDb,
+  input: { actorId: string; projectIds: string[]; cursor?: ActivityCursor | null },
+): Promise<{ items: AccountActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
+  if (input.projectIds.length === 0) {
+    return { items: [], nextCursor: null };
+  }
+
+  const { rows, items, nextCursor } = await listActivityPage(
+    db,
+    { actorId: input.actorId, projectId: { in: input.projectIds } },
+    input.cursor,
+  );
+
+  const pageProjectIds = [...new Set(rows.map((row) => String(row.projectId)))];
+  const projects =
+    pageProjectIds.length === 0
+      ? []
+      : await db.project.findMany({ where: { id: { in: pageProjectIds } } });
+  const titleById = new Map(
+    projects.map((project) => [String(project.id), String(project.title ?? '')]),
+  );
+
+  return {
+    items: items.map((item, index) => {
+      const projectId = String(rows[index]?.projectId ?? '');
+      return {
+        ...item,
+        projectId,
+        projectTitle: titleById.get(projectId) ?? '',
+      };
+    }),
+    nextCursor,
+  };
 }

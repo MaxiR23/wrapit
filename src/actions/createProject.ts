@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { inviteUserToProject, normalizeInviteUsername, type InvitationDb } from '@/lib/invitations';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
@@ -93,6 +94,16 @@ export async function createProject(input: {
           role: 'OWNER',
           access: 'EDIT',
           starred: parsed.data.featured === true,
+        },
+      });
+
+      await recordActivityEvent(tx, {
+        projectId: created.id,
+        actorId: session.user.id,
+        type: 'PROJECT_CREATED',
+        payload: {
+          ...activityActorFromSession(session.user),
+          projectTitle: created.title,
         },
       });
 

@@ -58,6 +58,7 @@ enum ActivityEventType {
   LABEL_CHANGED
   DUE_DATE_CHANGED
   COMMENT_ADDED
+  PROJECT_CREATED
   MEMBER_ADDED
   MEMBER_REMOVED
 }
@@ -359,6 +360,7 @@ model ActivityEvent {
   actor     User?             @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([projectId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model RecentProject {

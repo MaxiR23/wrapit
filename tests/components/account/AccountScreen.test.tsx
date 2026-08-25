@@ -1,17 +1,18 @@
 // tests/components/account/AccountScreen.test.tsx
 //
-// Tests for the account screen header, tablist, Visibility tab, and placeholders.
+// Tests for the account screen header, tablist, Visibility tab, and Activity.
 //
 // Tested:
 // - Renders name, @username, status pill, and a tablist of four tabs
 // - Profile is selected by default
 // - Visibility renders the status list
-// - Activity and Cards still show a placeholder
+// - Activity renders the projects and timeline regions
+// - Cards still shows a placeholder
 // - Tab hrefs are shareable /account?tab= URLs
 // - A public-name change updates the header initials without a reload
 //
 // What is covered:
-// - Header, tablist semantics, placeholders, hrefs
+// - Header, tablist semantics, Activity tab, Cards placeholder, hrefs
 //
 // Run with: pnpm test:run tests/components/account/AccountScreen.test.tsx
 //
@@ -32,6 +33,9 @@ vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
 vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
 vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
 vi.mock('@/actions/deleteUserStatus', () => ({ deleteUserStatus: vi.fn() }));
+vi.mock('@/actions/listMyActivityEvents', () => ({
+  listMyActivityEvents: vi.fn(async () => ({ data: { items: [], nextCursor: null } })),
+}));
 
 const { default: AccountScreen } = await import('@/components/account/AccountScreen');
 const { DisplayNameProvider } = await import('@/components/account/DisplayNameProvider');
@@ -104,11 +108,21 @@ describe('AccountScreen', () => {
     expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
   });
 
-  it('shows a placeholder for tabs that are not Profile or Visibility', () => {
+  it('shows the Activity tab instead of a placeholder', () => {
     renderScreen('activity');
 
     expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Activity is coming soon.')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your projects' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your activity' })).toBeInTheDocument();
+    expect(screen.queryByText('Activity is coming soon.')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
+  });
+
+  it('shows a placeholder for Cards', () => {
+    renderScreen('cards');
+
+    expect(screen.getByRole('tab', { name: 'Cards' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Cards is coming soon.')).toBeInTheDocument();
   });
 
   it('updates the header initials when the public name changes', async () => {

@@ -32,8 +32,13 @@ export type ActivityCopy = {
     zoneNote?: string | null;
   }) => string;
   commentAdded: (input: { actorName: string; cardTitle: string }) => string;
+  projectCreated: (input: { actorName: string; projectTitle: string }) => string;
   memberAdded: (input: { actorName: string }) => string;
   memberRemoved: (input: { actorName: string; memberName: string }) => string;
+  yourProjects: string;
+  yourActivity: string;
+  emptyProjects: string;
+  accountLogLabel: string;
 };
 
 function joinNames(names: string[]): string {
@@ -79,7 +84,12 @@ export const activityCopy: ActivityCopy = {
     return `${actorName} set the due date of "${cardTitle}" to ${dueDateLabel}${origin}.`;
   },
   commentAdded: ({ actorName, cardTitle }) => `${actorName} commented on "${cardTitle}".`,
+  projectCreated: ({ actorName, projectTitle }) => `${actorName} created "${projectTitle}".`,
   memberAdded: ({ actorName }) => `${actorName} joined the project.`,
   memberRemoved: ({ actorName, memberName }) =>
     `${actorName} removed ${memberName} from the project.`,
+  yourProjects: 'Your projects',
+  yourActivity: 'Your activity',
+  emptyProjects: "You're not on any projects yet.",
+  accountLogLabel: 'Your activity',
 };

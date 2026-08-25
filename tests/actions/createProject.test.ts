@@ -22,6 +22,8 @@
 // - Rolls back the project and columns when membership create fails
 // - Rolls back project, columns, and membership when membership create fails
 //   with an explicit column list
+// - Writes PROJECT_CREATED in the same transaction as the project
+// - Rolls back the project when logging fails
 // - Invites each unique username once; casing duplicates are not inviteErrors
 // - Rejects a non-string invitee or more than 20 unique invitees without
 //   creating a project
@@ -415,6 +417,39 @@ describe('createProject', () => {
     expect(db.project.rows).toHaveLength(0);
     expect(db.column.rows).toHaveLength(0);
     expect(db.membership.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('writes PROJECT_CREATED in the same transaction as the project', async () => {
+    const result = await createProject({ title: 'Sprint board' });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ title: 'Sprint board' }),
+    });
+    expect(db.activityEvent.rows).toHaveLength(1);
+    expect(db.activityEvent.rows[0]).toEqual(
+      expect.objectContaining({
+        type: 'PROJECT_CREATED',
+        actorId: sessionUser.id,
+        projectId: db.project.rows[0]?.id,
+        payload: expect.objectContaining({
+          actorName: sessionUser.name,
+          projectTitle: 'Sprint board',
+        }),
+      }),
+    );
+  });
+
+  it('rolls back the project when logging fails', async () => {
+    db.activityEvent.create.mockRejectedValueOnce(new Error('write failed'));
+
+    const result = await createProject({ title: 'Sprint board' });
+
+    expect(result).toEqual({ error: 'Something went wrong. Please try again.' });
+    expect(db.project.rows).toHaveLength(0);
+    expect(db.column.rows).toHaveLength(0);
+    expect(db.membership.rows).toHaveLength(0);
+    expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 

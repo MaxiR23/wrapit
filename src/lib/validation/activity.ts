@@ -12,4 +12,9 @@ export const listActivityEventsSchema = z.object({
   cursor: activityCursorSchema.optional(),
 });
 
+export const listMyActivityEventsSchema = z.object({
+  cursor: activityCursorSchema.optional(),
+});
+
 export type ListActivityEventsInput = z.infer<typeof listActivityEventsSchema>;
+export type ListMyActivityEventsInput = z.infer<typeof listMyActivityEventsSchema>;

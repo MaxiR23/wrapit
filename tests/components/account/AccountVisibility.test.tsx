@@ -54,6 +54,9 @@ vi.mock('@/actions/deleteUserStatus', () => ({
 }));
 vi.mock('@/actions/updateProfileField', () => ({ updateProfileField: vi.fn() }));
 vi.mock('@/actions/updateProfileVisibility', () => ({ updateProfileVisibility: vi.fn() }));
+vi.mock('@/actions/listMyActivityEvents', () => ({
+  listMyActivityEvents: vi.fn(async () => ({ data: { items: [], nextCursor: null } })),
+}));
 
 const { default: AccountScreen } = await import('@/components/account/AccountScreen');
 const { DisplayNameProvider } = await import('@/components/account/DisplayNameProvider');

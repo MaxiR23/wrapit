@@ -4,8 +4,10 @@ import type { Metadata } from 'next';
 
 import AccountScreen from '@/components/account/AccountScreen';
 import ProjectsShell from '@/components/projects/ProjectsShell';
+import { getAccountActivityForUser } from '@/lib/accountActivity';
 import { auth } from '@/lib/auth';
 import { getNotificationsForUser } from '@/lib/notifications';
+import { prisma } from '@/lib/prisma';
 import { accountPath, isAccountTab, parseAccountTab, SIGN_IN_PATH } from '@/lib/routes';
 import { getUserProfileForUser } from '@/lib/userProfile';
 import { getUserStatusesForUser } from '@/lib/userStatuses';
@@ -31,10 +33,13 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
     redirect(accountPath('profile'));
   }
 
-  const [profile, statuses, notifications] = await Promise.all([
+  const [profile, statuses, notifications, activity] = await Promise.all([
     getUserProfileForUser(session.user.id),
     getUserStatusesForUser(session.user.id),
     getNotificationsForUser(session.user.id),
+    tab === 'activity'
+      ? getAccountActivityForUser(prisma, session.user.id)
+      : Promise.resolve(undefined),
   ]);
 
   if (!profile || !statuses) {
@@ -54,7 +59,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
       showSearch={false}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <AccountScreen tab={tab} profile={profile} statuses={statuses} />
+      <AccountScreen tab={tab} profile={profile} statuses={statuses} activity={activity} />
     </ProjectsShell>
   );
 }
