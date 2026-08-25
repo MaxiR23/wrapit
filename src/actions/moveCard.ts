@@ -40,12 +40,12 @@ export async function moveCard(input: {
 
   const { cardId, sourceColumnId, targetColumnId } = parsed.data;
 
-  const ownedSource = await getColumnForUser(sourceColumnId, session.user.id);
+  const ownedSource = await getColumnForUser(sourceColumnId, session.user.id, 'EDIT');
   if (!ownedSource) {
     return { error: 'Unauthorized' };
   }
 
-  const ownedTarget = await getColumnForUser(targetColumnId, session.user.id);
+  const ownedTarget = await getColumnForUser(targetColumnId, session.user.id, 'EDIT');
   if (!ownedTarget) {
     return { error: 'Unauthorized' };
   }

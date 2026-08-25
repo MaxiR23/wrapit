@@ -38,9 +38,12 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   has an optional `description`, a `status` (`ProjectStatus`: `NEW`,
   `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`), and `cardCounter` (integer,
   default 0) used to issue stored card codes. Access is through
-  `Membership` (roles `OWNER`, `ADMIN`, `MEMBER`); `ownerId` is creator metadata.
+  `Membership` (roles `OWNER`, `ADMIN`, `MEMBER` and board access `EDIT`,
+  `COMMENT`, `VIEW`); `ownerId` is creator metadata. `publicLinkEnabled` is a
+  boolean defaulting to false; serving a signed-out visitor is a later slice.
 - `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
-  It holds `role` and `starred`. Every project must have at least one OWNER.
+  It holds `role`, `access` (default `EDIT`), and `starred`. OWNER and ADMIN
+  are constrained to `EDIT`. Every project must have at least one OWNER.
 - `Invitation` belongs to a `Project`, an inviter `User`, and an invitee `User`.
   One row per `(projectId, inviteeId)`. Status is `PENDING`, `ACCEPTED`, or
   `REJECTED`. Invites always write role `MEMBER`. A `REJECTED` row is reused
@@ -50,7 +53,7 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   uses `createMany` with `skipDuplicates` so a concurrent create returns
   `pending_invitation` instead of throwing. Accept and
   reject claim `PENDING` with `updateMany` (`id` + `PENDING`) so only one
-  status transition wins.
+  status transition wins. Accept writes `access: COMMENT` on the new membership.
 - `Notification` belongs to a recipient `User` and optionally an `Invitation`.
   `type` is `NotificationType`: `INVITATION_RECEIVED`, `INVITATION_ACCEPTED`,
   `INVITATION_REJECTED`. `invitationId` links the row so accept/reject can

@@ -13,3 +13,6 @@ export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
  * so the response cannot reveal whether the username exists.
  */
 export const CANT_INVITE_USER_MESSAGE = "Can't invite this user";
+
+/** Shown when an admin tries to remove the project's last OWNER membership. */
+export const LAST_OWNER_MESSAGE = 'Cannot remove the last owner';

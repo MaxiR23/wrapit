@@ -24,6 +24,7 @@ export default function BoardMobile({
   jumpToColumnId,
   jumpToken = 0,
   visibility = DEFAULT_BOARD_VISIBILITY,
+  canEdit = true,
   onMoveToColumn,
   onAddCard,
   onOpenCard,
@@ -34,8 +35,9 @@ export default function BoardMobile({
   jumpToColumnId: string | null;
   jumpToken?: number;
   visibility?: BoardVisibility;
+  canEdit?: boolean;
   onMoveToColumn: (cardId: string, columnId: string) => void;
-  onAddCard: (columnId: string, trigger: HTMLButtonElement) => void;
+  onAddCard?: (columnId: string, trigger: HTMLButtonElement) => void;
   onOpenCard: (cardId: string, trigger: HTMLElement) => void;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
@@ -90,6 +92,7 @@ export default function BoardMobile({
   }
 
   function startPress(cardId: string, event: PointerEvent<HTMLElement>) {
+    if (!canEdit) return;
     clearTimer();
     didLongPressRef.current = false;
     draggedRef.current = false;
@@ -231,7 +234,7 @@ export default function BoardMobile({
                   card={cardsById[card.id] ?? card}
                   visibility={visibility}
                   lifted={liftedId === card.id}
-                  onPointerDown={(event) => startPress(card.id, event)}
+                  onPointerDown={canEdit ? (event) => startPress(card.id, event) : undefined}
                   onPointerCancel={cancelPress}
                   onClick={(event) => {
                     if (didLongPressRef.current || liftedIdRef.current) {

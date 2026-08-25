@@ -13,7 +13,14 @@ import BoardHeader from '@/components/projects/BoardHeader';
 import BoardMobile from '@/components/projects/BoardMobile';
 import BoardNoResults from '@/components/projects/BoardNoResults';
 import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
-import type { BoardCardData, BoardColumnData, BoardMember } from '@/components/projects/boardTypes';
+import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
+import ShareModal from '@/components/projects/ShareModal';
+import type {
+  BoardCardData,
+  BoardColumnData,
+  BoardMember,
+  ShareMember,
+} from '@/components/projects/boardTypes';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import {
@@ -33,6 +40,13 @@ import {
   reducePersistFinish,
 } from '@/lib/kanbanPersist';
 import { syncCardLabels, type LabelView } from '@/lib/labels';
+import {
+  canAdministerProject,
+  canCommentOnBoard,
+  canEditBoard,
+  type MembershipRole,
+} from '@/lib/boardAccess';
+import type { BoardAccess } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
 
@@ -45,10 +59,16 @@ type ProjectBoardProps = {
   projectId: string;
   columns: BoardColumnData[];
   members: BoardMember[];
+  shareMembers?: ShareMember[];
   labels: LabelView[];
   currentUser: BoardMember;
   initialVisibility?: BoardVisibility;
+  boardAccess?: BoardAccess;
+  teamRole?: MembershipRole;
+  publicLinkEnabled?: boolean;
 };
+
+const EMPTY_SHARE_MEMBERS: ShareMember[] = [];
 
 function buildInitialState(columns: BoardColumnData[]) {
   const itemsByColumn: ItemsByColumn = {};
@@ -85,17 +105,23 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     projectId,
     columns,
     members,
+    shareMembers: initialShareMembers = EMPTY_SHARE_MEMBERS,
     labels: initialLabels,
     currentUser,
     initialVisibility = DEFAULT_BOARD_VISIBILITY,
+    boardAccess = 'EDIT',
+    teamRole = 'OWNER',
+    publicLinkEnabled: initialPublicLinkEnabled = false,
   },
   ref,
 ) {
-  const { setOpenPanel } = useOpenPanel();
+  const { openPanel, setOpenPanel } = useOpenPanel();
   const { query, setQuery } = useProjectsSearch();
   const initial = buildInitialState(columns);
   const [itemsByColumn, setItemsByColumn] = useState<ItemsByColumn>(initial.itemsByColumn);
   const [labels, setLabels] = useState(initialLabels);
+  const [shareMembers, setShareMembers] = useState(initialShareMembers);
+  const [publicLinkEnabled, setPublicLinkEnabled] = useState(initialPublicLinkEnabled);
   const [filters, setFilters] = useState<BoardFilters>(emptyBoardFilters);
   const [visibility, setVisibility] = useState<BoardVisibility>(initialVisibility);
   const latestVisibilityRef = useRef(initialVisibility);
@@ -145,6 +171,14 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     cardsById.current = next.cardsById;
     columnMeta.current = next.columnMeta;
   }, [columns]);
+
+  useEffect(() => {
+    setShareMembers(initialShareMembers);
+  }, [initialShareMembers]);
+
+  useEffect(() => {
+    setPublicLinkEnabled(initialPublicLinkEnabled);
+  }, [initialPublicLinkEnabled]);
 
   useEffect(() => {
     setLabels(initialLabels);
@@ -216,67 +250,75 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     totalCount: progress.taskCount,
     visibleCount: visibleCards.length,
   });
+  const canEdit = canEditBoard(boardAccess);
+  const canComment = canCommentOnBoard(boardAccess);
+  const canAdminister = canAdministerProject(teamRole);
 
-  const commitMove = useCallback(async (cardId: string, targetColumnId: string) => {
-    const { items: nextItems, commit } = commitMoveToColumn(
-      itemsRef.current,
-      cardId,
-      targetColumnId,
-    );
-    if (!commit) return;
+  const commitMove = useCallback(
+    async (cardId: string, targetColumnId: string) => {
+      if (!canEdit) return;
+      const { items: nextItems, commit } = commitMoveToColumn(
+        itemsRef.current,
+        cardId,
+        targetColumnId,
+      );
+      if (!commit) return;
 
-    persistQueueRef.current = [...persistQueueRef.current, commit];
-    setError(null);
-    itemsRef.current = nextItems;
-    setItemsByColumn(nextItems);
-    setJumpToColumnId(targetColumnId);
-    setJumpToken((token) => token + 1);
+      persistQueueRef.current = [...persistQueueRef.current, commit];
+      setError(null);
+      itemsRef.current = nextItems;
+      setItemsByColumn(nextItems);
+      setJumpToColumnId(targetColumnId);
+      setJumpToken((token) => token + 1);
 
-    const run = async () => {
-      const finishedJob = persistQueueRef.current[0];
-      if (!finishedJob) return;
+      const run = async () => {
+        const finishedJob = persistQueueRef.current[0];
+        if (!finishedJob) return;
 
-      const requestBaseline = persistedItemsRef.current;
-      const payload = persistPayloadFromBaseline(requestBaseline, finishedJob);
+        const requestBaseline = persistedItemsRef.current;
+        const payload = persistPayloadFromBaseline(requestBaseline, finishedJob);
 
-      let failed = false;
-      try {
-        if (!payload) {
+        let failed = false;
+        try {
+          if (!payload) {
+            failed = true;
+          } else if (payload.sourceColumnId !== payload.targetColumnId) {
+            const result = await moveCard(payload);
+            failed = isMoveCardErrorResult(result);
+          }
+        } catch {
           failed = true;
-        } else if (payload.sourceColumnId !== payload.targetColumnId) {
-          const result = await moveCard(payload);
-          failed = isMoveCardErrorResult(result);
         }
-      } catch {
-        failed = true;
-      }
 
-      persistQueueRef.current = persistQueueRef.current.slice(1);
-      const latestBaseline = persistedItemsRef.current;
-      const reduction = reducePersistFinish({
-        persisted: latestBaseline,
-        finishedJob,
-        remainingJobs: persistQueueRef.current,
-        failed,
-      });
+        persistQueueRef.current = persistQueueRef.current.slice(1);
+        const latestBaseline = persistedItemsRef.current;
+        const reduction = reducePersistFinish({
+          persisted: latestBaseline,
+          finishedJob,
+          remainingJobs: persistQueueRef.current,
+          failed,
+        });
 
-      persistedItemsRef.current = reduction.persisted;
-      itemsRef.current = reduction.display;
-      setItemsByColumn(reduction.display);
-      setError(reduction.error);
-    };
+        persistedItemsRef.current = reduction.persisted;
+        itemsRef.current = reduction.display;
+        setItemsByColumn(reduction.display);
+        setError(reduction.error);
+      };
 
-    const next = persistChainRef.current.then(run, run);
-    persistChainRef.current = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    await next;
-  }, []);
+      const next = persistChainRef.current.then(run, run);
+      persistChainRef.current = next.then(
+        () => undefined,
+        () => undefined,
+      );
+      await next;
+    },
+    [canEdit],
+  );
 
   useImperativeHandle(ref, () => ({ commitMove }), [commitMove]);
 
   function handleAddCard(columnId: string, trigger: HTMLButtonElement) {
+    if (!canEdit) return;
     addTriggerRef.current = trigger;
     setAddColumnId(columnId);
   }
@@ -399,7 +441,11 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         </p>
       ) : null}
 
-      {noResults ? (
+      {displayColumns.length === 0 ? (
+        <div className="flex-1 px-4 py-6 tablet:px-[18px] lg:px-7">
+          <ColumnsEmptyState />
+        </div>
+      ) : noResults ? (
         <BoardNoResults
           onClear={() => {
             setFilters(emptyBoardFilters());
@@ -414,6 +460,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
             draggingId={draggingId}
             overColumnId={overColumnId}
             visibility={visibility}
+            canEdit={canEdit}
             onDragStart={(cardId) => {
               setError(null);
               setDraggingId(cardId);
@@ -427,7 +474,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
             onMoveToColumn={(cardId, columnId) => {
               void commitMove(cardId, columnId);
             }}
-            onAddCard={handleAddCard}
+            onAddCard={canEdit ? handleAddCard : undefined}
             onOpenCard={handleOpenCard}
           />
 
@@ -438,17 +485,18 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
             jumpToColumnId={jumpToColumnId}
             jumpToken={jumpToken}
             visibility={visibility}
+            canEdit={canEdit}
             onMoveToColumn={(cardId, columnId) => {
               void commitMove(cardId, columnId);
             }}
-            onAddCard={handleAddCard}
+            onAddCard={canEdit ? handleAddCard : undefined}
             onOpenCard={handleOpenCard}
           />
         </>
       )}
 
       <NewCardDialog
-        open={addColumnId !== null}
+        open={canEdit && addColumnId !== null}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) setAddColumnId(null);
         }}
@@ -474,6 +522,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         members={members}
         labels={labels}
         currentUser={currentUser}
+        canEdit={canEdit}
+        canComment={canComment}
         onCardPatch={patchOpenCard}
         onMoveColumn={(columnId) => {
           if (!openCardId) return;
@@ -482,6 +532,29 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         onArchive={() => void handleArchive()}
         onDelete={() => void handleDelete()}
         onRestoreFocus={() => openTriggerRef.current?.focus()}
+      />
+
+      <ShareModal
+        open={openPanel === 'share'}
+        onOpenChange={(nextOpen) => setOpenPanel(nextOpen ? 'share' : null)}
+        projectId={projectId}
+        projectTitle={title}
+        members={shareMembers}
+        canAdminister={canAdminister}
+        publicLinkEnabled={publicLinkEnabled}
+        onAccessChange={(membershipId, access) => {
+          setShareMembers((current) =>
+            current.map((member) =>
+              member.membershipId === membershipId ? { ...member, access } : member,
+            ),
+          );
+        }}
+        onRemoved={(membershipId) => {
+          setShareMembers((current) =>
+            current.filter((member) => member.membershipId !== membershipId),
+          );
+        }}
+        onPublicLinkChange={setPublicLinkEnabled}
       />
 
       <BoardToast toast={toast} onDismiss={() => setToast(null)} />

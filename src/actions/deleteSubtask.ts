@@ -23,7 +23,7 @@ export async function deleteSubtask(input: { subtaskId: string }): Promise<Delet
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getSubtaskForUser(parsed.data.subtaskId, session.user.id);
+  const owned = await getSubtaskForUser(parsed.data.subtaskId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

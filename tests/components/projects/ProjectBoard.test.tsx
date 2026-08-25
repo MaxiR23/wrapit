@@ -82,6 +82,18 @@ const updateBoardVisibility = vi.fn(
 vi.mock('@/actions/updateBoardVisibility', () => ({
   updateBoardVisibility,
 }));
+vi.mock('@/actions/createInvitation', () => ({
+  createInvitation: vi.fn(),
+}));
+vi.mock('@/actions/updateMembershipAccess', () => ({
+  updateMembershipAccess: vi.fn(),
+}));
+vi.mock('@/actions/removeMember', () => ({
+  removeMember: vi.fn(),
+}));
+vi.mock('@/actions/updatePublicLink', () => ({
+  updatePublicLink: vi.fn(),
+}));
 
 const { default: ProjectBoard } = await import('@/components/projects/ProjectBoard');
 const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');

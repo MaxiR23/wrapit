@@ -6,7 +6,7 @@
 // - Links back to the projects list
 // - Shows desktop and mobile progress copy from the same counts
 // - Replaces the bar with empty copy when there are no cards
-// - Renders one interactive avatar per member
+// - Renders one interactive avatar per member and a Share button
 // - Does not render a Labels control
 // - Shows a filter badge for active groups and a summary bar
 // - Clear on the summary resets filters
@@ -84,11 +84,12 @@ describe('BoardHeader', () => {
     expect(screen.queryByText('0/0 done')).not.toBeInTheDocument();
   });
 
-  it('renders one interactive avatar per member', () => {
+  it('renders one interactive avatar per member and a Share button', () => {
     renderHeader({ members });
 
     expect(screen.getByRole('button', { name: 'Ada Lovelace' })).toBeInTheDocument();
     expect(screen.queryByTitle('Ada Lovelace')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
   });
 
   it('does not render a Labels control in the header', () => {

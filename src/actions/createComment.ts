@@ -53,7 +53,7 @@ export async function createComment(input: {
     return { error: 'Unauthorized' };
   }
 
-  const owned = await getCardForUser(parsed.data.cardId, session.user.id);
+  const owned = await getCardForUser(parsed.data.cardId, session.user.id, 'COMMENT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

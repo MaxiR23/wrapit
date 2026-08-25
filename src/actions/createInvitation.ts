@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { inviteUserToProject, type InvitationDb } from '@/lib/invitations';
 import { logInfo } from '@/lib/log';
-import { accessibleByUser } from '@/lib/membership';
+import { administeredByUser } from '@/lib/membership';
 import { CANT_INVITE_USER_MESSAGE, GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
@@ -48,7 +48,7 @@ export async function createInvitation(input: {
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: parsed.data.projectId, ...accessibleByUser(session.user.id) },
+    where: { id: parsed.data.projectId, ...administeredByUser(session.user.id) },
   });
   if (!project) {
     return { error: 'Unauthorized' };

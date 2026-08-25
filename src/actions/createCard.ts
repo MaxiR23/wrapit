@@ -84,7 +84,7 @@ export async function createCard(input: {
     return { fieldErrors: { dueDate: 'Enter a valid date' } };
   }
 
-  const owned = await getColumnForUser(parsed.data.columnId, session.user.id);
+  const owned = await getColumnForUser(parsed.data.columnId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

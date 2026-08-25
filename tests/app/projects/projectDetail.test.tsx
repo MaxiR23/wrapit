@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Renders the project title for a member
+// - A project with no columns still renders the board header and can open Share
 // - Wraps the page in the projects shell with Projects as the active nav
 // - Shows the board search input, not Search projects
 // - Does not render the Members heading
@@ -11,7 +12,7 @@
 // - Calls notFound when getProjectForUser returns null
 //
 // What is covered:
-// - Member happy path, shell chrome, missing project as 404
+// - Member happy path, empty-column Share, shell chrome, missing project as 404
 //
 // Run with: pnpm test:run tests/app/projects/projectDetail.test.tsx
 //
@@ -19,6 +20,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
@@ -65,6 +67,39 @@ vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn()
 vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
 vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
 vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
+vi.mock('@/actions/moveCard', () => ({ moveCard: vi.fn() }));
+vi.mock('@/actions/createCard', () => ({ createCard: vi.fn() }));
+vi.mock('@/actions/archiveCard', () => ({ archiveCard: vi.fn() }));
+vi.mock('@/actions/deleteCard', () => ({ deleteCard: vi.fn() }));
+vi.mock('@/actions/updateCardField', () => ({
+  updateCardField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
+}));
+vi.mock('@/actions/updateCardAssignees', () => ({
+  updateCardAssignees: vi.fn(async () => ({ data: { assignees: [] } })),
+}));
+vi.mock('@/actions/updateCardLabel', () => ({
+  updateCardLabel: vi.fn(async () => ({ data: { labelId: null } })),
+}));
+vi.mock('@/actions/createSubtask', () => ({ createSubtask: vi.fn() }));
+vi.mock('@/actions/updateSubtaskField', () => ({
+  updateSubtaskField: vi.fn(async (input: { value: string | boolean }) => ({
+    data: { value: input.value },
+  })),
+}));
+vi.mock('@/actions/deleteSubtask', () => ({ deleteSubtask: vi.fn() }));
+vi.mock('@/actions/createComment', () => ({ createComment: vi.fn() }));
+vi.mock('@/actions/updateLabelField', () => ({
+  updateLabelField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
+}));
+vi.mock('@/actions/createLabel', () => ({ createLabel: vi.fn() }));
+vi.mock('@/actions/deleteLabel', () => ({ deleteLabel: vi.fn() }));
+vi.mock('@/actions/updateBoardVisibility', () => ({
+  updateBoardVisibility: vi.fn(async (visibility: unknown) => ({ data: visibility })),
+}));
+vi.mock('@/actions/createInvitation', () => ({ createInvitation: vi.fn() }));
+vi.mock('@/actions/updateMembershipAccess', () => ({ updateMembershipAccess: vi.fn() }));
+vi.mock('@/actions/removeMember', () => ({ removeMember: vi.fn() }));
+vi.mock('@/actions/updatePublicLink', () => ({ updatePublicLink: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -76,25 +111,25 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-vi.mock('@/components/projects/ProjectBoard', () => ({
-  default: ({ title }: { title: string }) => <h1>{title}</h1>,
-}));
-
-vi.mock('@/components/projects/ColumnsEmptyState', () => ({
-  default: () => <p>This project has no columns yet. Create one to get started.</p>,
-}));
-
 const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/page');
 
 describe('Project detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    HTMLElement.prototype.scrollTo = vi.fn();
     getSession.mockResolvedValue({
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
     recordRecentProject.mockResolvedValue(undefined);
     listProjectMembersForUser.mockResolvedValue([
-      { userId: 'user-ada', name: 'Ada Lovelace', username: 'ada', role: 'OWNER' },
+      {
+        membershipId: 'mem-ada',
+        userId: 'user-ada',
+        name: 'Ada Lovelace',
+        username: 'ada',
+        role: 'OWNER',
+        access: 'EDIT',
+      },
     ]);
     getProjectLabelsForUser.mockResolvedValue([
       { id: 'l0', name: 'Design', tone: 'blue', order: 0 },
@@ -112,11 +147,13 @@ describe('Project detail page', () => {
     });
   });
 
-  it('renders the project title for a member inside the projects shell', async () => {
+  it('renders the board header and can open Share when the project has no columns', async () => {
+    const events = userEvent.setup();
     getProjectForUser.mockResolvedValue({
       id: 'project-1',
       title: 'Sprint board',
       ownerId: 'user-ada',
+      publicLinkEnabled: false,
       columns: [],
     });
 
@@ -124,8 +161,13 @@ describe('Project detail page', () => {
     render(page);
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
+    expect(
+      screen.getByText('This project has no columns yet. Create one to get started.'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: 'Search the board' })).toBeInTheDocument();
+    expect(screen.getAllByRole('searchbox', { name: 'Search the board' }).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
     const projectLinks = screen.getAllByRole('link', { name: 'Projects' });
     expect(projectLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
@@ -136,6 +178,9 @@ describe('Project detail page', () => {
     await waitFor(() => {
       expect(recordRecentProject).toHaveBeenCalledWith('project-1');
     });
+
+    await events.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.getByRole('heading', { name: 'Share board' })).toBeInTheDocument();
   });
 
   it('renders the board title when the project has columns', async () => {

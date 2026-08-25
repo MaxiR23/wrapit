@@ -6,6 +6,12 @@ export type BoardMember = {
   username: string;
 };
 
+export type ShareMember = BoardMember & {
+  membershipId: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  access: 'EDIT' | 'COMMENT' | 'VIEW';
+};
+
 export type BoardSubtask = {
   id: string;
   text: string;

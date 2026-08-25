@@ -20,12 +20,13 @@ OWNER `Membership` for the session user are created in the same transaction as
 the project. A create-time `featured` flag sets `starred: true` on that OWNER
 row; otherwise it is unstarred.
 
-Any member can invite another user by username. Invites always create a
+OWNER and ADMIN can invite another user by username. Invites always create a
 `MEMBER` role. `acceptInvitation` claims `PENDING` with a conditional
-`updateMany` inside the transaction, then inserts the membership; a concurrent
+`updateMany` inside the transaction, then inserts the membership with
+`COMMENT` access; a concurrent
 reject or a second accept cannot leave a membership on a non-PENDING row. A
-mid-flight failure rolls back. Access for invite, accept, and reject is
-membership-based, never `ownerId`.
+mid-flight failure rolls back. Invite, accept, and reject are
+membership-based, never `ownerId`. A MEMBER cannot invite.
 
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. The board UI moves cards **between columns only**
@@ -48,12 +49,14 @@ transaction commits, each unique username is invited (trimmed, lowercased,
 duplicates dropped). Invalid invitees are
 collected as `inviteErrors` and do not roll back the project. The new-project
 dialog always closes on success and may show a brief notice when some invites
-failed; remaining invites happen from Members on the project page.
+failed; remaining invites happen from Share on the project page.
 
 The project detail page loads ordered columns and visible cards (those with
 `archivedAt` unset) server-side via `getProjectForUser`, and project labels via
 `getProjectLabelsForUser` (seeding six defaults when the project has none).
-Non-members get `notFound()`. Cards with a `labelId` render a pill from
+Non-members get `notFound()`. A project with no columns still mounts
+`ProjectBoard`, so the header and Share stay available; the column area shows
+`ColumnsEmptyState`. Cards with a `labelId` render a pill from
 `cardLabelFromRow`; unlabeled cards omit it. Clicking a board card opens the
 detail dialog: title, description, due date, assignees, label, and subtask
 done all go through `useProfileAutosave` (debounce 0 for assignees, label,
@@ -138,7 +141,7 @@ are rejected on that row with the same title required message as the server.
 ## Access
 
 Mutations walk card → column → project → membership through
-`src/lib/ownership.ts` and `accessibleByUser` in `src/lib/membership.ts`. No
+`src/lib/ownership.ts` and `withBoardAccess` in `src/lib/membership.ts`. No
 session or a broken chain returns `{ error: 'Unauthorized' }`. Pattern details:
 `docs/architecture.md`.
 
@@ -243,7 +246,8 @@ src/lib/validation/boardVisibility.ts  six board-face visibility flags
 src/actions/updateBoardVisibility.ts persist board field visibility on UserPreferences
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
+src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, owner backfill
+src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, public board URL
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress for the grid, list, and board header
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
@@ -253,7 +257,11 @@ src/components/projects/ProjectTemplateRow.tsx  single-select template row
 src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured, rename-only columns)
 src/components/projects/ProjectList.tsx   projects table
 src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards, filters
-src/components/projects/BoardHeader.tsx   title, progress, members, filters, visibility, summary
+src/components/projects/ColumnsEmptyState.tsx  empty column area when the project has no columns
+src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, summary
+src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
+src/components/projects/ShareModalBody.tsx  invite, with-access list, public-link row
+src/components/projects/ShareMemberRow.tsx  permission menu + coalesced access/remove
 src/components/projects/BoardFiltersPopover.tsx  label / only-mine / only-overdue popover and sheet
 src/components/projects/BoardVisibilityPopover.tsx  six field toggles, persisted per user
 src/components/projects/BoardFilterSummary.tsx  active-filter copy and Clear

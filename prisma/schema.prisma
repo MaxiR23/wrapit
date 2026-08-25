@@ -13,6 +13,12 @@ enum Role {
   MEMBER
 }
 
+enum Access {
+  EDIT
+  COMMENT
+  VIEW
+}
+
 enum ProjectStatus {
   NEW
   IN_PROGRESS
@@ -127,6 +133,8 @@ model Project {
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
+  publicLinkEnabled Boolean @default(false)
+
   columns         Column[]
   memberships     Membership[]
   invitations     Invitation[]
@@ -222,6 +230,7 @@ model Label {
 model Membership {
   id        String   @id @default(cuid())
   role      Role     @default(MEMBER)
+  access    Access   @default(EDIT)
   starred   Boolean  @default(false)
   createdAt DateTime @default(now())
 

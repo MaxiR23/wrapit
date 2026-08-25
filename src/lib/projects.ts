@@ -157,10 +157,12 @@ export async function getProjectForUser(projectId: string, userId: string) {
 }
 
 export type ProjectMember = {
+  membershipId: string;
   userId: string;
   name: string;
   username: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  access: 'EDIT' | 'COMMENT' | 'VIEW';
 };
 
 const ROLE_ORDER: Record<ProjectMember['role'], number> = {
@@ -201,11 +203,19 @@ export async function listProjectMembersForUser(
         membership.role === 'OWNER' || membership.role === 'ADMIN' || membership.role === 'MEMBER'
           ? membership.role
           : 'MEMBER';
+      const access: ProjectMember['access'] =
+        membership.access === 'EDIT' ||
+        membership.access === 'COMMENT' ||
+        membership.access === 'VIEW'
+          ? membership.access
+          : 'EDIT';
       return {
+        membershipId: membership.id,
         userId: membership.userId,
         name: user?.name ?? '',
         username: user?.username ?? '',
         role,
+        access,
       };
     })
     .sort((left, right) => {

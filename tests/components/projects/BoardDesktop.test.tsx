@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Keyboard Move lists other columns and reports the chosen destination
+// - Hides the Move menu when the viewer cannot edit
 //
 // What is covered:
 // - Keyboard column move
@@ -54,5 +55,25 @@ describe('BoardDesktop', () => {
     await user.click(screen.getByRole('option', { name: 'Doing' }));
 
     expect(onMoveToColumn).toHaveBeenCalledWith('card-a', 'column-doing');
+  });
+
+  it('hides the Move menu when the viewer cannot edit', () => {
+    render(
+      <BoardDesktop
+        columns={columns}
+        cardsById={cardsById}
+        draggingId={null}
+        overColumnId={null}
+        canEdit={false}
+        onDragStart={vi.fn()}
+        onDragEnd={vi.fn()}
+        onDragOverColumn={vi.fn()}
+        onDropOnColumn={vi.fn()}
+        onMoveToColumn={vi.fn()}
+        onOpenCard={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Move Card A' })).not.toBeInTheDocument();
   });
 });

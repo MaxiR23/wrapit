@@ -7,6 +7,8 @@
 // - Disables comment submit while the composer is empty
 // - Delete confirmation replaces archive and delete
 // - Archive and confirmed delete call the parent handlers
+// - View-only access hides archive, delete, and the comment composer
+// - Comment access keeps the composer and hides archive/delete
 //
 // What is covered:
 // - Chrome, composer disabled state, inline delete confirm, archive/delete
@@ -60,6 +62,8 @@ function renderDialog(
     onArchive: () => void;
     onDelete: () => void;
     onOpenChange: (open: boolean) => void;
+    canEdit: boolean;
+    canComment: boolean;
   }> = {},
 ) {
   const onArchive = props.onArchive ?? vi.fn();
@@ -82,6 +86,8 @@ function renderDialog(
         members={[currentUser]}
         labels={[{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }]}
         currentUser={currentUser}
+        canEdit={props.canEdit}
+        canComment={props.canComment}
         onCardPatch={vi.fn()}
         onMoveColumn={vi.fn()}
         onArchive={onArchive}
@@ -135,5 +141,22 @@ describe('CardDetailDialog', () => {
     await user.click(screen.getAllByRole('button', { name: 'Delete' })[0]!);
 
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides archive, delete, and the comment composer for view-only access', () => {
+    renderDialog({ canEdit: false, canComment: false });
+
+    expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Comment' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toHaveAttribute('readOnly');
+  });
+
+  it('keeps the comment composer and hides archive for comment access', () => {
+    renderDialog({ canEdit: false, canComment: true });
+
+    expect(screen.getAllByRole('button', { name: 'Comment' })[0]).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
   });
 });

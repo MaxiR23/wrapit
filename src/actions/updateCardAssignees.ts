@@ -45,7 +45,7 @@ export async function updateCardAssignees(input: {
 
   const assigneeIds = uniqueIds(parsed.data.assigneeIds).slice(0, MAX_CARD_ASSIGNEES);
 
-  const owned = await getCardForUser(parsed.data.cardId, session.user.id);
+  const owned = await getCardForUser(parsed.data.cardId, session.user.id, 'EDIT');
   if (!owned) {
     return { error: 'Unauthorized' };
   }

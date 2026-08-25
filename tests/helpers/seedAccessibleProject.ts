@@ -4,6 +4,7 @@
 // accessibleByUser succeed. ownerId remains creator metadata on the project.
 
 type Role = 'OWNER' | 'ADMIN' | 'MEMBER';
+type Access = 'EDIT' | 'COMMENT' | 'VIEW';
 
 type SeedDb = {
   project: {
@@ -23,6 +24,7 @@ export async function seedAccessibleProject(
     userId: string;
     ownerId?: string;
     role?: Role;
+    access?: Access;
     starred?: boolean;
     status?: string;
     createdAt?: Date;
@@ -44,6 +46,7 @@ export async function seedAccessibleProject(
       userId: data.userId,
       projectId: project.id,
       role: data.role ?? 'OWNER',
+      access: data.access ?? 'EDIT',
       starred: data.starred ?? false,
     },
   });

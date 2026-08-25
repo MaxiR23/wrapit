@@ -134,10 +134,27 @@ function createRow(rows: Row[], data: Row) {
   ) {
     throw new Error('unique constraint');
   }
+  const withDefaults = { ...data };
+  if (
+    withDefaults.role != null &&
+    withDefaults.userId != null &&
+    withDefaults.projectId != null &&
+    withDefaults.inviteeId == null &&
+    withDefaults.access == null
+  ) {
+    withDefaults.access = 'EDIT';
+  }
+  if (
+    withDefaults.title != null &&
+    withDefaults.ownerId != null &&
+    withDefaults.publicLinkEnabled == null
+  ) {
+    withDefaults.publicLinkEnabled = false;
+  }
   const row = {
     id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
     createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
-    ...data,
+    ...withDefaults,
   };
   rows.push(row);
   return { ...row };

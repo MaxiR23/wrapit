@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/lib/auth';
-import { accessibleByUser } from '@/lib/membership';
+import { withBoardAccess } from '@/lib/membership';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { projectPath } from '@/lib/routes';
@@ -31,7 +31,7 @@ export async function deleteColumn(input: { columnId: string }): Promise<DeleteC
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: column.projectId, ...accessibleByUser(session.user.id) },
+    where: { id: column.projectId, ...withBoardAccess(session.user.id, 'EDIT') },
   });
   if (!project) {
     return { error: 'Unauthorized' };

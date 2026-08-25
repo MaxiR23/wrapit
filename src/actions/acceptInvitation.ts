@@ -48,6 +48,7 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
           userId: invitation.inviteeId,
           projectId: invitation.projectId,
           role: 'MEMBER',
+          access: 'COMMENT',
         },
       });
       await tx.notification.create({
