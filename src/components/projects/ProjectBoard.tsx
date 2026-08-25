@@ -5,13 +5,26 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { archiveCard } from '@/actions/archiveCard';
 import { deleteCard } from '@/actions/deleteCard';
 import { moveCard } from '@/actions/moveCard';
+import { updateBoardVisibility } from '@/actions/updateBoardVisibility';
 import CardDetailDialog from '@/components/cards/CardDetailDialog';
 import NewCardDialog, { type CreatedBoardCard } from '@/components/cards/NewCardDialog';
 import BoardDesktop from '@/components/projects/BoardDesktop';
 import BoardHeader from '@/components/projects/BoardHeader';
 import BoardMobile from '@/components/projects/BoardMobile';
+import BoardNoResults from '@/components/projects/BoardNoResults';
 import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
 import type { BoardCardData, BoardColumnData, BoardMember } from '@/components/projects/boardTypes';
+import { useOpenPanel } from '@/components/projects/OpenPanel';
+import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
+import {
+  boardHasNoResults,
+  DEFAULT_BOARD_VISIBILITY,
+  emptyBoardFilters,
+  filterBoardCards,
+  pruneBoardFilterLabelIds,
+  type BoardFilters,
+  type BoardVisibility,
+} from '@/lib/boardView';
 import { commitMoveToColumn, findContainer, type ItemsByColumn } from '@/lib/kanbanItems';
 import {
   applyPendingJobs,
@@ -34,6 +47,7 @@ type ProjectBoardProps = {
   members: BoardMember[];
   labels: LabelView[];
   currentUser: BoardMember;
+  initialVisibility?: BoardVisibility;
 };
 
 function buildInitialState(columns: BoardColumnData[]) {
@@ -66,12 +80,27 @@ function columnsFromItems(
 }
 
 const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function ProjectBoard(
-  { title, projectId, columns, members, labels: initialLabels, currentUser },
+  {
+    title,
+    projectId,
+    columns,
+    members,
+    labels: initialLabels,
+    currentUser,
+    initialVisibility = DEFAULT_BOARD_VISIBILITY,
+  },
   ref,
 ) {
+  const { setOpenPanel } = useOpenPanel();
+  const { query, setQuery } = useProjectsSearch();
   const initial = buildInitialState(columns);
   const [itemsByColumn, setItemsByColumn] = useState<ItemsByColumn>(initial.itemsByColumn);
   const [labels, setLabels] = useState(initialLabels);
+  const [filters, setFilters] = useState<BoardFilters>(emptyBoardFilters);
+  const [visibility, setVisibility] = useState<BoardVisibility>(initialVisibility);
+  const latestVisibilityRef = useRef(initialVisibility);
+  const persistedVisibilityRef = useRef(initialVisibility);
+  const persistVisibilityInFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
@@ -120,16 +149,73 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   useEffect(() => {
     setLabels(initialLabels);
     cardsById.current = syncCardLabels(cardsById.current, initialLabels);
+    setFilters((current) => pruneBoardFilterLabelIds(current, initialLabels));
   }, [initialLabels]);
+
+  useEffect(() => {
+    setVisibility(initialVisibility);
+    latestVisibilityRef.current = initialVisibility;
+    persistedVisibilityRef.current = initialVisibility;
+  }, [initialVisibility]);
+
+  useEffect(() => {
+    if (addColumnId !== null || openCardId !== null) setOpenPanel(null);
+  }, [addColumnId, openCardId, setOpenPanel]);
 
   function handleLabelsChange(next: LabelView[]) {
     setLabels(next);
     cardsById.current = syncCardLabels(cardsById.current, next);
+    setFilters((current) => pruneBoardFilterLabelIds(current, next));
     setItemsByColumn((current) => ({ ...current }));
   }
 
-  const displayColumns = columnsFromItems(columnMeta.current, itemsByColumn, cardsById.current);
-  const progress = projectProgress(displayColumns);
+  async function persistLatestVisibility() {
+    if (persistVisibilityInFlightRef.current) return;
+    persistVisibilityInFlightRef.current = true;
+    try {
+      let intended: BoardVisibility;
+      do {
+        intended = latestVisibilityRef.current;
+        const result = await updateBoardVisibility(intended);
+        if (!('data' in result)) {
+          throw new Error(GENERIC_ERROR_MESSAGE);
+        }
+        persistedVisibilityRef.current = intended;
+      } while (latestVisibilityRef.current !== intended);
+    } catch {
+      const persisted = persistedVisibilityRef.current;
+      latestVisibilityRef.current = persisted;
+      setVisibility(persisted);
+      setError(GENERIC_ERROR_MESSAGE);
+    } finally {
+      persistVisibilityInFlightRef.current = false;
+    }
+  }
+
+  function handleVisibilityChange(next: BoardVisibility) {
+    setError(null);
+    setVisibility(next);
+    latestVisibilityRef.current = next;
+    void persistLatestVisibility();
+  }
+
+  const allColumns = columnsFromItems(columnMeta.current, itemsByColumn, cardsById.current);
+  const progress = projectProgress(allColumns);
+  const visibleCards = filterBoardCards({
+    cards: Object.values(cardsById.current),
+    filters,
+    query,
+    currentUserId: currentUser.id,
+  });
+  const visibleIds = new Set(visibleCards.map((card) => card.id));
+  const displayColumns = allColumns.map((column) => ({
+    ...column,
+    cards: column.cards.filter((card) => visibleIds.has(card.id)),
+  }));
+  const noResults = boardHasNoResults({
+    totalCount: progress.taskCount,
+    visibleCount: visibleCards.length,
+  });
 
   const commitMove = useCallback(async (cardId: string, targetColumnId: string) => {
     const { items: nextItems, commit } = commitMoveToColumn(
@@ -299,6 +385,12 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         taskCount={progress.taskCount}
         percent={progress.percent}
         members={members}
+        labels={labels}
+        filters={filters}
+        onFiltersChange={setFilters}
+        visibility={visibility}
+        onVisibilityChange={handleVisibilityChange}
+        visibleCount={visibleCards.length}
       />
 
       {error ? (
@@ -307,40 +399,53 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
         </p>
       ) : null}
 
-      <BoardDesktop
-        columns={displayColumns}
-        cardsById={cardsById.current}
-        draggingId={draggingId}
-        overColumnId={overColumnId}
-        onDragStart={(cardId) => {
-          setError(null);
-          setDraggingId(cardId);
-        }}
-        onDragEnd={() => {
-          setDraggingId(null);
-          setOverColumnId(null);
-        }}
-        onDragOverColumn={setOverColumnId}
-        onDropOnColumn={dropDraggingOn}
-        onMoveToColumn={(cardId, columnId) => {
-          void commitMove(cardId, columnId);
-        }}
-        onAddCard={handleAddCard}
-        onOpenCard={handleOpenCard}
-      />
+      {noResults ? (
+        <BoardNoResults
+          onClear={() => {
+            setFilters(emptyBoardFilters());
+            setQuery('');
+          }}
+        />
+      ) : (
+        <>
+          <BoardDesktop
+            columns={displayColumns}
+            cardsById={cardsById.current}
+            draggingId={draggingId}
+            overColumnId={overColumnId}
+            visibility={visibility}
+            onDragStart={(cardId) => {
+              setError(null);
+              setDraggingId(cardId);
+            }}
+            onDragEnd={() => {
+              setDraggingId(null);
+              setOverColumnId(null);
+            }}
+            onDragOverColumn={setOverColumnId}
+            onDropOnColumn={dropDraggingOn}
+            onMoveToColumn={(cardId, columnId) => {
+              void commitMove(cardId, columnId);
+            }}
+            onAddCard={handleAddCard}
+            onOpenCard={handleOpenCard}
+          />
 
-      <BoardMobile
-        columns={displayColumns}
-        cardsById={cardsById.current}
-        itemsByColumn={itemsByColumn}
-        jumpToColumnId={jumpToColumnId}
-        jumpToken={jumpToken}
-        onMoveToColumn={(cardId, columnId) => {
-          void commitMove(cardId, columnId);
-        }}
-        onAddCard={handleAddCard}
-        onOpenCard={handleOpenCard}
-      />
+          <BoardMobile
+            columns={displayColumns}
+            cardsById={cardsById.current}
+            itemsByColumn={itemsByColumn}
+            jumpToColumnId={jumpToColumnId}
+            jumpToken={jumpToken}
+            visibility={visibility}
+            onMoveToColumn={(cardId, columnId) => {
+              void commitMove(cardId, columnId);
+            }}
+            onAddCard={handleAddCard}
+            onOpenCard={handleOpenCard}
+          />
+        </>
+      )}
 
       <NewCardDialog
         open={addColumnId !== null}

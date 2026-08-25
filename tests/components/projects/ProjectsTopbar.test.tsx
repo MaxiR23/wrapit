@@ -10,6 +10,7 @@
 // - Switching from Account to the bell leaves focus on the notifications button
 // - Renders the Search projects input
 // - Hides the search input when showSearch is false
+// - Accepts a board-specific placeholder
 //
 // What is covered:
 // - Account menu wiring, OpenPanel exclusion both ways, focus on switch, search field
@@ -124,6 +125,19 @@ describe('ProjectsTopbar', () => {
     renderTopbar(<ProjectsTopbar user={user} />);
 
     expect(screen.getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument();
+  });
+
+  it('renders a custom search placeholder', () => {
+    renderTopbar(
+      <ProjectsTopbar
+        user={user}
+        searchPlaceholder="Search the board"
+        searchAriaLabel="Search the board"
+      />,
+    );
+
+    expect(screen.getByRole('searchbox', { name: 'Search the board' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
   });
 
   it('hides the search input when showSearch is false', () => {

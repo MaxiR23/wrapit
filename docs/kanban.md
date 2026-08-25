@@ -77,8 +77,22 @@ optional calendar day stored as UTC midnight and shown through `formatCardDue`
 / `isCardDueLate`. Overdue and Today / Yesterday / Tomorrow use the viewer's
 local calendar day, not UTC.
 
-The page sits in `ProjectsShell` with Projects as the active nav
-and search hidden. The client owns an id list per column; a move persists
+The page sits in `ProjectsShell` with Projects as the active nav. The topbar
+search on this screen filters the board live by title and label
+(case-insensitive includes), combined with the header filters; it is not the
+projects-list search. Filters (label chips as OR, plus only-mine and
+only-overdue) combine with AND across groups. The filter button badge counts
+active groups, not selected labels. A summary bar lists what is on and the
+visible count while any group is active. Field visibility (label, code,
+comments, subtasks, due date, assignees) is a per-user preference on
+`UserPreferences` and applies to every card face; filters and search reset on
+reload. A failed visibility write rolls the face back to the last persisted
+flags and shows the same generic alert as a failed card move. When the combined filter and search match nothing, the board shows a
+no-results state instead of empty columns. Filters, visibility, and the member
+popover join the shell's single-open panel list with notifications and
+account; opening a modal closes them.
+
+The client owns an id list per column; a move persists
 `cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
 the server appends with `(max order in the target) + 1`.
 
@@ -215,6 +229,7 @@ src/lib/labelTones.ts               eight label tones as CSS token classes
 src/lib/labels.ts                   defaults, last-label guard, card pill sync
 src/lib/projectLabels.ts            read/seed per-project labels
 src/lib/board.ts                    carousel width, long-press constants
+src/lib/boardView.ts                board filters, search match, visibility defaults, summary
 src/lib/kanbanItems.ts              append move, same-column no-op
 src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card/label access chain (membership)
@@ -224,6 +239,8 @@ src/actions/moveCard.ts             occupancy-guarded append to the target colum
 src/actions/updateLabelField.ts     persist one label name or tone
 src/actions/createLabel.ts          append a label (cap 20)
 src/actions/deleteLabel.ts          reassign cards, refuse the last remaining
+src/lib/validation/boardVisibility.ts  six board-face visibility flags
+src/actions/updateBoardVisibility.ts persist board field visibility on UserPreferences
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
 src/lib/membership.ts               accessibleByUser, last-OWNER guard, owner backfill
@@ -235,7 +252,12 @@ src/components/projects/EmptyDemoBoard.tsx  mobile empty-state CSS demo board
 src/components/projects/ProjectTemplateRow.tsx  single-select template row
 src/components/projects/NewProjectDialog.tsx  create-project modal (name, description, status, featured, rename-only columns)
 src/components/projects/ProjectList.tsx   projects table
-src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards
+src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards, filters
+src/components/projects/BoardHeader.tsx   title, progress, members, filters, visibility, summary
+src/components/projects/BoardFiltersPopover.tsx  label / only-mine / only-overdue popover and sheet
+src/components/projects/BoardVisibilityPopover.tsx  six field toggles, persisted per user
+src/components/projects/BoardFilterSummary.tsx  active-filter copy and Clear
+src/components/projects/BoardNoResults.tsx  empty combined filter+search state
 src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
 src/components/projects/BoardMobile.tsx   carousel, long press, destination strip
 src/components/projects/BoardColumn.tsx   column chrome

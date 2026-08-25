@@ -13,9 +13,13 @@ import { cn } from '@/lib/utils';
 export default function ProjectsTopbar({
   user,
   showSearch = true,
+  searchPlaceholder = 'Search projects',
+  searchAriaLabel = 'Search projects',
 }: {
   user: ProjectsShellUser;
   showSearch?: boolean;
+  searchPlaceholder?: string;
+  searchAriaLabel?: string;
 }) {
   const { query, setQuery } = useProjectsSearch();
   const topbarUser = useLiveShellUser(user);
@@ -31,8 +35,8 @@ export default function ProjectsTopbar({
         <div className="relative mr-auto flex items-center">
           <input
             type="search"
-            placeholder="Search projects"
-            aria-label="Search projects"
+            placeholder={searchPlaceholder}
+            aria-label={searchAriaLabel}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className={cn(

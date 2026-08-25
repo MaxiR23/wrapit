@@ -13,6 +13,7 @@ import { getNotificationsForUser } from '@/lib/notifications';
 import { getProjectLabelsForUser } from '@/lib/projectLabels';
 import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
 import { SIGN_IN_PATH } from '@/lib/routes';
+import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
   return typeof user.username === 'string' ? user.username : '';
@@ -66,10 +67,11 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const [members, notifications, labels] = await Promise.all([
+  const [members, notifications, labels, preferences] = await Promise.all([
     listProjectMembersForUser(project.id, session.user.id),
     getNotificationsForUser(session.user.id),
     getProjectLabelsForUser(project.id, session.user.id),
+    getUserPreferences(session.user.id),
   ]);
   const username = sessionUsername(session.user);
   const projectLabels = labels ?? [];
@@ -82,7 +84,9 @@ export default async function ProjectDetailPage({
       }}
       initialNotifications={notifications.items}
       activeNav="projects"
-      showSearch={false}
+      showSearch
+      searchPlaceholder="Search the board"
+      searchAriaLabel="Search the board"
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <RecordRecentProject projectId={project.id} />
@@ -101,6 +105,7 @@ export default async function ProjectDetailPage({
             name: session.user.name,
             username,
           }}
+          initialVisibility={preferences.boardVisibility}
           members={(members ?? []).map((member) => ({
             id: member.userId,
             name: member.name,
