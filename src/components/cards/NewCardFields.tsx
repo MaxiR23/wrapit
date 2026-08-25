@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 
+import DueDateField from '@/components/cards/DueDateField';
 import LabelEditor from '@/components/labels/LabelEditor';
 import type { BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,6 +61,7 @@ export default function NewCardFields({
 }) {
   const [editingLabels, setEditingLabels] = useState(false);
   const selectedAssignees = new Set(assigneeIds);
+  const viewerTimeZone = useViewerTimeZone();
 
   function handleLabelsChange(next: LabelView[]) {
     onLabelsChange(next);
@@ -222,20 +225,19 @@ export default function NewCardFields({
 
         <Field data-invalid={Boolean(dueDateError)} className="gap-2 tablet:gap-[7px]">
           <FieldLabel
-            htmlFor="new-card-due"
+            htmlFor="new-card-due-date"
             className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs"
           >
             Due date
           </FieldLabel>
-          <Input
-            id="new-card-due"
-            type="date"
+          <DueDateField
+            idPrefix="new-card-due"
+            variant="form"
             value={dueDate}
-            onChange={(event) => onDueDateChange(event.target.value)}
-            aria-invalid={Boolean(dueDateError)}
-            className="h-11 rounded-md bg-background px-[13px] text-[14.5px] tablet:h-[38px] tablet:px-3 tablet:text-[13.5px]"
+            onChange={onDueDateChange}
+            error={dueDateError}
+            hintTimeZone={viewerTimeZone}
           />
-          {dueDateError ? <FieldError>{dueDateError}</FieldError> : null}
         </Field>
       </div>
     </div>

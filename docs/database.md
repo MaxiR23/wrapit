@@ -75,9 +75,17 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `createCard` may set `labelId`; it stays nullable for unlabeled cards.
 - `Card` belongs to a `Column`. It stores a `code` assigned at create time and
   an optional `archivedAt`; archived cards are omitted from board reads. An
-  optional `labelId` points at one project label. An optional `dueDate` is a
-  calendar day stored as UTC midnight. Relative labels and overdue compare that
-  stored day to the viewer's local calendar day. `Subtask` belongs to a `Card`
+  optional `labelId` points at one project label. An optional `dueDate` pairs
+  with an optional `dueTimeZone`, which is what says whether the card is due on
+  a day or at a moment. With no zone, `dueDate` is a calendar day stored as UTC
+  midnight, and relative labels and overdue compare that stored day to the
+  viewer's local calendar day. With a zone, `dueDate` is a real instant and
+  `dueTimeZone` is the IANA zone it was set in, kept so the moment can be named
+  in its own terms; overdue then compares instants and reads the same for every
+  viewer. The zone is provenance, so it survives an edit from elsewhere that
+  resolves to the same instant. Rows written before the column existed read
+  `NULL` and are calendar days, which is what they always were. Wall time is
+  resolved to an instant server-side, never in the browser. `Subtask` belongs to a `Card`
   (`text`, `done`, `Float` `order`); creates append `(max order)+1`. `Comment`
   belongs to a `Card` and a `User` as author (`body`, `createdAt`). Deleting a
   card cascades both. Board footer counters are derived from these lists, not

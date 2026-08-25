@@ -17,6 +17,7 @@ import BoardNoResults from '@/components/projects/BoardNoResults';
 import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
 import ColumnsEmptyState from '@/components/projects/ColumnsEmptyState';
 import ShareModal from '@/components/projects/ShareModal';
+import { ViewerTimeZoneProvider } from '@/components/projects/ViewerTimeZoneProvider';
 import type {
   BoardCardData,
   BoardColumnData,
@@ -468,161 +469,163 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <BoardHeader
-        title={title}
-        doneCount={progress.doneCount}
-        taskCount={progress.taskCount}
-        percent={progress.percent}
-        members={members}
-        labels={labels}
-        filters={filters}
-        onFiltersChange={setFilters}
-        visibility={visibility}
-        onVisibilityChange={handleVisibilityChange}
-        visibleCount={visibleCards.length}
-        logOpen={surface === 'log'}
-        onToggleLog={handleToggleLog}
-      />
-
-      {error ? (
-        <p role="alert" className="px-4 text-sm text-destructive md:px-7">
-          {error}
-        </p>
-      ) : null}
-
-      {surface === 'log' ? (
-        <BoardActivityLog
-          items={activityItems}
-          loading={activityLoading}
-          error={activityError}
-          hasMore={activityCursor !== null}
-          onLoadMore={() => {
-            if (activityCursor) void loadActivity(activityCursor);
-          }}
+    <ViewerTimeZoneProvider>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <BoardHeader
+          title={title}
+          doneCount={progress.doneCount}
+          taskCount={progress.taskCount}
+          percent={progress.percent}
+          members={members}
+          labels={labels}
+          filters={filters}
+          onFiltersChange={setFilters}
+          visibility={visibility}
+          onVisibilityChange={handleVisibilityChange}
+          visibleCount={visibleCards.length}
+          logOpen={surface === 'log'}
+          onToggleLog={handleToggleLog}
         />
-      ) : null}
 
-      <div className={surface === 'log' ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
-        {displayColumns.length === 0 ? (
-          <div className="flex-1 px-4 py-6 tablet:px-[18px] lg:px-7">
-            <ColumnsEmptyState />
-          </div>
-        ) : noResults ? (
-          <BoardNoResults
-            onClear={() => {
-              setFilters(emptyBoardFilters());
-              setQuery('');
+        {error ? (
+          <p role="alert" className="px-4 text-sm text-destructive md:px-7">
+            {error}
+          </p>
+        ) : null}
+
+        {surface === 'log' ? (
+          <BoardActivityLog
+            items={activityItems}
+            loading={activityLoading}
+            error={activityError}
+            hasMore={activityCursor !== null}
+            onLoadMore={() => {
+              if (activityCursor) void loadActivity(activityCursor);
             }}
           />
-        ) : (
-          <>
-            <BoardDesktop
-              columns={displayColumns}
-              cardsById={cardsById.current}
-              draggingId={draggingId}
-              overColumnId={overColumnId}
-              visibility={visibility}
-              canEdit={canEdit}
-              onDragStart={(cardId) => {
-                setError(null);
-                setDraggingId(cardId);
-              }}
-              onDragEnd={() => {
-                setDraggingId(null);
-                setOverColumnId(null);
-              }}
-              onDragOverColumn={setOverColumnId}
-              onDropOnColumn={dropDraggingOn}
-              onMoveToColumn={(cardId, columnId) => {
-                void commitMove(cardId, columnId);
-              }}
-              onAddCard={canEdit ? handleAddCard : undefined}
-              onOpenCard={handleOpenCard}
-            />
+        ) : null}
 
-            <BoardMobile
-              columns={displayColumns}
-              cardsById={cardsById.current}
-              itemsByColumn={itemsByColumn}
-              jumpToColumnId={jumpToColumnId}
-              jumpToken={jumpToken}
-              visibility={visibility}
-              canEdit={canEdit}
-              onMoveToColumn={(cardId, columnId) => {
-                void commitMove(cardId, columnId);
+        <div className={surface === 'log' ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
+          {displayColumns.length === 0 ? (
+            <div className="flex-1 px-4 py-6 tablet:px-[18px] lg:px-7">
+              <ColumnsEmptyState />
+            </div>
+          ) : noResults ? (
+            <BoardNoResults
+              onClear={() => {
+                setFilters(emptyBoardFilters());
+                setQuery('');
               }}
-              onAddCard={canEdit ? handleAddCard : undefined}
-              onOpenCard={handleOpenCard}
             />
-          </>
-        )}
+          ) : (
+            <>
+              <BoardDesktop
+                columns={displayColumns}
+                cardsById={cardsById.current}
+                draggingId={draggingId}
+                overColumnId={overColumnId}
+                visibility={visibility}
+                canEdit={canEdit}
+                onDragStart={(cardId) => {
+                  setError(null);
+                  setDraggingId(cardId);
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setOverColumnId(null);
+                }}
+                onDragOverColumn={setOverColumnId}
+                onDropOnColumn={dropDraggingOn}
+                onMoveToColumn={(cardId, columnId) => {
+                  void commitMove(cardId, columnId);
+                }}
+                onAddCard={canEdit ? handleAddCard : undefined}
+                onOpenCard={handleOpenCard}
+              />
+
+              <BoardMobile
+                columns={displayColumns}
+                cardsById={cardsById.current}
+                itemsByColumn={itemsByColumn}
+                jumpToColumnId={jumpToColumnId}
+                jumpToken={jumpToken}
+                visibility={visibility}
+                canEdit={canEdit}
+                onMoveToColumn={(cardId, columnId) => {
+                  void commitMove(cardId, columnId);
+                }}
+                onAddCard={canEdit ? handleAddCard : undefined}
+                onOpenCard={handleOpenCard}
+              />
+            </>
+          )}
+        </div>
+
+        <NewCardDialog
+          open={canEdit && addColumnId !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setAddColumnId(null);
+          }}
+          projectId={projectId}
+          projectTitle={title}
+          initialColumnId={addColumnId ?? columnMeta.current[0]?.id ?? ''}
+          columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
+          members={members}
+          labels={labels}
+          onLabelsChange={handleLabelsChange}
+          onCreated={handleCardCreated}
+          onRestoreFocus={() => addTriggerRef.current?.focus()}
+        />
+
+        <CardDetailDialog
+          open={openCardId !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setOpenCardId(null);
+          }}
+          card={openCardId ? (cardsById.current[openCardId] ?? null) : null}
+          columnId={openCardId ? (findContainer(itemsByColumn, openCardId) ?? '') : ''}
+          columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
+          members={members}
+          labels={labels}
+          currentUser={currentUser}
+          canEdit={canEdit}
+          canComment={canComment}
+          onCardPatch={patchOpenCard}
+          onMoveColumn={(columnId) => {
+            if (!openCardId) return;
+            void commitMove(openCardId, columnId);
+          }}
+          onArchive={() => void handleArchive()}
+          onDelete={() => void handleDelete()}
+          onRestoreFocus={() => openTriggerRef.current?.focus()}
+        />
+
+        <ShareModal
+          open={openPanel === 'share'}
+          onOpenChange={(nextOpen) => setOpenPanel(nextOpen ? 'share' : null)}
+          projectId={projectId}
+          projectTitle={title}
+          members={shareMembers}
+          canAdminister={canAdminister}
+          publicLinkEnabled={publicLinkEnabled}
+          onAccessChange={(membershipId, access) => {
+            setShareMembers((current) =>
+              current.map((member) =>
+                member.membershipId === membershipId ? { ...member, access } : member,
+              ),
+            );
+          }}
+          onRemoved={(membershipId) => {
+            setShareMembers((current) =>
+              current.filter((member) => member.membershipId !== membershipId),
+            );
+          }}
+          onPublicLinkChange={setPublicLinkEnabled}
+        />
+
+        <BoardToast toast={toast} onDismiss={() => setToast(null)} />
       </div>
-
-      <NewCardDialog
-        open={canEdit && addColumnId !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setAddColumnId(null);
-        }}
-        projectId={projectId}
-        projectTitle={title}
-        initialColumnId={addColumnId ?? columnMeta.current[0]?.id ?? ''}
-        columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
-        members={members}
-        labels={labels}
-        onLabelsChange={handleLabelsChange}
-        onCreated={handleCardCreated}
-        onRestoreFocus={() => addTriggerRef.current?.focus()}
-      />
-
-      <CardDetailDialog
-        open={openCardId !== null}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setOpenCardId(null);
-        }}
-        card={openCardId ? (cardsById.current[openCardId] ?? null) : null}
-        columnId={openCardId ? (findContainer(itemsByColumn, openCardId) ?? '') : ''}
-        columns={columnMeta.current.map((column) => ({ id: column.id, title: column.title }))}
-        members={members}
-        labels={labels}
-        currentUser={currentUser}
-        canEdit={canEdit}
-        canComment={canComment}
-        onCardPatch={patchOpenCard}
-        onMoveColumn={(columnId) => {
-          if (!openCardId) return;
-          void commitMove(openCardId, columnId);
-        }}
-        onArchive={() => void handleArchive()}
-        onDelete={() => void handleDelete()}
-        onRestoreFocus={() => openTriggerRef.current?.focus()}
-      />
-
-      <ShareModal
-        open={openPanel === 'share'}
-        onOpenChange={(nextOpen) => setOpenPanel(nextOpen ? 'share' : null)}
-        projectId={projectId}
-        projectTitle={title}
-        members={shareMembers}
-        canAdminister={canAdminister}
-        publicLinkEnabled={publicLinkEnabled}
-        onAccessChange={(membershipId, access) => {
-          setShareMembers((current) =>
-            current.map((member) =>
-              member.membershipId === membershipId ? { ...member, access } : member,
-            ),
-          );
-        }}
-        onRemoved={(membershipId) => {
-          setShareMembers((current) =>
-            current.filter((member) => member.membershipId !== membershipId),
-          );
-        }}
-        onPublicLinkChange={setPublicLinkEnabled}
-      />
-
-      <BoardToast toast={toast} onDismiss={() => setToast(null)} />
-    </div>
+    </ViewerTimeZoneProvider>
   );
 });
 

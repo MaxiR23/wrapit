@@ -29,6 +29,7 @@ export type ActivityCopy = {
     actorName: string;
     cardTitle: string;
     dueDateLabel: string | null;
+    zoneNote?: string | null;
   }) => string;
   commentAdded: (input: { actorName: string; cardTitle: string }) => string;
   memberAdded: (input: { actorName: string }) => string;
@@ -70,11 +71,12 @@ export const activityCopy: ActivityCopy = {
     }
     return `${actorName} changed the label of "${cardTitle}" to ${labelName}.`;
   },
-  dueDateChanged: ({ actorName, cardTitle, dueDateLabel }) => {
+  dueDateChanged: ({ actorName, cardTitle, dueDateLabel, zoneNote }) => {
     if (dueDateLabel == null || dueDateLabel === '') {
       return `${actorName} cleared the due date of "${cardTitle}".`;
     }
-    return `${actorName} set the due date of "${cardTitle}" to ${dueDateLabel}.`;
+    const origin = zoneNote ? `, ${zoneNote}` : '';
+    return `${actorName} set the due date of "${cardTitle}" to ${dueDateLabel}${origin}.`;
   },
   commentAdded: ({ actorName, cardTitle }) => `${actorName} commented on "${cardTitle}".`,
   memberAdded: ({ actorName }) => `${actorName} joined the project.`,

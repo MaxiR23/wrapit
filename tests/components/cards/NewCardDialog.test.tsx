@@ -6,6 +6,7 @@
 // - Shows the project and column in the desktop subtitle
 // - Disables create without a title
 // - Submits title, description, column, label, due date, and assignees
+// - Submits a due time with the viewer zone, and a bare date without one
 // - Omits assigneeIds when nobody is picked
 // - Closing discards the draft
 // - Escape closes the dialog
@@ -19,7 +20,7 @@
 // SEE: src/components/cards/NewCardDialog.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const createCard = vi.fn();
@@ -34,6 +35,7 @@ vi.mock('@/actions/createLabel', () => ({ createLabel: vi.fn() }));
 vi.mock('@/actions/deleteLabel', () => ({ deleteLabel: vi.fn() }));
 
 const { default: NewCardDialog } = await import('@/components/cards/NewCardDialog');
+const { ViewerTimeZoneProvider } = await import('@/components/projects/ViewerTimeZoneProvider');
 
 const columns = [
   { id: 'column-todo', title: 'To do' },
@@ -62,18 +64,20 @@ function renderDialog(
     onOpenChange,
     onCreated,
     ...render(
-      <NewCardDialog
-        open={props.open ?? true}
-        onOpenChange={onOpenChange}
-        projectId="project-1"
-        projectTitle="Sprint board"
-        initialColumnId={props.initialColumnId ?? 'column-todo'}
-        columns={columns}
-        members={members}
-        labels={labels}
-        onLabelsChange={vi.fn()}
-        onCreated={onCreated}
-      />,
+      <ViewerTimeZoneProvider>
+        <NewCardDialog
+          open={props.open ?? true}
+          onOpenChange={onOpenChange}
+          projectId="project-1"
+          projectTitle="Sprint board"
+          initialColumnId={props.initialColumnId ?? 'column-todo'}
+          columns={columns}
+          members={members}
+          labels={labels}
+          onLabelsChange={vi.fn()}
+          onCreated={onCreated}
+        />
+      </ViewerTimeZoneProvider>,
     ),
   };
 }
@@ -157,6 +161,46 @@ describe('NewCardDialog', () => {
       });
     });
     expect(createCard.mock.calls[0]?.[0]).not.toHaveProperty('assigneeIds');
+  });
+
+  it('submits a due time with the viewer zone, and a bare date without one', async () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'Europe/Madrid';
+    try {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.type(screen.getByLabelText('Title'), 'Write tests');
+      fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-08-25' } });
+      fireEvent.change(screen.getByLabelText('Due time'), { target: { value: '16:00' } });
+      await user.click(screen.getByRole('button', { name: 'Create task' }));
+
+      await waitFor(() => {
+        expect(createCard).toHaveBeenCalledWith(
+          expect.objectContaining({
+            dueDate: '2026-08-25',
+            dueTime: '16:00',
+            dueTimeZone: 'Europe/Madrid',
+          }),
+        );
+      });
+
+      createCard.mockClear();
+      fireEvent.change(screen.getByLabelText('Due time'), { target: { value: '' } });
+      await user.click(screen.getByRole('button', { name: 'Create task' }));
+
+      await waitFor(() => {
+        expect(createCard).toHaveBeenCalledWith(expect.objectContaining({ dueDate: '2026-08-25' }));
+      });
+      expect(createCard.mock.calls[0]?.[0]).not.toHaveProperty('dueTime');
+      expect(createCard.mock.calls[0]?.[0]).not.toHaveProperty('dueTimeZone');
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
   });
 
   it('discards the draft when the dialog closes', async () => {

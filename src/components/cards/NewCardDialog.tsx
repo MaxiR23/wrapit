@@ -4,9 +4,11 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } f
 import { X } from 'lucide-react';
 
 import { createCard } from '@/actions/createCard';
+import { splitDueValue } from '@/components/cards/DueDateField';
 import NewCardFields from '@/components/cards/NewCardFields';
 import type { BoardCardData, BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -69,6 +71,7 @@ export default function NewCardDialog({
   const [dueDateError, setDueDateError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const viewerTimeZone = useViewerTimeZone();
 
   useEffect(() => {
     if (!open) return;
@@ -105,19 +108,23 @@ export default function NewCardDialog({
     setDueDateError(undefined);
     setSubmitting(true);
 
+    const due = splitDueValue(draft.dueDate);
     const result = await createCard({
       columnId: draft.columnId,
       title: draft.title,
       description: draft.description,
       ...(draft.labelId ? { labelId: draft.labelId } : {}),
-      ...(draft.dueDate ? { dueDate: draft.dueDate } : {}),
+      ...(due.day ? { dueDate: due.day } : {}),
+      ...(due.day && due.time ? { dueTime: due.time, dueTimeZone: viewerTimeZone ?? '' } : {}),
       ...(draft.assigneeIds.length > 0 ? { assigneeIds: draft.assigneeIds } : {}),
     });
 
     if ('fieldErrors' in result) {
       setTitleError(result.fieldErrors.title);
       setDescriptionError(result.fieldErrors.description);
-      setDueDateError(result.fieldErrors.dueDate);
+      setDueDateError(
+        result.fieldErrors.dueDate ?? result.fieldErrors.dueTime ?? result.fieldErrors.dueTimeZone,
+      );
       setSubmitting(false);
       return;
     }
@@ -136,6 +143,7 @@ export default function NewCardDialog({
       title: result.data.title,
       code: result.data.code,
       dueDate: result.data.dueDate,
+      dueTimeZone: result.data.dueTimeZone,
       label: cardLabelFromRow(labelRow),
       assignees: result.data.assignees,
       comments: result.data.comments ?? [],

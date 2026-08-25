@@ -15,6 +15,7 @@ import { initials } from '@/lib/initials';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { cn } from '@/lib/utils';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
 
 export default function BoardActivityLog({
   items,
@@ -84,6 +85,7 @@ export default function BoardActivityLog({
 }
 
 function ActivityRow({ event }: { event: ActivityEventView }) {
+  const viewerTimeZone = useViewerTimeZone();
   const actorName =
     typeof event.payload.actorName === 'string' && event.payload.actorName
       ? event.payload.actorName
@@ -107,7 +109,7 @@ function ActivityRow({ event }: { event: ActivityEventView }) {
       </span>
       <div className="flex min-w-0 flex-col gap-1 tablet:gap-1">
         <p className="text-[13.5px] leading-[1.45] text-foreground text-pretty">
-          {activitySentence(event)}
+          {activitySentence(event, activityCopy, viewerTimeZone)}
         </p>
         {quote ? (
           <p className="line-clamp-4 rounded-[10px] border border-border bg-card px-3 py-2 text-[12.5px] leading-normal text-muted-foreground">

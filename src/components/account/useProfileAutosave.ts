@@ -25,12 +25,14 @@ export function useProfileAutosave<T>({
   debounceMs = PROFILE_AUTOSAVE_DEBOUNCE_MS,
   onSuccess,
   onRevert,
+  resetKey,
 }: {
   initial: T;
   save: (value: T) => Promise<SaveResult>;
   debounceMs?: number;
   onSuccess?: (value: T) => void;
   onRevert?: (value: T) => void;
+  resetKey?: unknown;
 }) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -42,12 +44,23 @@ export function useProfileAutosave<T>({
   const saveRef = useRef(save);
   const onSuccessRef = useRef(onSuccess);
   const onRevertRef = useRef(onRevert);
+  const initialRef = useRef(initial);
 
   useEffect(() => {
     saveRef.current = save;
     onSuccessRef.current = onSuccess;
     onRevertRef.current = onRevert;
+    initialRef.current = initial;
   });
+
+  useEffect(() => {
+    if (resetKey === undefined) return;
+    if (desiredRef.current !== persistedRef.current) return;
+    const next = initialRef.current;
+    desiredRef.current = next;
+    persistedRef.current = next;
+    setValue(next);
+  }, [resetKey]);
 
   const persist = useCallback(async () => {
     if (inFlightRef.current) return inFlightRef.current;

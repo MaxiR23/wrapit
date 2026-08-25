@@ -29,6 +29,7 @@ export type BoardFilterCard = {
   title: string;
   code: string;
   dueDate: Date | null;
+  dueTimeZone?: string | null;
   assignees?: Array<{ id: string }>;
   label?: { id: string; name: string } | null;
 };
@@ -84,7 +85,10 @@ export function filterBoardCards({
       if (!assignees.some((member) => member.id === currentUserId)) return false;
     }
     if (filters.onlyOverdue) {
-      if (card.dueDate == null || !isCardDueLate(card.dueDate, now)) return false;
+      if (card.dueDate == null) return false;
+      if (!isCardDueLate({ dueDate: card.dueDate, dueTimeZone: card.dueTimeZone ?? null }, now)) {
+        return false;
+      }
     }
     return matchesQuery(card, needle);
   });

@@ -27,6 +27,7 @@ function asCard(
     code: string;
     description?: string | null;
     dueDate: Date | null;
+    dueTimeZone?: string | null;
     labelId?: string | null;
     assignees?: Array<{ id: string; name: string; username: string }>;
     comments?: BoardCardData['comments'];
@@ -41,6 +42,7 @@ function asCard(
     code: card.code,
     description: card.description ?? null,
     dueDate: card.dueDate,
+    dueTimeZone: card.dueTimeZone ?? null,
     label: cardLabelFromRow(row),
     assignees: card.assignees ?? [],
     comments: card.comments ?? [],

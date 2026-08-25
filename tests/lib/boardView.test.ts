@@ -8,6 +8,7 @@
 // - Only-mine and only-overdue each narrow the list, and combine with AND
 // - Search matches title or label case-insensitively and ANDs with filters
 // - Cards without a due date are not overdue; unlabeled cards miss a label query
+// - Reads a due moment by instant while a calendar day keeps the local-day rule
 // - The badge counts active groups, not selected labels
 // - Summary lists applied groups and the visible count
 // - Unknown label ids are dropped after a label delete
@@ -187,6 +188,49 @@ describe('filterBoardCards', () => {
         now,
       }).map((item) => item.id),
     ).toEqual(['card-mine-design']);
+  });
+});
+
+describe('only-overdue with a due moment', () => {
+  // now is 2026-08-24 15:00 UTC, so a moment at 14:00 UTC has passed while a
+  // moment at 16:00 UTC has not, even though both fall on that same day.
+  const passed = card({
+    id: 'card-passed',
+    title: 'Passed moment',
+    dueDate: new Date(Date.UTC(2026, 7, 24, 14, 0)),
+    dueTimeZone: 'Europe/Madrid',
+  });
+  const ahead = card({
+    id: 'card-ahead',
+    title: 'Upcoming moment',
+    dueDate: new Date(Date.UTC(2026, 7, 24, 16, 0)),
+    dueTimeZone: 'Europe/Madrid',
+  });
+
+  it('reads a moment by instant, not by calendar day', () => {
+    expect(
+      filterBoardCards({
+        cards: [passed, ahead],
+        filters: { ...emptyBoardFilters(), onlyOverdue: true },
+        query: '',
+        currentUserId: ada.id,
+        now,
+      }).map((item) => item.id),
+    ).toEqual(['card-passed']);
+  });
+
+  it('leaves the calendar-day rule in place for a card with no zone', () => {
+    expect(
+      filterBoardCards({
+        cards: [
+          card({ id: 'card-today', title: 'Due today', dueDate: new Date(Date.UTC(2026, 7, 24)) }),
+        ],
+        filters: { ...emptyBoardFilters(), onlyOverdue: true },
+        query: '',
+        currentUserId: ada.id,
+        now,
+      }),
+    ).toEqual([]);
   });
 });
 

@@ -6,6 +6,8 @@
 // - Builds an English sentence from each event type
 // - Keeps a snapshotted column name after a rename
 // - Formats a due date as an absolute calendar day, not Today
+// - Reads a due moment in the viewer zone and names the zone it was set in
+// - Keeps the sentence of an event written before due dates could carry a time
 // - Collapses consecutive same-type edits on the same card
 // - A collapsed move reads as the first from-column to the last to-column
 // - Member events do not collapse
@@ -27,7 +29,7 @@ import {
   activitySentence,
   collapseActivityEvents,
   formatActivityDayLabel,
-  formatActivityDueDate,
+  formatActivityDue,
   groupActivityByDay,
 } from '@/lib/activityDisplay';
 import { activityCopy } from '@/lib/activityCopy';
@@ -206,8 +208,8 @@ describe('activitySentence', () => {
   });
 
   it('formats a due date as an absolute calendar day, not Today', () => {
-    const label = formatActivityDueDate('2026-08-25');
-    expect(label).toBe('25 Aug 2026');
+    const due = formatActivityDue({ dueDate: '2026-08-25' });
+    expect(due).toEqual({ label: '25 Aug 2026', zoneNote: null });
     expect(
       activitySentence(
         view({
@@ -222,6 +224,40 @@ describe('activitySentence', () => {
         }),
       ),
     ).toBe('Ada Lovelace set the due date of "Ship it" to 25 Aug 2026.');
+  });
+
+  it('reads a due moment in the viewer zone and names the zone it was set in', () => {
+    const event = view({
+      id: 'e1',
+      type: 'DUE_DATE_CHANGED',
+      payload: {
+        ...actor,
+        cardId: 'c1',
+        cardTitle: 'Ship it',
+        dueDate: '2026-08-25',
+        dueTime: '16:00',
+        dueTimeZone: 'Europe/Madrid',
+      },
+    });
+
+    expect(activitySentence(event, activityCopy, 'Europe/Madrid')).toBe(
+      'Ada Lovelace set the due date of "Ship it" to 25 Aug 2026 at 4:00pm.',
+    );
+    expect(activitySentence(event, activityCopy, 'America/Argentina/Buenos_Aires')).toBe(
+      'Ada Lovelace set the due date of "Ship it" to 25 Aug 2026 at 11:00am, Madrid time (GMT+02:00).',
+    );
+  });
+
+  it('keeps the sentence of an event written before due dates could carry a time', () => {
+    const event = view({
+      id: 'e1',
+      type: 'DUE_DATE_CHANGED',
+      payload: { ...actor, cardId: 'c1', cardTitle: 'Ship it', dueDate: '2026-08-25' },
+    });
+
+    expect(activitySentence(event, activityCopy, 'America/Argentina/Buenos_Aires')).toBe(
+      'Ada Lovelace set the due date of "Ship it" to 25 Aug 2026.',
+    );
   });
 
   it('uses the fallback sentence when the payload is invalid', () => {

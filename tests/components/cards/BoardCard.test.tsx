@@ -6,22 +6,26 @@
 // - Renders title and stored code
 // - Shows 0 comments and 0/0 subtasks when lists are empty
 // - Shows a due label and the late token when the date is before today
+// - Shows the time of a due moment, converted into the viewer's zone
+// - Names the zone a moment was set in when the viewer reads another clock
+// - Marks a passed due moment late even though its calendar day is today
 // - Omits the pill when the card has no label
 // - Hides label and code together, which removes the top row
 // - Hides footer fields when those visibility flags are off
 //
 // What is covered:
-// - Present fields only, overdue styling, unknown tone omitted
+// - Present fields only, overdue styling, unknown tone omitted, due moments
 //
 // Run with: pnpm test:run tests/components/cards/BoardCard.test.tsx
 //
 // SEE: src/components/cards/BoardCard.tsx
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import BoardCard from '@/components/cards/BoardCard';
 import type { BoardCardData } from '@/components/projects/boardTypes';
+import { ViewerTimeZoneProvider } from '@/components/projects/ViewerTimeZoneProvider';
 
 const base: BoardCardData = {
   id: 'card-1',
@@ -128,5 +132,68 @@ describe('BoardCard', () => {
     expect(screen.queryByText('0/0')).not.toBeInTheDocument();
     expect(screen.queryByText('Yesterday')).not.toBeInTheDocument();
     expect(screen.queryByTitle('Ada Lovelace')).not.toBeInTheDocument();
+  });
+});
+
+describe('BoardCard with a due moment', () => {
+  // 2026-08-25 16:00 in Madrid, which reads 11:00 in Buenos Aires.
+  const madridMoment: BoardCardData = {
+    ...base,
+    dueDate: new Date(Date.UTC(2026, 7, 25, 14, 0)),
+    dueTimeZone: 'Europe/Madrid',
+  };
+  const previousTz = process.env.TZ;
+
+  function renderInZone(timeZone: string, card: BoardCardData = madridMoment) {
+    process.env.TZ = timeZone;
+    render(
+      <ViewerTimeZoneProvider>
+        <BoardCard card={card} />
+      </ViewerTimeZoneProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-08-20T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (previousTz === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = previousTz;
+    }
+  });
+
+  it('shows the time on the storing viewer clock without naming a zone', () => {
+    renderInZone('Europe/Madrid');
+
+    const due = screen.getByText('25 Aug 4:00pm');
+    expect(due).toBeInTheDocument();
+    expect(due).not.toHaveAttribute('title');
+  });
+
+  it('converts the time into the viewer zone and names the zone it was set in', () => {
+    renderInZone('America/Argentina/Buenos_Aires');
+
+    const due = screen.getByText('25 Aug 11:00am');
+    expect(due).toBeInTheDocument();
+    expect(due).toHaveAttribute('title', 'Madrid time (GMT+02:00)');
+  });
+
+  it('marks a moment late once it has passed, on the day it is due', () => {
+    vi.setSystemTime(new Date('2026-08-25T14:01:00Z'));
+    renderInZone('America/Argentina/Buenos_Aires');
+
+    expect(screen.getByText('Today 11:00am')).toHaveClass('text-late');
+  });
+
+  it('does not mark a moment late while it is still ahead', () => {
+    vi.setSystemTime(new Date('2026-08-25T13:59:00Z'));
+    renderInZone('America/Argentina/Buenos_Aires');
+
+    expect(screen.getByText('Today 11:00am')).not.toHaveClass('text-late');
   });
 });

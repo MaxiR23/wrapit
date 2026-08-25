@@ -2,12 +2,13 @@ import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } fr
 import { MessageSquare } from 'lucide-react';
 
 import { commentCount, subtaskProgress } from '@/lib/cardCounters';
-import { formatCardDue, isCardDueLate } from '@/lib/cardDue';
+import { cardDueLabel } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
 import { cn } from '@/lib/utils';
 import type { BoardCardData } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
 import { DEFAULT_BOARD_VISIBILITY, type BoardVisibility } from '@/lib/boardView';
 
 export default function BoardCard({
@@ -41,6 +42,7 @@ export default function BoardCard({
   onClick?: (event: MouseEvent<HTMLElement>) => void;
   moveMenu?: ReactNode;
 }) {
+  const viewerTimeZone = useViewerTimeZone();
   const showLabel = visibility.label && Boolean(card.label);
   const showCode = visibility.code && Boolean(card.code);
   const showTop = showLabel || showCode;
@@ -55,8 +57,13 @@ export default function BoardCard({
   const showFooter = showComments || showSubtasks || showDue || showPeople;
   const shownPeople = assignees.slice(0, 3);
   const extraCount = assignees.length - shownPeople.length;
-  const late = card.dueDate != null && isCardDueLate(card.dueDate);
-  const dueLabel = card.dueDate != null ? formatCardDue(card.dueDate) : null;
+  const due =
+    card.dueDate != null
+      ? cardDueLabel(
+          { dueDate: card.dueDate, dueTimeZone: card.dueTimeZone ?? null },
+          { viewerTimeZone },
+        )
+      : null;
   const tone = card.label ? labelToneClasses(card.label.tone) : null;
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -123,9 +130,12 @@ export default function BoardCard({
               {subtaskDone}/{subtaskTotal}
             </span>
           ) : null}
-          {showDue ? (
-            <span className={cn('ml-auto', late ? 'text-late' : 'text-muted-foreground')}>
-              {dueLabel}
+          {showDue && due ? (
+            <span
+              title={due.zoneNote ?? undefined}
+              className={cn('ml-auto', due.late ? 'text-late' : 'text-muted-foreground')}
+            >
+              {due.text}
             </span>
           ) : null}
           {showPeople ? (

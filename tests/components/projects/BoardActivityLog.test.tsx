@@ -5,6 +5,7 @@
 // Tested:
 // - Groups events under day headers with avatar, sentence, and clock time
 // - Quotes a comment body
+// - Reads a due moment in the viewer zone and names the zone it was set in
 // - Shows empty copy when there are no events
 // - Load earlier activity calls onLoadMore
 //
@@ -20,6 +21,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import BoardActivityLog from '@/components/projects/BoardActivityLog';
+import { ViewerTimeZoneProvider } from '@/components/projects/ViewerTimeZoneProvider';
 import type { ActivityEventListItem } from '@/lib/activity';
 import { formatActivityClockTime } from '@/lib/activityDisplay';
 
@@ -92,6 +94,53 @@ describe('BoardActivityLog', () => {
     expect(screen.getAllByText('AL').length).toBeGreaterThan(0);
     expect(screen.getAllByText(formatActivityClockTime(today)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(formatActivityClockTime(yesterday)).length).toBeGreaterThan(0);
+  });
+
+  it('reads a due moment in the viewer zone and names the zone it was set in', () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'America/Argentina/Buenos_Aires';
+    try {
+      const items: ActivityEventListItem[] = [
+        item({
+          id: 'evt-due',
+          type: 'DUE_DATE_CHANGED',
+          createdAt: new Date('2026-08-25T14:20:00').toISOString(),
+          payload: {
+            ...actor,
+            cardId: 'card-1',
+            cardTitle: 'Define the home grid',
+            dueDate: '2026-08-25',
+            dueTime: '16:00',
+            dueTimeZone: 'Europe/Madrid',
+          },
+        }),
+      ];
+
+      render(
+        <ViewerTimeZoneProvider>
+          <BoardActivityLog
+            items={items}
+            loading={false}
+            error={null}
+            hasMore={false}
+            onLoadMore={() => {}}
+            now={now}
+          />
+        </ViewerTimeZoneProvider>,
+      );
+
+      expect(
+        screen.getByText(
+          'Ada Lovelace set the due date of "Define the home grid" to 25 Aug 2026 at 11:00am, Madrid time (GMT+02:00).',
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
   });
 
   it('shows empty copy when there are no events', () => {
