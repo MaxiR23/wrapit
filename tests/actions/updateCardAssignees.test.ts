@@ -114,6 +114,7 @@ describe('updateCardAssignees', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('allows an empty list that clears assignees', async () => {
@@ -128,6 +129,7 @@ describe('updateCardAssignees', () => {
     expect(db.cardAssignee.rows).toHaveLength(0);
     expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ assignees: [] }));
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('rejects a non-member assignee without writing', async () => {

@@ -70,6 +70,7 @@ type ProjectBoardProps = {
   boardAccess?: BoardAccess;
   teamRole?: MembershipRole;
   publicLinkEnabled?: boolean;
+  initialOpenCardId?: string | null;
 };
 
 const EMPTY_SHARE_MEMBERS: ShareMember[] = [];
@@ -116,6 +117,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     boardAccess = 'EDIT',
     teamRole = 'OWNER',
     publicLinkEnabled: initialPublicLinkEnabled = false,
+    initialOpenCardId = null,
   },
   ref,
 ) {
@@ -156,6 +158,16 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const [addColumnId, setAddColumnId] = useState<string | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [toast, setToast] = useState<BoardToastMessage | null>(null);
+  const appliedInitialCardRef = useRef(false);
+
+  useEffect(() => {
+    if (appliedInitialCardRef.current) return;
+    if (!initialOpenCardId) return;
+    appliedInitialCardRef.current = true;
+    if (cardsById.current[initialOpenCardId]) {
+      setOpenCardId(initialOpenCardId);
+    }
+  }, [initialOpenCardId]);
 
   useEffect(() => {
     const next = buildInitialState(columns);

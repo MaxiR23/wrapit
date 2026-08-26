@@ -14,7 +14,7 @@ import {
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { projectPath } from '@/lib/routes';
+import { MY_TASKS_PATH, projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import {
   DUE_DATE_MESSAGE,
@@ -100,6 +100,7 @@ export async function updateCardField(input: {
         return { error: 'Unauthorized' };
       }
       revalidatePath(projectPath(owned.project.id));
+      revalidatePath(MY_TASKS_PATH);
       return { data: { value: title } };
     }
 
@@ -113,6 +114,7 @@ export async function updateCardField(input: {
         return { error: 'Unauthorized' };
       }
       revalidatePath(projectPath(owned.project.id));
+      revalidatePath(MY_TASKS_PATH);
       return { data: { value: description ?? '' } };
     }
 
@@ -163,6 +165,7 @@ export async function updateCardField(input: {
       });
     });
     revalidatePath(projectPath(owned.project.id));
+    revalidatePath(MY_TASKS_PATH);
 
     // The control reads in the sender's zone, so echo the value back in it.
     const wall = dueDate != null && senderZone != null ? zonedWallTime(dueDate, senderZone) : null;

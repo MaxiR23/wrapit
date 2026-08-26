@@ -8,7 +8,7 @@ import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { projectPath } from '@/lib/routes';
+import { MY_TASKS_PATH, projectPath } from '@/lib/routes';
 import { MAX_CARD_ASSIGNEES, updateCardAssigneesSchema } from '@/lib/validation/card';
 
 class UnauthorizedWriteError extends Error {
@@ -110,6 +110,7 @@ export async function updateCardAssignees(input: {
     });
 
     revalidatePath(projectPath(owned.project.id));
+    revalidatePath(MY_TASKS_PATH);
     return { data: { assignees } };
   } catch (error) {
     if (error instanceof UnauthorizedWriteError) {

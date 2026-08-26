@@ -10,10 +10,12 @@ import { auth } from '@/lib/auth';
 import type { MembershipRole } from '@/lib/boardAccess';
 import { cardLabelFromRow, type LabelView } from '@/lib/labels';
 import type { BoardAccess } from '@/lib/membership';
+import { countOpenMyTasksForUser } from '@/lib/myTasks';
 import { getNotificationsForUser } from '@/lib/notifications';
+import { prisma } from '@/lib/prisma';
 import { getProjectLabelsForUser } from '@/lib/projectLabels';
 import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
-import { SIGN_IN_PATH } from '@/lib/routes';
+import { parseProjectCardId, SIGN_IN_PATH } from '@/lib/routes';
 import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
@@ -56,25 +58,27 @@ export const metadata: Metadata = {
 
 export default async function ProjectDetailPage({
   params,
-}: {
-  params: Promise<{ projectId: string }>;
-}) {
+  searchParams,
+}: PageProps<'/projects/[projectId]'>) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     redirect(SIGN_IN_PATH);
   }
 
   const { projectId } = await params;
+  const query = searchParams ? await searchParams : {};
+  const initialOpenCardId = parseProjectCardId(query.card);
   const project = await getProjectForUser(projectId, session.user.id);
   if (!project) {
     notFound();
   }
 
-  const [members, notifications, labels, preferences] = await Promise.all([
+  const [members, notifications, labels, preferences, openTaskCount] = await Promise.all([
     listProjectMembersForUser(project.id, session.user.id),
     getNotificationsForUser(session.user.id),
     getProjectLabelsForUser(project.id, session.user.id),
     getUserPreferences(session.user.id),
+    countOpenMyTasksForUser(prisma, session.user.id),
   ]);
   const username = sessionUsername(session.user);
   const projectLabels = labels ?? [];
@@ -91,6 +95,7 @@ export default async function ProjectDetailPage({
       }}
       initialNotifications={notifications.items}
       activeNav="projects"
+      openTaskCount={openTaskCount}
       showSearch
       searchPlaceholder="Search the board"
       searchAriaLabel="Search the board"
@@ -110,6 +115,7 @@ export default async function ProjectDetailPage({
         boardAccess={boardAccess}
         teamRole={teamRole}
         publicLinkEnabled={project.publicLinkEnabled === true}
+        initialOpenCardId={initialOpenCardId}
         members={memberList.map((member) => ({
           id: member.userId,
           name: member.name,

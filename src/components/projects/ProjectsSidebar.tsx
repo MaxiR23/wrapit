@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import ProjectsBrand from '@/components/projects/ProjectsBrand';
 import { shellFocusClassName } from '@/components/projects/shell';
-import { PROJECTS_PATH } from '@/lib/routes';
+import { MY_TASKS_PATH, PROJECTS_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const navItemClassName =
@@ -14,11 +14,11 @@ const collapsedItemClassName =
 
 export default function ProjectsSidebar({
   activeNav = 'projects',
+  openTaskCount = 0,
 }: {
-  activeNav?: 'projects' | null;
+  activeNav?: 'projects' | 'tasks' | null;
+  openTaskCount?: number;
 }) {
-  const projectsActive = activeNav === 'projects';
-
   return (
     <aside
       className={cn(
@@ -35,36 +35,19 @@ export default function ProjectsSidebar({
       </div>
 
       <nav className="flex flex-col gap-1 lg:gap-[3px]" aria-label="Main">
-        <Link
+        <NavLink
           href={PROJECTS_PATH}
-          aria-current={projectsActive ? 'page' : undefined}
-          className={cn(
-            shellFocusClassName,
-            collapsedItemClassName,
-            projectsActive
-              ? 'bg-card font-medium text-foreground lg:hidden'
-              : 'text-muted-foreground hover:bg-card hover:text-foreground lg:hidden',
-          )}
-        >
-          <LayoutGrid className="size-[19px]" strokeWidth={1.5} />
-          Projects
-        </Link>
-        <Link
-          href={PROJECTS_PATH}
-          aria-current={projectsActive ? 'page' : undefined}
-          className={cn(
-            shellFocusClassName,
-            navItemClassName,
-            projectsActive
-              ? 'hidden bg-card font-medium text-foreground lg:flex'
-              : 'hidden text-muted-foreground hover:bg-card hover:text-foreground lg:flex',
-          )}
-        >
-          <LayoutGrid className="size-[19px]" strokeWidth={1.5} />
-          Projects
-        </Link>
-
-        <InactiveNav label="My tasks" CollapsedIcon={ListChecks} />
+          label="Projects"
+          active={activeNav === 'projects'}
+          Icon={LayoutGrid}
+        />
+        <NavLink
+          href={MY_TASKS_PATH}
+          label="My tasks"
+          active={activeNav === 'tasks'}
+          Icon={ListChecks}
+          count={openTaskCount}
+        />
         <InactiveNav label="Archived" CollapsedIcon={Archive} />
       </nav>
 
@@ -91,6 +74,59 @@ export default function ProjectsSidebar({
         Help and shortcuts
       </button>
     </aside>
+  );
+}
+
+function NavLink({
+  href,
+  label,
+  active,
+  Icon,
+  count,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  Icon: typeof ListChecks;
+  count?: number;
+}) {
+  const activeClass = 'bg-card font-medium text-foreground';
+  const idleClass = 'text-muted-foreground hover:bg-card hover:text-foreground';
+
+  return (
+    <>
+      <Link
+        href={href}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          shellFocusClassName,
+          collapsedItemClassName,
+          active ? activeClass : idleClass,
+          'lg:hidden',
+        )}
+      >
+        <Icon className="size-[19px]" strokeWidth={1.5} />
+        {label}
+      </Link>
+      <Link
+        href={href}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          shellFocusClassName,
+          navItemClassName,
+          active ? activeClass : idleClass,
+          'hidden lg:flex',
+        )}
+      >
+        <Icon className="size-[19px]" strokeWidth={1.5} />
+        {label}
+        {count != null ? (
+          <span className="ml-auto text-[11.5px] font-medium text-muted-foreground tabular-nums">
+            {count}
+          </span>
+        ) : null}
+      </Link>
+    </>
   );
 }
 

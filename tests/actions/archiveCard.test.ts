@@ -82,6 +82,7 @@ describe('archiveCard', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('rejects an already archived card without changing it', async () => {

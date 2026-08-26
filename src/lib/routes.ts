@@ -4,8 +4,11 @@
 // without a session to the sign in page. New pages are therefore protected by
 // default, and opening one up is a deliberate edit to this file.
 
+import { MAX_ID_LENGTH } from '@/lib/validation/id';
+
 export const HOME_PATH = '/';
 export const PROJECTS_PATH = '/projects';
+export const MY_TASKS_PATH = '/tasks';
 export const ACCOUNT_PATH = '/account';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
@@ -21,6 +24,20 @@ export const DEFAULT_ACCOUNT_TAB: AccountTab = 'profile';
 /** Detail page for a single project. */
 export function projectPath(projectId: string) {
   return `${PROJECTS_PATH}/${projectId}`;
+}
+
+/** Project board with that card's detail open. Unknown cards are ignored by the board. */
+export function projectCardPath(projectId: string, cardId: string) {
+  return `${projectPath(projectId)}?card=${encodeURIComponent(cardId)}`;
+}
+
+/** Resolves ?card= to a bounded id, or null when missing or unusable. */
+export function parseProjectCardId(value: unknown): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > MAX_ID_LENGTH) return null;
+  return trimmed;
 }
 
 /** Account screen for a tab. */

@@ -4,11 +4,13 @@
 //
 // Tested:
 // - Home, the auth pages and the Better Auth API are public
-// - Anything else is private, including /account
+// - Anything else is private, including /account and /tasks
 // - Auth pages are recognized as auth pages, other public routes are not
 // - A trailing slash does not change the answer
 // - accountPath builds /account?tab= hrefs
 // - parseAccountTab defaults to profile and falls back for unknown values
+// - projectCardPath builds /projects/:id?card= hrefs
+// - parseProjectCardId returns a bounded id or null
 //
 // What is covered:
 // - Happy path, the private default, edge cases (trailing slash, a path that
@@ -20,7 +22,15 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { accountPath, isAccountTab, isAuthPath, isPublicPath, parseAccountTab } from '@/lib/routes';
+import {
+  accountPath,
+  isAccountTab,
+  isAuthPath,
+  isPublicPath,
+  parseAccountTab,
+  parseProjectCardId,
+  projectCardPath,
+} from '@/lib/routes';
 
 describe('isPublicPath', () => {
   it('accepts home and the auth pages', () => {
@@ -40,6 +50,7 @@ describe('isPublicPath', () => {
   it('rejects a route that is not listed', () => {
     expect(isPublicPath('/projects')).toBe(false);
     expect(isPublicPath('/projects/1')).toBe(false);
+    expect(isPublicPath('/tasks')).toBe(false);
     expect(isPublicPath('/account')).toBe(false);
     expect(isPublicPath('/api/projects')).toBe(false);
   });
@@ -88,6 +99,23 @@ describe('isAccountTab', () => {
     expect(isAccountTab('perfil')).toBe(false);
     expect(isAccountTab(undefined)).toBe(false);
     expect(isAccountTab(['profile'])).toBe(false);
+  });
+});
+
+describe('projectCardPath', () => {
+  it('builds a project href with a card query', () => {
+    expect(projectCardPath('proj-1', 'card-9')).toBe('/projects/proj-1?card=card-9');
+  });
+});
+
+describe('parseProjectCardId', () => {
+  it('returns a trimmed id and ignores missing or oversized values', () => {
+    expect(parseProjectCardId('card-9')).toBe('card-9');
+    expect(parseProjectCardId(['card-9'])).toBe('card-9');
+    expect(parseProjectCardId('  card-9  ')).toBe('card-9');
+    expect(parseProjectCardId(undefined)).toBeNull();
+    expect(parseProjectCardId('')).toBeNull();
+    expect(parseProjectCardId('a'.repeat(129))).toBeNull();
   });
 });
 

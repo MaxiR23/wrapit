@@ -77,6 +77,7 @@ describe('deleteCard', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('deletes comments and subtasks that belong to the card', async () => {

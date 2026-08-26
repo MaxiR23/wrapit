@@ -56,6 +56,10 @@ vi.mock('@/lib/notifications', () => ({
   getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
 }));
 
+vi.mock('@/lib/myTasks', () => ({
+  countOpenMyTasksForUser: vi.fn(async () => 0),
+}));
+
 vi.mock('@/actions/recordRecentProject', () => ({
   recordRecentProject,
 }));
@@ -113,6 +117,13 @@ vi.mock('next/navigation', () => ({
 
 const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/page');
 
+function pageProps(projectId: string, search: Record<string, string | string[]> = {}) {
+  return {
+    params: Promise.resolve({ projectId }),
+    searchParams: Promise.resolve(search),
+  };
+}
+
 describe('Project detail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -157,7 +168,7 @@ describe('Project detail page', () => {
       columns: [],
     });
 
-    const page = await ProjectDetailPage({ params: Promise.resolve({ projectId: 'project-1' }) });
+    const page = await ProjectDetailPage(pageProps('project-1'));
     render(page);
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
@@ -191,7 +202,7 @@ describe('Project detail page', () => {
       columns: [{ id: 'column-todo', title: 'To do', order: 0, cards: [] }],
     });
 
-    render(await ProjectDetailPage({ params: Promise.resolve({ projectId: 'project-1' }) }));
+    render(await ProjectDetailPage(pageProps('project-1')));
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();
@@ -200,18 +211,14 @@ describe('Project detail page', () => {
   it('calls notFound when the project belongs to someone else', async () => {
     getProjectForUser.mockResolvedValue(null);
 
-    await expect(
-      ProjectDetailPage({ params: Promise.resolve({ projectId: 'project-1' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(ProjectDetailPage(pageProps('project-1'))).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();
   });
 
   it('calls notFound when the project id is unknown', async () => {
     getProjectForUser.mockResolvedValue(null);
 
-    await expect(
-      ProjectDetailPage({ params: Promise.resolve({ projectId: 'missing' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(ProjectDetailPage(pageProps('missing'))).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();
   });
 });

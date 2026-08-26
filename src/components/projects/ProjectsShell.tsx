@@ -12,7 +12,7 @@ import type { ProjectsShellUser } from '@/components/projects/shell';
 import type { NotificationListItem } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 
-export type ProjectsShellActiveNav = 'projects' | null;
+export type ProjectsShellActiveNav = 'projects' | 'tasks' | null;
 
 const defaultContentClassName =
   'projects-content-wash flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 pb-6 md:gap-[22px] md:px-5 md:pt-[22px] md:pb-[30px] lg:gap-[26px] lg:px-7 lg:pt-[26px] lg:pb-9';
@@ -21,6 +21,7 @@ export default function ProjectsShell({
   user,
   initialNotifications = [],
   activeNav = 'projects',
+  openTaskCount = 0,
   showSearch = true,
   searchPlaceholder = 'Search projects',
   searchAriaLabel = 'Search projects',
@@ -30,6 +31,7 @@ export default function ProjectsShell({
   user: ProjectsShellUser;
   initialNotifications?: NotificationListItem[];
   activeNav?: ProjectsShellActiveNav;
+  openTaskCount?: number;
   showSearch?: boolean;
   searchPlaceholder?: string;
   searchAriaLabel?: string;
@@ -42,9 +44,12 @@ export default function ProjectsShell({
         <NotificationsProvider initialItems={initialNotifications}>
           <ProjectsSearchProvider>
             <div className="flex min-h-svh flex-1 bg-background">
-              <ProjectsSidebar activeNav={activeNav} />
+              <ProjectsSidebar activeNav={activeNav} openTaskCount={openTaskCount} />
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                <ProjectsMobileHeader user={user} />
+                <ProjectsMobileHeader
+                  user={user}
+                  title={activeNav === 'tasks' ? 'My tasks' : 'Projects'}
+                />
                 <ProjectsTopbar
                   user={user}
                   showSearch={showSearch}

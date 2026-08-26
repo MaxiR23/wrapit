@@ -138,7 +138,8 @@ the server appends with `(max order in the target) + 1`.
 `listProjectSummariesForUser` computes **done / total** from real cards. A card
 counts as done when its column title is `Done` (case-insensitive). If the project
 has no such column, the last column by `order` is treated as done. No cards means
-`0 of 0` and `0%`. The percentage is `round(done / total * 100)`.
+`0 of 0` and `0%`. The percentage is `round(done / total * 100)`. My tasks
+uses the same Done identity via `doneColumnFrom`.
 
 The projects page presents those summaries as a card grid or a list table. Both
 views share the same payload; only the layout of the unstarred list changes.
@@ -171,6 +172,21 @@ are rejected on that row with the same title required message as the server.
 
 `Project` has no `updatedAt`; the grid uses the latest `card.updatedAt`, or
 `project.createdAt` when there are no cards.
+
+## My tasks
+
+`/tasks` lists every non-archived card assigned to the signed-in user, across
+projects they currently belong to, in one query (not one per project).
+Completing is `setCardCompleted`: an EDIT occupancy move into that project's
+Done column. Uncompleting moves to the inbox (first column that is not titled Done;
+when no column is titled Done, the last column by order is treated as Done
+and excluded). A project whose only column is Done cannot uncomplete. Filters (topbar search
+on title/project/label, project chips, period) combine with AND and never
+regroup. Search and chips are not persisted. `?card=` on the project board
+opens that card's detail on load and is ignored when the card is missing;
+clicking a card still opens detail from board state. Card writes that change
+column, assignees, title, description, or due date also
+`revalidatePath('/tasks')`.
 
 ## Access
 
@@ -261,7 +277,7 @@ A job whose card is already in the target column is a no-op on that list
 ```
 src/lib/order.ts                    midpoint / append / prepend (stored for later reorder)
 src/lib/cardCode.ts                  project-title initials + sequence
-src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late; calendar-day persist
+src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late; calendar-day persist; dueDeltaDays
 src/lib/labelTones.ts               eight label tones as CSS token classes
 src/lib/labels.ts                   defaults, last-label guard, card pill sync
 src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject, listActivityForActor
@@ -276,6 +292,9 @@ src/lib/kanbanItems.ts              append move, same-column no-op
 src/lib/kanbanPersist.ts            queue reconcile, finish, error shape
 src/lib/ownership.ts                column/card/label access chain (membership)
 src/lib/validation/moveCard.ts      moveCard card, source, and target ids
+src/lib/validation/completeCard.ts  setCardCompleted cardId + completed
+src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count
+src/actions/setCardCompleted.ts     occupancy move to Done or inbox; revalidates /tasks
 src/lib/validation/label.ts         label name/tone and action ids
 src/actions/moveCard.ts             occupancy-guarded append to the target column
 src/actions/updateLabelField.ts     persist one label name or tone
@@ -288,7 +307,7 @@ src/lib/templates.ts                project template catalog (id, name, ordered 
 src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, owner backfill
 src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, public board URL
 src/actions/createProject.ts        create a project, optional column list, optional featured star
-src/lib/projectGrid.ts              done/total progress for the grid, list, and board header
+src/lib/projectGrid.ts              done/total progress; doneColumnFrom / inboxColumnFrom
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
 src/components/projects/ProjectsEmptyState.tsx  dashed empty box, template picker, mobile Templates screen
 src/components/projects/EmptyDemoBoard.tsx  mobile empty-state CSS demo board
@@ -323,6 +342,10 @@ src/components/cards/CardCommentThread.tsx comments list and pinned/in-column co
 src/components/projects/BoardToast.tsx     archive/delete toast on the board
 src/lib/cardCounters.ts                 comment count and subtask done/total
 src/components/cards/DueDateField.tsx      shared date + optional time control
+src/components/tasks/MyTasksView.tsx    assigned-task list, filters, groups, empty states
+src/components/tasks/MyTaskRow.tsx      complete circle vs open-detail split
+src/components/tasks/MyTasksDetail.tsx  right panel from tablet; bottom sheet on phone
+src/components/tasks/NewTaskPopover.tsx two-step create (project, then title + due)
 src/components/projects/ViewerTimeZoneProvider.tsx  the viewer's IANA zone
 src/actions/updateCardField.ts          persist one card title, description, or due date
 src/actions/updateCardAssignees.ts      replace card assignees (members only)

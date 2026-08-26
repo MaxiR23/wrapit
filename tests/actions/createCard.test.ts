@@ -105,6 +105,7 @@ describe('createCard', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('assigns order 1 when the column has no cards yet', async () => {

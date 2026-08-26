@@ -113,6 +113,7 @@ describe('moveCard', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('is a no-op when the source and target column are the same', async () => {
