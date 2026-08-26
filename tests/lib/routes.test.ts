@@ -60,30 +60,31 @@ describe('accountPath', () => {
     expect(accountPath('profile')).toBe('/account?tab=profile');
     expect(accountPath('visibility')).toBe('/account?tab=visibility');
     expect(accountPath('activity')).toBe('/account?tab=activity');
-    expect(accountPath('cards')).toBe('/account?tab=cards');
   });
 });
 
 describe('parseAccountTab', () => {
-  it('returns the tab when the value is one of the four tabs', () => {
+  it('returns the tab when the value is one of the three tabs', () => {
     expect(parseAccountTab('profile')).toBe('profile');
     expect(parseAccountTab('visibility')).toBe('visibility');
     expect(parseAccountTab('activity')).toBe('activity');
-    expect(parseAccountTab('cards')).toBe('cards');
   });
 
   it('falls back to profile when the value is missing or unknown', () => {
     expect(parseAccountTab(undefined)).toBe('profile');
     expect(parseAccountTab('perfil')).toBe('profile');
+    expect(parseAccountTab('cards')).toBe('profile');
     expect(parseAccountTab(['nope'])).toBe('profile');
     expect(parseAccountTab(['activity', 'cards'])).toBe('activity');
   });
 });
 
 describe('isAccountTab', () => {
-  it('accepts only the four exact tab strings', () => {
+  it('accepts only the three exact tab strings', () => {
     expect(isAccountTab('profile')).toBe(true);
-    expect(isAccountTab('cards')).toBe(true);
+    expect(isAccountTab('visibility')).toBe(true);
+    expect(isAccountTab('activity')).toBe(true);
+    expect(isAccountTab('cards')).toBe(false);
     expect(isAccountTab('perfil')).toBe(false);
     expect(isAccountTab(undefined)).toBe(false);
     expect(isAccountTab(['profile'])).toBe(false);

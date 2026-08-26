@@ -11,7 +11,6 @@ const TAB_LABELS: Record<AccountTab, string> = {
   profile: 'Profile',
   visibility: 'Visibility',
   activity: 'Activity',
-  cards: 'Cards',
 };
 
 export default function AccountTabs({ tab }: { tab: AccountTab }) {
