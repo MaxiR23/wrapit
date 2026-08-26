@@ -14,7 +14,6 @@ const ACCOUNT_LINKS: { tab: AccountTab; label: string }[] = [
   { tab: 'profile', label: 'Profile' },
   { tab: 'visibility', label: 'Visibility' },
   { tab: 'activity', label: 'Activity' },
-  { tab: 'cards', label: 'Cards' },
 ];
 
 const itemClassName = cn(

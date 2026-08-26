@@ -12,7 +12,7 @@ export const SIGN_UP_PATH = '/sign-up';
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
 export const RESET_PASSWORD_PATH = '/reset-password';
 
-export const ACCOUNT_TABS = ['profile', 'visibility', 'activity', 'cards'] as const;
+export const ACCOUNT_TABS = ['profile', 'visibility', 'activity'] as const;
 
 export type AccountTab = (typeof ACCOUNT_TABS)[number];
 
@@ -34,7 +34,7 @@ export function parseAccountTab(value: unknown): AccountTab {
   return ACCOUNT_TABS.includes(raw as AccountTab) ? (raw as AccountTab) : DEFAULT_ACCOUNT_TAB;
 }
 
-/** True when the query value is exactly one of the four tabs (not a fallback). */
+/** True when the query value is exactly one of the three tabs (not a fallback). */
 export function isAccountTab(value: unknown): value is AccountTab {
   return typeof value === 'string' && ACCOUNT_TABS.includes(value as AccountTab);
 }

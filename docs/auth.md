@@ -47,7 +47,7 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/AuthFormIsland.tsx  light form column shared by auth layouts
     src/components/account/useSignOut.ts  shared sign-out for the account menu
     src/components/account/AccountMenu.tsx  topbar/mobile account trigger, popover, sheet
-    src/app/account/page.tsx            /account: profile tab and placeholders
+    src/app/account/page.tsx            /account: profile, visibility, and activity tabs
     src/components/projects/ProjectsTopbar.tsx  desktop topbar (search, bell, account menu)
     src/components/projects/ProjectsMobileHeader.tsx  mobile header (brand, bell, account menu)
     src/app/page.tsx                    / is redirect-only: session to /projects, else /sign-in
@@ -210,8 +210,8 @@ On `/projects` and `/account`, `AuthNav` is hidden, so sign out lives in the acc
 opened from `ProjectsTopbar` (desktop popover) and `ProjectsMobileHeader`
 (mobile sheet). The menu calls `useSignOut`, which runs the same
 `authClient.signOut()` → `router.push('/sign-in')` → `router.refresh()`
-sequence, including the generic failure message. The four tab links point at
-`/account?tab=profile|visibility|activity|cards`.
+sequence, including the generic failure message. The three tab links point at
+`/account?tab=profile|visibility|activity`.
 
 Protection lives in `src/proxy.ts`.
 

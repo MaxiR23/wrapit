@@ -3,7 +3,6 @@
 import AccountActivity from '@/components/account/AccountActivity';
 import AccountProfile from '@/components/account/AccountProfile';
 import AccountStatusPill from '@/components/account/AccountStatusPill';
-import AccountTabPlaceholder from '@/components/account/AccountTabPlaceholder';
 import AccountTabs from '@/components/account/AccountTabs';
 import AccountVisibility from '@/components/account/AccountVisibility';
 import { ActiveStatusProvider } from '@/components/account/ActiveStatusProvider';
@@ -61,14 +60,12 @@ export default function AccountScreen({
             <AccountProfile profile={profile} />
           ) : tab === 'visibility' ? (
             <AccountVisibility statuses={statuses} username={profile.username} />
-          ) : tab === 'activity' ? (
+          ) : (
             <AccountActivity
               projects={activity?.projects ?? []}
               initialItems={activity?.items ?? []}
               initialCursor={activity?.nextCursor ?? null}
             />
-          ) : (
-            <AccountTabPlaceholder tab="cards" />
           )}
         </div>
       </div>

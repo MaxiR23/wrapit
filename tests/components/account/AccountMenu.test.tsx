@@ -5,7 +5,7 @@
 //
 // Tested:
 // - Renders the session name and @username
-// - Wires the four /account?tab= links
+// - Wires the three /account?tab= links
 // - Desktop popover uses hidden md:block and w-[236px]; sheet uses md:hidden
 // - Sign out ends the session and goes to sign-in
 // - Failed sign out shows a generic message and stays put
@@ -86,7 +86,7 @@ describe('AccountMenu', () => {
     expect(screen.getAllByText('@ada').length).toBeGreaterThan(0);
   });
 
-  it('wires the four account tab links', async () => {
+  it('wires the three account tab links', async () => {
     renderMenu(<AccountShell />);
     await openMenu();
 
@@ -102,10 +102,7 @@ describe('AccountMenu', () => {
       'href',
       '/account?tab=activity',
     );
-    expect(screen.getAllByRole('link', { name: 'Cards' })[0]).toHaveAttribute(
-      'href',
-      '/account?tab=cards',
-    );
+    expect(screen.queryByRole('link', { name: 'Cards' })).not.toBeInTheDocument();
   });
 
   it('uses CSS-only popover and sheet chrome', async () => {

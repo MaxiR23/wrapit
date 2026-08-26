@@ -3,16 +3,15 @@
 // Tests for the account screen header, tablist, Visibility tab, and Activity.
 //
 // Tested:
-// - Renders name, @username, status pill, and a tablist of four tabs
+// - Renders name, @username, status pill, and a tablist of three tabs
 // - Profile is selected by default
 // - Visibility renders the status list
 // - Activity renders the projects and timeline regions
-// - Cards still shows a placeholder
 // - Tab hrefs are shareable /account?tab= URLs
 // - A public-name change updates the header initials without a reload
 //
 // What is covered:
-// - Header, tablist semantics, Activity tab, Cards placeholder, hrefs
+// - Header, tablist semantics, Activity tab, hrefs
 //
 // Run with: pnpm test:run tests/components/account/AccountScreen.test.tsx
 //
@@ -66,7 +65,7 @@ const profile: UserProfileView = {
   },
 };
 
-function renderScreen(tab: 'profile' | 'visibility' | 'activity' | 'cards') {
+function renderScreen(tab: 'profile' | 'visibility' | 'activity') {
   return render(
     <DisplayNameProvider initialName={profile.name} username={profile.username}>
       <AccountScreen tab={tab} profile={profile} statuses={accountStatusesFixture} />
@@ -75,18 +74,13 @@ function renderScreen(tab: 'profile' | 'visibility' | 'activity' | 'cards') {
 }
 
 describe('AccountScreen', () => {
-  it('renders the header and a tablist of four tabs', () => {
+  it('renders the header and a tablist of three tabs', () => {
     renderScreen('profile');
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
     expect(screen.getByText('@ada')).toBeInTheDocument();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((tab) => tab.textContent)).toEqual([
-      'Profile',
-      'Visibility',
-      'Activity',
-      'Cards',
-    ]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Profile', 'Visibility', 'Activity']);
     expect(screen.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Profile' })).toHaveAttribute(
       'href',
@@ -116,13 +110,6 @@ describe('AccountScreen', () => {
     expect(screen.getByRole('region', { name: 'Your activity' })).toBeInTheDocument();
     expect(screen.queryByText('Activity is coming soon.')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Full name')).not.toBeInTheDocument();
-  });
-
-  it('shows a placeholder for Cards', () => {
-    renderScreen('cards');
-
-    expect(screen.getByRole('tab', { name: 'Cards' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Cards is coming soon.')).toBeInTheDocument();
   });
 
   it('updates the header initials when the public name changes', async () => {
