@@ -28,7 +28,7 @@ They live in `.env` (never committed) and are listed in `.env.example`:
 Auth-related paths only. The full app map is in `docs/architecture.md`.
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, projectPath, ACCOUNT_PATH, accountPath
+    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
     src/lib/email.ts                    Resend helper for the password-reset email
@@ -197,7 +197,7 @@ anything else uses the generic message.
 `/sign-in` and `/sign-up`. On `/` and on auth paths (`isAuthPath`: sign-in,
 sign-up, forgot-password, reset-password) it returns null so the redirect home
 and the auth layouts are not topped by nav links. It also returns null on
-`/projects` and `/account`, where the projects shell hosts sign out instead. While the
+`/projects`, `/tasks`, and `/account`, where the projects shell hosts sign out instead. While the
 session is still loading on other routes it renders an empty nav, so a signed
 in user never sees the signed out links flash.
 
@@ -206,7 +206,7 @@ clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
 A failed sign out shows a fixed message and does not navigate; as everywhere
 else, the server message is not rendered.
 
-On `/projects` and `/account`, `AuthNav` is hidden, so sign out lives in the account menu
+On `/projects`, `/tasks`, and `/account`, `AuthNav` is hidden, so sign out lives in the account menu
 opened from `ProjectsTopbar` (desktop popover) and `ProjectsMobileHeader`
 (mobile sheet). The menu calls `useSignOut`, which runs the same
 `authClient.signOut()` → `router.push('/sign-in')` → `router.refresh()`

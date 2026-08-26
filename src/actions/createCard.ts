@@ -10,7 +10,7 @@ import { dueDateFromCalendarDay, instantFromZonedWallTime } from '@/lib/cardDue'
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { projectPath } from '@/lib/routes';
+import { MY_TASKS_PATH, projectPath } from '@/lib/routes';
 import { firstErrorPerField } from '@/lib/validation/fieldErrors';
 import { createCardSchema, type CardFieldErrors } from '@/lib/validation/card';
 
@@ -199,6 +199,7 @@ export async function createCard(input: {
     });
 
     revalidatePath(projectPath(owned.project.id));
+    revalidatePath(MY_TASKS_PATH);
 
     return {
       data: {

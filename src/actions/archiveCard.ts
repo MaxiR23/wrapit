@@ -8,7 +8,7 @@ import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getCardForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { projectPath } from '@/lib/routes';
+import { MY_TASKS_PATH, projectPath } from '@/lib/routes';
 import { archiveCardSchema } from '@/lib/validation/card';
 
 type ArchiveCardResult = { data: { id: string } } | { error: string };
@@ -59,6 +59,7 @@ export async function archiveCard(input: { cardId: string }): Promise<ArchiveCar
     });
 
     revalidatePath(projectPath(owned.project.id));
+    revalidatePath(MY_TASKS_PATH);
     return { data: { id: owned.card.id } };
   } catch (error) {
     if (error instanceof OccupancyError) {

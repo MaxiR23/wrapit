@@ -189,6 +189,24 @@ export function isCardDueLate(due: CardDue, now = new Date()): boolean {
   return due.dueDate.getTime() < now.getTime();
 }
 
+/**
+ * Whole local days from today until the due date. A calendar day uses the
+ * viewer's local midnight, matching `isCardDueLate`; a moment uses the
+ * viewer's zone (or the card's, then UTC).
+ */
+export function dueDeltaDays(due: CardDue, options: CardDueOptions = {}): number {
+  const now = options.now ?? new Date();
+  if (due.dueTimeZone == null) {
+    return Math.round((utcDay(due.dueDate) - localDay(now)) / DAY_MS);
+  }
+  const zone = renderZone(due, options.viewerTimeZone);
+  const dueParts = partsAt(due.dueDate.getTime(), zone);
+  const nowParts = partsAt(now.getTime(), zone);
+  const dueStart = Date.UTC(dueParts.year, dueParts.month - 1, dueParts.day);
+  const nowStart = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day);
+  return Math.round((dueStart - nowStart) / DAY_MS);
+}
+
 function renderZone(due: CardDue, viewerTimeZone: string | null | undefined): string {
   if (viewerTimeZone != null && isValidTimeZone(viewerTimeZone)) return viewerTimeZone;
   if (due.dueTimeZone != null && isValidTimeZone(due.dueTimeZone)) return due.dueTimeZone;

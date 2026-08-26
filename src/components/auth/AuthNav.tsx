@@ -9,6 +9,7 @@ import { authClient } from '@/lib/authClient';
 import {
   ACCOUNT_PATH,
   HOME_PATH,
+  MY_TASKS_PATH,
   PROJECTS_PATH,
   SIGN_IN_PATH,
   SIGN_UP_PATH,
@@ -50,6 +51,7 @@ export default function AuthNav() {
     pathname === HOME_PATH ||
     pathname === PROJECTS_PATH ||
     pathname.startsWith(`${PROJECTS_PATH}/`) ||
+    pathname === MY_TASKS_PATH ||
     pathname === ACCOUNT_PATH
   ) {
     return null;

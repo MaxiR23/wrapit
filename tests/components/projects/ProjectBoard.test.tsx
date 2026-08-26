@@ -14,6 +14,7 @@
 // - Create is disabled without a title
 // - A created card lands at the end of the chosen column
 // - Clicking a card opens the detail dialog
+// - initialOpenCardId opens that card and ignores an unknown id
 // - Archive removes the card and shows a status toast
 // - Label filters and search narrow the board and empty results show no-results
 // - Turning off card code hides it on every card
@@ -640,6 +641,38 @@ describe('ProjectBoard', () => {
 
     expect(screen.getByLabelText('Title')).toHaveValue('Card A');
     expect(screen.getByRole('dialog')).toHaveTextContent('CA-1');
+  });
+
+  it('opens the card detail from initialOpenCardId and ignores an unknown id', async () => {
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+        initialOpenCardId="card-a"
+      />,
+    );
+
+    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+  });
+
+  it('does not open detail when initialOpenCardId is not on the board', () => {
+    renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={columns}
+        members={[]}
+        initialOpenCardId="missing"
+      />,
+    );
+
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
   });
 
   it('archives a card, removes it from the board, and shows a toast', async () => {

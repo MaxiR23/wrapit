@@ -16,3 +16,9 @@ export const CANT_INVITE_USER_MESSAGE = "Can't invite this user";
 
 /** Shown when an admin tries to remove the project's last OWNER membership. */
 export const LAST_OWNER_MESSAGE = 'Cannot remove the last owner';
+
+/** Completing a card when the project has no columns to resolve as Done. */
+export const NO_DONE_COLUMN_MESSAGE = 'This project has no Done column.';
+
+/** Returning a card to pending when every column is the Done column. */
+export const NO_OPEN_COLUMN_MESSAGE = 'This project has no open column.';

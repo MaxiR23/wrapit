@@ -91,6 +91,7 @@ describe('updateCard', () => {
     expect(db.card.rows[0]?.title).toBe('New title');
     expect(db.card.rows[0]?.description).toBe('New description');
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('clears the description when it is empty', async () => {

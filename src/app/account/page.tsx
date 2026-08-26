@@ -6,6 +6,7 @@ import AccountScreen from '@/components/account/AccountScreen';
 import ProjectsShell from '@/components/projects/ProjectsShell';
 import { getAccountActivityForUser } from '@/lib/accountActivity';
 import { auth } from '@/lib/auth';
+import { countOpenMyTasksForUser } from '@/lib/myTasks';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { prisma } from '@/lib/prisma';
 import { accountPath, isAccountTab, parseAccountTab, SIGN_IN_PATH } from '@/lib/routes';
@@ -33,13 +34,14 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
     redirect(accountPath('profile'));
   }
 
-  const [profile, statuses, notifications, activity] = await Promise.all([
+  const [profile, statuses, notifications, activity, openTaskCount] = await Promise.all([
     getUserProfileForUser(session.user.id),
     getUserStatusesForUser(session.user.id),
     getNotificationsForUser(session.user.id),
     tab === 'activity'
       ? getAccountActivityForUser(prisma, session.user.id)
       : Promise.resolve(undefined),
+    countOpenMyTasksForUser(prisma, session.user.id),
   ]);
 
   if (!profile || !statuses) {
@@ -56,6 +58,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
       }}
       initialNotifications={notifications.items}
       activeNav={null}
+      openTaskCount={openTaskCount}
       showSearch={false}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
     >

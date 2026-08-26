@@ -8,7 +8,7 @@ import { auth } from '@/lib/auth';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { getColumnForUser } from '@/lib/ownership';
 import { prisma } from '@/lib/prisma';
-import { projectPath } from '@/lib/routes';
+import { MY_TASKS_PATH, projectPath } from '@/lib/routes';
 import { moveCardSchema } from '@/lib/validation/moveCard';
 
 type MoveCardResult =
@@ -118,6 +118,7 @@ export async function moveCard(input: {
     });
 
     revalidatePath(projectPath(ownedTarget.project.id));
+    revalidatePath(MY_TASKS_PATH);
 
     return {
       data: {

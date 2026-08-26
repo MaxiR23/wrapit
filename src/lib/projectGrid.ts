@@ -33,6 +33,35 @@ type ProgressColumn = {
   cards: unknown[];
 };
 
+function isDoneTitle(title: string): boolean {
+  return title.trim().toLowerCase() === 'done';
+}
+
+/** Done column: title "Done" (any case), else the last column by order. */
+export function doneColumnFrom<T extends { title: string; order: number }>(columns: T[]): T | null {
+  if (columns.length === 0) return null;
+  return (
+    columns.find((column) => isDoneTitle(column.title)) ??
+    [...columns].sort((left, right) => left.order - right.order).at(-1) ??
+    null
+  );
+}
+
+/** First column by order that is not the Done column. None when every column is Done. */
+export function inboxColumnFrom<T extends { title: string; order: number }>(
+  columns: T[],
+): T | null {
+  const done = doneColumnFrom(columns);
+  if (done == null) return null;
+  const excludeEveryDoneTitle = isDoneTitle(done.title);
+  return (
+    [...columns]
+      .sort((left, right) => left.order - right.order)
+      .find((column) => (excludeEveryDoneTitle ? !isDoneTitle(column.title) : column !== done)) ??
+    null
+  );
+}
+
 const STATUS_LABEL: Record<ProjectGridStatus, string> = {
   NEW: 'New',
   IN_PROGRESS: 'In progress',
@@ -54,10 +83,7 @@ export function projectProgress(columns: ProgressColumn[]): ProjectProgress {
     return { taskCount: 0, doneCount: 0, percent: 0 };
   }
 
-  const doneColumn =
-    columns.find((column) => column.title.trim().toLowerCase() === 'done') ??
-    [...columns].sort((left, right) => left.order - right.order).at(-1);
-
+  const doneColumn = doneColumnFrom(columns);
   const doneCount = doneColumn?.cards.length ?? 0;
   return {
     taskCount,

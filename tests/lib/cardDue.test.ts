@@ -33,6 +33,7 @@ import {
   calendarDayFromDueDate,
   cardDueLabel,
   dueDateFromCalendarDay,
+  dueDeltaDays,
   instantFromZonedWallTime,
   isCardDueLate,
   isValidTimeZone,
@@ -98,6 +99,16 @@ describe('isCardDueLate for a calendar day', () => {
     expect(isCardDueLate(dayOnly(new Date(Date.UTC(2026, 7, 21))), now)).toBe(true);
     expect(isCardDueLate(dayOnly(new Date(Date.UTC(2026, 7, 22))), now)).toBe(false);
     expect(isCardDueLate(dayOnly(new Date(Date.UTC(2026, 7, 23))), now)).toBe(false);
+  });
+});
+
+describe('dueDeltaDays for a calendar day', () => {
+  const now = new Date(2026, 7, 22, 12, 0, 0);
+
+  it('is zero today, negative yesterday, and positive tomorrow', () => {
+    expect(dueDeltaDays(dayOnly(new Date(Date.UTC(2026, 7, 22))), { now })).toBe(0);
+    expect(dueDeltaDays(dayOnly(new Date(Date.UTC(2026, 7, 21))), { now })).toBe(-1);
+    expect(dueDeltaDays(dayOnly(new Date(Date.UTC(2026, 7, 23))), { now })).toBe(1);
   });
 });
 

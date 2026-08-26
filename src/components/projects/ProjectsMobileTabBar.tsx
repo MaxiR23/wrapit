@@ -2,7 +2,7 @@ import { Archive, LayoutGrid, ListChecks, User } from 'lucide-react';
 import Link from 'next/link';
 
 import { shellFocusClassName } from '@/components/projects/shell';
-import { PROJECTS_PATH } from '@/lib/routes';
+import { MY_TASKS_PATH, PROJECTS_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const tabClassName =
@@ -11,9 +11,10 @@ const tabClassName =
 export default function ProjectsMobileTabBar({
   activeNav = 'projects',
 }: {
-  activeNav?: 'projects' | null;
+  activeNav?: 'projects' | 'tasks' | null;
 }) {
   const projectsActive = activeNav === 'projects';
+  const tasksActive = activeNav === 'tasks';
 
   return (
     <nav
@@ -32,10 +33,18 @@ export default function ProjectsMobileTabBar({
         <LayoutGrid className="size-5" strokeWidth={1.6} />
         Projects
       </Link>
-      <span aria-disabled="true" className={cn(tabClassName, 'text-subtle')}>
+      <Link
+        href={MY_TASKS_PATH}
+        aria-current={tasksActive ? 'page' : undefined}
+        className={cn(
+          shellFocusClassName,
+          tabClassName,
+          tasksActive ? 'font-medium text-foreground' : 'text-subtle',
+        )}
+      >
         <ListChecks className="size-5" strokeWidth={1.5} />
         My tasks
-      </span>
+      </Link>
       <span aria-disabled="true" className={cn(tabClassName, 'text-subtle')}>
         <Archive className="size-5" strokeWidth={1.5} />
         Archived

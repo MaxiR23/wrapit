@@ -6,12 +6,12 @@
 // - Shows sign in and sign up links when there is no session
 // - Shows the sign out button when there is a session
 // - Renders nothing while the session is still loading
-// - Renders nothing on /, /sign-in, /sign-up, /forgot-password, /reset-password, /projects, /projects/:id and /account
+// - Renders nothing on /, /sign-in, /sign-up, /forgot-password, /reset-password, /projects, /projects/:id, /tasks and /account
 // - Signs the user out, redirects to the sign in page and refreshes the route
 // - Shows a generic message and stays put when sign out fails
 //
 // What is covered:
-// - Signed out state, signed in state, loading state, landing, auth, projects and board routes hidden,
+// - Signed out state, signed in state, loading state, landing, auth, projects, my tasks and board routes hidden,
 //   sign out happy path, sign out failure
 //
 // Run with: pnpm test:run tests/components/auth/AuthNav.test.tsx
@@ -128,6 +128,14 @@ describe('AuthNav', () => {
 
   it('renders nothing on the account page', () => {
     usePathname.mockReturnValue('/account');
+
+    const { container } = render(<AuthNav />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing on the my tasks page', () => {
+    usePathname.mockReturnValue('/tasks');
 
     const { container } = render(<AuthNav />);
 

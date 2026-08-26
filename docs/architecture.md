@@ -230,7 +230,7 @@ in `docs/kanban.md`.
 ## File map
 
     src/proxy.ts                        route protection (cookie check only)
-    src/lib/routes.ts                   public routes; PROJECTS_PATH, projectPath, ACCOUNT_PATH, accountPath
+    src/lib/routes.ts                   public routes; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helper (password-reset email)
@@ -249,7 +249,7 @@ in `docs/kanban.md`.
     src/lib/userStatus.ts               status tones, defaults, last-status guard, user-row lock
     src/lib/userStatuses.ts             read/seed per-user statuses (server only)
     src/lib/localTime.ts                12-hour local time with a GMT offset
-    src/lib/projectGrid.ts              progress, members, count, updated labels, title filter, recents summary map, optimistic starred reducer
+    src/lib/projectGrid.ts              progress, members, count, Done/inbox column helpers, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
     src/lib/ownership.ts                column/card/label/subtask access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
@@ -257,8 +257,9 @@ in `docs/kanban.md`.
     src/lib/kanbanItems.ts              column→card id lists; append to a column
     src/lib/kanbanPersist.ts            persist queue reconcile / finish
     src/lib/cardCode.ts                 stored card code from project title + counter
-    src/lib/cardDue.ts                  the one due formatter, overdue, calendar-day persist, zone math
+    src/lib/cardDue.ts                  the one due formatter, overdue, day delta, calendar-day persist, zone math
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
+    src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/accountActivity.ts          account Activity tab projects + assigned counts
@@ -282,6 +283,7 @@ in `docs/kanban.md`.
     src/lib/validation/subtask.ts       subtask text and done; create/update/delete ids
     src/lib/validation/comment.ts       comment body; create cardId
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
+    src/lib/validation/completeCard.ts  setCardCompleted cardId + completed
     src/lib/validation/viewMode.ts      projects grid/list viewMode
     src/lib/validation/boardVisibility.ts  six board-face visibility flags
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
@@ -325,14 +327,16 @@ in `docs/kanban.md`.
     src/actions/listMyActivityEvents.ts  session user's events across current memberships
     src/actions/deleteCard.ts           delete an accessible card (cascades comments and subtasks)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
+    src/actions/setCardCompleted.ts     move a card to Done or inbox (EDIT, occupancy)
     src/actions/updateLabelField.ts     persist one label name or tone for a member
     src/actions/createLabel.ts          append a label (cap 20; seeds defaults if empty)
     src/actions/deleteLabel.ts          delete a label; reassign cards; refuse the last remaining
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
+    src/app/tasks/page.tsx              My tasks shell: assigned cards across projects
     src/app/account/page.tsx            account shell, tab routing, profile, visibility, activity
-    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent)
+    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent; ?card= opens detail)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -347,6 +351,7 @@ in `docs/kanban.md`.
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail, due date+time control
+    src/components/tasks/               My tasks list, rows, detail panel/sheet, two-step create
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

@@ -46,6 +46,10 @@ vi.mock('@/lib/notifications', () => ({
   getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
 }));
 
+vi.mock('@/lib/myTasks', () => ({
+  countOpenMyTasksForUser: vi.fn(async () => 0),
+}));
+
 vi.mock('@/actions/createProject', () => ({
   createProject: vi.fn(),
 }));

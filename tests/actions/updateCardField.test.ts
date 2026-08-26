@@ -110,6 +110,7 @@ describe('updateCardField', () => {
     expect(db.card.rows[0]?.title).toBe('New title');
     expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('rejects an empty title with a clear field error', async () => {
@@ -135,6 +136,7 @@ describe('updateCardField', () => {
     expect(db.card.rows[0]?.description).toBeNull();
     expect(db.activityEvent.rows).toHaveLength(0);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('persists a calendar due date and clears it when the value is empty', async () => {
@@ -174,6 +176,7 @@ describe('updateCardField', () => {
     expect(db.card.rows[0]?.dueDate).toBeNull();
     expect(db.activityEvent.rows).toHaveLength(2);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
   it('does not write an event when the due date is unchanged', async () => {

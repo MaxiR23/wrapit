@@ -6,6 +6,8 @@
 // Tested:
 // - Counts cards in a Done column as done
 // - Falls back to the last column by order when no Done column exists
+// - Resolves Done and inbox columns for completing a card
+// - Skips every Done-titled column when picking the inbox
 // - Renders N of M cards done, N/M done, and the empty-board copy
 // - Rounds the percentage
 // - Always includes the owner among members
@@ -28,9 +30,11 @@ import { describe, it, expect } from 'vitest';
 
 import {
   applyOptimisticStarred,
+  doneColumnFrom,
   filterProjectsByTitle,
   filterRecentProjects,
   formatUpdatedAt,
+  inboxColumnFrom,
   latestActivityAt,
   projectCountLabel,
   projectMembers,
@@ -114,6 +118,44 @@ describe('projectProgress', () => {
         { title: 'Done', order: 2, cards: Array.from({ length: 11 }, () => ({})) },
       ]),
     ).toEqual({ taskCount: 24, doneCount: 11, percent: 46 });
+  });
+});
+
+describe('doneColumnFrom and inboxColumnFrom', () => {
+  it('picks a titled Done column even when it is not last', () => {
+    const todo = { title: 'To do', order: 0 };
+    const done = { title: 'DONE', order: 1 };
+    const review = { title: 'Review', order: 2 };
+
+    expect(doneColumnFrom([todo, done, review])).toBe(done);
+    expect(inboxColumnFrom([todo, done, review])).toBe(todo);
+  });
+
+  it('falls back to the last column by order when none is titled Done', () => {
+    const ideas = { title: 'Ideas', order: 1 };
+    const published = { title: 'Published', order: 3 };
+    const production = { title: 'Production', order: 2 };
+
+    expect(doneColumnFrom([ideas, published, production])).toBe(published);
+    expect(inboxColumnFrom([ideas, published, production])).toBe(ideas);
+  });
+
+  it('returns null for an empty list and no inbox when there is only Done', () => {
+    const done = { title: 'Done', order: 0 };
+
+    expect(doneColumnFrom([])).toBeNull();
+    expect(inboxColumnFrom([])).toBeNull();
+    expect(doneColumnFrom([done])).toBe(done);
+    expect(inboxColumnFrom([done])).toBeNull();
+  });
+
+  it('skips every Done-titled column when picking the inbox', () => {
+    const firstDone = { title: 'Done', order: 0 };
+    const secondDone = { title: ' done ', order: 1 };
+    const todo = { title: 'To do', order: 2 };
+
+    expect(doneColumnFrom([firstDone, secondDone, todo])).toBe(firstDone);
+    expect(inboxColumnFrom([firstDone, secondDone, todo])).toBe(todo);
   });
 });
 
