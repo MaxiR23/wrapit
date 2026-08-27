@@ -4,9 +4,9 @@
 //
 // Tested:
 // - Renders the username, name, email and password fields
-// - Signs the user up with the typed values and redirects to the app
-// - Shows a clear message when the email is already registered
+// - Signs the user up with the typed values and redirects to check-email
 // - Shows a clear message when the username is already taken
+// - Shows the username-taken message when create fails with FAILED_TO_CREATE_USER
 // - Rejects an invalid email format without calling Better Auth
 // - Rejects a password shorter than the minimum without calling Better Auth
 // - Rejects empty fields without calling Better Auth
@@ -15,7 +15,7 @@
 // - Clears a stale form-level API error when resubmitting with invalid input
 //
 // What is covered:
-// - Happy path, invalid input, duplicate email, duplicate username, unexpected
+// - Happy path, invalid input, duplicate email as success, duplicate username, unexpected
 //   server error, unrecognized error code, stale root error on invalid resubmit
 //
 // Run with: pnpm test:run tests/components/auth/SignUpForm.test.tsx
@@ -80,33 +80,31 @@ describe('SignUpForm', () => {
     expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument();
   });
 
-  it('signs the user up with the typed values and redirects to the app', async () => {
+  it('signs the user up with the typed values and redirects to check-email', async () => {
     render(<SignUpForm />);
 
     const user = await fillForm();
     await submit(user);
 
-    expect(signUpEmail).toHaveBeenCalledWith(credentials);
-    expect(push).toHaveBeenCalledWith('/projects');
+    expect(signUpEmail).toHaveBeenCalledWith({
+      ...credentials,
+      callbackURL: '/verify-email',
+    });
+    expect(push).toHaveBeenCalledWith('/check-email?email=ada%40example.com');
   });
 
-  it('shows a clear message when the email is already registered', async () => {
+  it('still redirects to check-email when the email is already registered', async () => {
     signUpEmail.mockResolvedValue({
-      data: null,
-      error: {
-        code: 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL',
-        message: 'User already exists. Use another email.',
-        status: 422,
-        statusText: 'Unprocessable Entity',
-      },
+      data: { user: { email: credentials.email, username: credentials.username }, token: null },
+      error: null,
     });
     render(<SignUpForm />);
 
     const user = await fillForm();
     await submit(user);
 
-    expect(await screen.findByText('That email is already registered.')).toBeInTheDocument();
-    expect(push).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/check-email?email=ada%40example.com');
+    expect(screen.queryByText('That email is already registered.')).not.toBeInTheDocument();
   });
 
   it('shows a clear message when the username is already taken', async () => {
@@ -117,6 +115,25 @@ describe('SignUpForm', () => {
         message: 'Username is already taken. Please try another.',
         status: 400,
         statusText: 'Bad Request',
+      },
+    });
+    render(<SignUpForm />);
+
+    const user = await fillForm();
+    await submit(user);
+
+    expect(await screen.findByText('That username is already taken.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('shows the username-taken message when create fails with FAILED_TO_CREATE_USER', async () => {
+    signUpEmail.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'FAILED_TO_CREATE_USER',
+        message: 'Failed to create user',
+        status: 422,
+        statusText: 'Unprocessable Entity',
       },
     });
     render(<SignUpForm />);

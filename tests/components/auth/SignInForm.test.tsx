@@ -11,6 +11,7 @@
 // - Rejects an invalid email format without calling Better Auth
 // - Rejects an empty password without calling Better Auth
 // - Shows a generic message, not the server message, when the server fails
+// - Explains an unverified sign in and offers a resend rather than a credentials failure
 // - Clears a stale form-level API error when resubmitting with invalid input
 //
 // What is covered:
@@ -27,11 +28,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const signInEmail = vi.fn();
+const sendVerificationEmail = vi.fn();
 const push = vi.fn();
 const refresh = vi.fn();
 
 vi.mock('@/lib/authClient', () => ({
-  authClient: { signIn: { email: signInEmail } },
+  authClient: { signIn: { email: signInEmail }, sendVerificationEmail },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -211,5 +213,40 @@ describe('SignInForm', () => {
     expect(screen.queryByText('Invalid email or password.')).not.toBeInTheDocument();
     expect(await screen.findByText('Password is required')).toBeInTheDocument();
     expect(signInEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains an unverified sign in and offers a resend instead of a credentials failure', async () => {
+    signInEmail.mockResolvedValue({
+      data: null,
+      error: {
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Email not verified',
+        status: 403,
+        statusText: 'Forbidden',
+      },
+    });
+    sendVerificationEmail.mockResolvedValue({ data: { status: true }, error: null });
+    render(<SignInForm />);
+
+    const user = await fillForm();
+    await submit(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Verify your email before signing in. Check your inbox, or request a new link.',
+    );
+    expect(screen.queryByText('Invalid email or password.')).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Send a new verification email' }));
+
+    expect(sendVerificationEmail).toHaveBeenCalledWith({
+      email: credentials.email,
+      callbackURL: '/verify-email',
+    });
+    expect(
+      await screen.findByText(
+        'If that email is registered and still needs verifying, a new link is on its way.',
+      ),
+    ).toBeInTheDocument();
   });
 });

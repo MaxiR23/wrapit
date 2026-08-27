@@ -387,14 +387,16 @@ in `docs/kanban.md`.
     src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; archived project redirects to /archived; else 404; records recent; ?card= opens detail)
     src/app/projects/[projectId]/archived/page.tsx  archived tasks in ProjectsShell (member only; archived project redirects)
     src/app/archived/page.tsx           archived projects in ProjectsShell
-    src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
+    src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset, check-email, verify-email
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
     src/app/(sign-in)/sign-in/page.tsx  /sign-in
+    src/app/(auth)/check-email/page.tsx  waiting for verification email
+    src/app/(auth)/verify-email/page.tsx  verification result
     src/app/(auth)/forgot-password/page.tsx  /forgot-password
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
-    src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
+    src/components/auth/                sign up, sign in, check-email, verify-email, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, archive confirm, viewer time zone, OpenPanel exclusion, shellPanelClassName

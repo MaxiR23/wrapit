@@ -7,8 +7,9 @@ How authentication is set up in this repo.
 [Better Auth](https://www.better-auth.com/) with the Prisma adapter, on the
 same PostgreSQL database as the rest of the app.
 
-Only email and password is enabled. Sign up, sign in, sign out, password
-reset and route protection all work. There are no social providers.
+Only email and password is enabled. Sign up, sign in, sign out, email
+verification, password reset and route protection all work. There are no
+social providers.
 
 ## Environment variables
 
@@ -19,19 +20,21 @@ They live in `.env` (never committed) and are listed in `.env.example`:
 - `BETTER_AUTH_URL` — the base URL of the app, `http://localhost:3000` in
   development. Without it Better Auth derives the origin from the incoming
   request, which makes callbacks and redirects unreliable. Password-reset
-  emails build the `/reset-password?token=` link from this value.
-- `RESEND_API_KEY` — used by `src/lib/email.ts` to send the reset email.
-  Never hardcode it.
+  emails build the `/reset-password?token=` link from this value. Verification
+  emails use Better Auth's `{BETTER_AUTH_URL}/api/auth/verify-email?token=`
+  URL, with `callbackURL=/verify-email`.
+- `RESEND_API_KEY` — used by `src/lib/email.ts` to send the reset and
+  verification emails. Never hardcode it.
 
 ## Files
 
 Auth-related paths only. The full app map is in `docs/architecture.md`.
 
     src/proxy.ts                        route protection, runs before every request
-    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
+    src/lib/routes.ts                   which routes are public; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath, CHECK_EMAIL_PATH, VERIFY_EMAIL_PATH
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
-    src/lib/email.ts                    Resend helper for the password-reset email
+    src/lib/email.ts                    Resend helpers for password-reset and verification emails
     src/lib/validation/fieldErrors.ts   first error per field (shared with domain validators)
     src/lib/validation/signUp.ts        sign up field rules
     src/lib/validation/signIn.ts        sign in field rules
@@ -40,6 +43,8 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/app/api/auth/[...all]/route.ts  catch-all handler for /api/auth/*
     src/components/auth/SignUpForm.tsx  the sign up form
     src/components/auth/SignInForm.tsx  the sign in form
+    src/components/auth/CheckEmailPanel.tsx  waiting page after sign-up; resend
+    src/components/auth/VerifyEmailResult.tsx  expired / already-verified result
     src/components/auth/ForgotPasswordForm.tsx  the forgot-password form
     src/components/auth/ResetPasswordForm.tsx   the reset-password form
     src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
@@ -51,10 +56,12 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/projects/ProjectsTopbar.tsx  desktop topbar (search, bell, account menu)
     src/components/projects/ProjectsMobileHeader.tsx  mobile header (brand, bell, account menu)
     src/app/page.tsx                    / is redirect-only: session to /projects, else /sign-in
-    src/app/(auth)/layout.tsx           split layout for sign-up, forgot, reset
+    src/app/(auth)/layout.tsx           split layout for sign-up, forgot, reset, check-email, verify-email
     src/app/(auth)/sign-up/page.tsx     the /sign-up page
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero + split from auth-sm up
     src/app/(sign-in)/sign-in/page.tsx  the /sign-in page
+    src/app/(auth)/check-email/page.tsx  waiting for the verification email
+    src/app/(auth)/verify-email/page.tsx  verification result (error query only; never the token)
     src/app/(auth)/forgot-password/page.tsx  the /forgot-password page
     src/app/(auth)/reset-password/page.tsx   the /reset-password page
 
@@ -69,9 +76,18 @@ logic stay as they are.
 `src/lib/prisma.ts` and enables email and password. Required unique `username`
 is declared under `user.additionalFields` (not the username plugin, which also
 writes `displayUsername` and our Prisma `User` has no such column).
+`emailAndPassword.requireEmailVerification` is on: sign-up does not open a
+session, and an unverified sign-in is 403 `EMAIL_NOT_VERIFIED`.
+`emailVerification.sendOnSignUp` is true; `sendOnSignIn` is false so a
+password-correct unverified sign-in does not mail again — the form offers an
+explicit resend. `autoSignInAfterVerification` is true; `expiresIn` is 86400
+seconds (24 hours). `customSyntheticUser` includes `username` so a
+duplicate-email 200 has the same JSON shape as a real create.
 `sendResetPassword` builds `{BETTER_AUTH_URL}/reset-password?token=` from the
 token Better Auth provides and hands it to `sendResetPasswordEmail` in
-`src/lib/email.ts`. The
+`src/lib/email.ts`. `sendVerificationEmail` uses the `url` Better Auth already
+built (the token lives only there) and swallows Resend failures after logging
+`email.verification_failed` without the address, URL, or token. The
 `nextCookies()` plugin goes last in the plugin list; it lets Better Auth set
 cookies from server actions.
 
@@ -87,8 +103,11 @@ the current origin, which is where the API routes live.
 
 `/sign-up` renders `SignUpForm`, a client component with username, name, email
 and password. It uses react-hook-form with `zodResolver(signUpSchema)` so invalid
-input never reaches the network, then calls `authClient.signUp.email(...)`. On
-success Better Auth sets the session cookie and the form redirects to `/projects`.
+input never reaches the network, then calls
+`authClient.signUp.email({ ..., callbackURL: VERIFY_EMAIL_PATH })`. On success
+Better Auth does not set a session cookie. The form redirects to
+`/check-email?email=` (the address they just typed). The account exists with
+`emailVerified: false` until the emailed link is opened.
 
 The rules live in `src/lib/validation/signUp.ts` as a single zod schema
 (`signUpSchema`). The form and `validateSignUp` both use that schema; do not
@@ -98,13 +117,13 @@ Better Auth's own default of 8; setting it explicitly keeps the browser and the
 server from drifting apart. `username` is required, 3–20 characters, and must
 match `^[a-z0-9_]+$`.
 
-The client returns `{ data, error }` rather than throwing. Only recognized
-codes get a specific message: `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` (the 422
-Better Auth sends for a taken email) becomes a message on the email field;
-`USERNAME_IS_ALREADY_TAKEN` (if present) becomes a message on the username
-field. A duplicate username under `additionalFields` usually hits the DB unique
-constraint and surfaces as a generic create failure, which uses the fixed
-generic message on the form root. `error.message` is deliberately never
+The client returns `{ data, error }` rather than throwing. A duplicate email
+returns 200 with a synthetic user (`token: null`) so the form cannot tell it
+apart from a fresh sign-up — both land on `/check-email`. A taken username
+fails: `USERNAME_IS_ALREADY_TAKEN` or `FAILED_TO_CREATE_USER` (the unique
+constraint) becomes "That username is already taken." on the username field.
+Usernames are already public inside the app (`@username`, invites), so sign-up
+does not hide whether one is taken. `error.message` is deliberately never
 rendered — an unexpected error can carry server internals such as a database
 host or a constraint name. Add a code to the recognized list in
 `SignUpForm.tsx` when it deserves its own wording.
@@ -121,7 +140,11 @@ server-side would need a `databaseHooks` guard in `src/lib/auth.ts`.
 follows the same shape as sign up: react-hook-form with
 `zodResolver(signInSchema)` so invalid input never reaches the network, then
 `authClient.signIn.email(...)`. On success the form redirects to `/projects` and calls
-`router.refresh()` so the nav re-reads the session.
+`router.refresh()` so the nav re-reads the session. If the password is correct
+but `emailVerified` is false, Better Auth returns 403 `EMAIL_NOT_VERIFIED`
+without sending mail (`sendOnSignIn` is false). The form explains that
+verification is missing and offers an explicit resend, rather than showing
+"Invalid email or password."
 
 The sign-in route has its own layout (`src/app/(sign-in)/sign-in/layout.tsx`),
 not the shared `(auth)` split. It is one page with two CSS presentations of the
@@ -163,6 +186,55 @@ existence breaks the build.
 
 The form also links to `/forgot-password`.
 
+## Email verification
+
+Signing up sends a verification email (Resend, same helper module as password
+reset) and lands on `/check-email`. The waiting page can request a new link.
+`authClient.sendVerificationEmail` returns `{ status: true }` for unknown and
+already-verified addresses without sending, so the confirmation copy is always
+"If that email is registered and still needs verifying, a new link is on its
+way." Resend `{ error }` is swallowed after a server log so a send failure
+cannot distinguish a real unverified address from an unknown one.
+
+The emailed link is `{BETTER_AUTH_URL}/api/auth/verify-email?token=…&callbackURL=/verify-email`.
+The token appears only in that URL. It is never logged, never rendered, and
+never put on `/check-email` or `/verify-email`. `/verify-email` reads the
+`error` query only.
+
+A valid link sets `emailVerified`, opens a session
+(`autoSignInAfterVerification`), redirects to `/verify-email`, and the proxy
+sends that session to `/projects`. An expired or invalid JWT redirects to
+`/verify-email?error=TOKEN_EXPIRED` or `INVALID_TOKEN`; the page shows the
+same "invalid or has expired" sentence for every error code. A reused
+unexpired link (the token is a signed JWT, not a consumed row) redirects to
+`/verify-email` with no error and no new session; the page says the email is
+already verified and links to sign in.
+
+Existing accounts were marked verified by the
+`mark_existing_users_email_verified` migration. They were created before
+verification existed; locking them out protects nothing. New sign-ups keep
+`emailVerified` false via the column default.
+
+Rate limiting is Better Auth's built-in limiter, keyed on client IP
+(`x-forwarded-for`). It is **on in production and off in development**
+(Better Auth default; we do not set `enabled: true`). Custom rules:
+
+- `/send-verification-email`: 3 requests / 60 seconds
+- `/sign-in/email`: 5 requests / 60 seconds
+
+The store is in memory and suits a single process. Vitest runs with
+`NODE_ENV=test`, so limits are off except
+`tests/api/auth/send-verification-rate-limit.test.ts`, which stubs
+`NODE_ENV=production`.
+
+Known properties, not bugs:
+
+- The token is a signed JWT, so a reused unexpired link reads as already
+  verified rather than invalid.
+- The rate-limit store is in memory and suits a single Node process.
+- The token travels in a URL that platform access logs may record. That is
+  inherent to link-based verification; the app never writes it itself.
+
 ## Password reset
 
 `/forgot-password` renders `ForgotPasswordForm`, email only. It calls
@@ -195,7 +267,8 @@ anything else uses the generic message.
 `AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
 `authClient.useSession()` and shows either a **Sign out** button or links to
 `/sign-in` and `/sign-up`. On `/` and on auth paths (`isAuthPath`: sign-in,
-sign-up, forgot-password, reset-password) it returns null so the redirect home
+sign-up, forgot-password, reset-password, check-email, verify-email) it
+returns null so the redirect home
 and the auth layouts are not topped by nav links. It also returns null on
 `/projects`, `/tasks`, and `/account`, where the projects shell hosts sign out instead. While the
 session is still loading on other routes it renders an empty nav, so a signed
@@ -231,7 +304,7 @@ Two rules:
 
 - No session on a private route redirects to `/sign-in`.
 - A session on an auth path (`/sign-in`, `/sign-up`, `/forgot-password`,
-  `/reset-password`) redirects to `/projects`.
+  `/reset-password`, `/check-email`, `/verify-email`) redirects to `/projects`.
 
 `/` is public so the page can run without a session. It renders no UI: a
 session redirects to `/projects`, otherwise to `/sign-in`. Post-login
@@ -250,6 +323,8 @@ session:
     /sign-up     the sign up page
     /forgot-password  request a reset email
     /reset-password   set a new password from the emailed token
+    /check-email      waiting for the verification email; resend
+    /verify-email     verification result (error query; never the token)
     /api/auth/*  the Better Auth endpoints
 
 Anything else is private, so a new page is protected the moment it exists and
@@ -329,6 +404,8 @@ The forms and the nav are tested against a mocked `authClient`, so their tests
 cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/auth/SignUpForm.test.tsx`,
 `tests/components/auth/SignInForm.test.tsx`,
+`tests/components/auth/CheckEmailPanel.test.tsx`,
+`tests/components/auth/VerifyEmailResult.test.tsx`,
 `tests/components/auth/ForgotPasswordForm.test.tsx`,
 `tests/components/auth/ResetPasswordForm.test.tsx`,
 `tests/components/auth/AuthNav.test.tsx`,
@@ -338,11 +415,14 @@ cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/app/sign-in-layout.test.tsx` covers the CSS hero/split on `/sign-in`.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
-wrong password, unknown email) and `tests/api/auth/route.test.ts`, which drives
+unverified sign in, duplicate email, taken username, verify) and
+`tests/api/auth/route.test.ts`, which drives
 the real route handler with raw `Request` objects and replays the session cookie
 to prove that sign out actually removes the `Session` row. Those tests mock
 `src/lib/email.ts` so they never call Resend. `tests/lib/email.test.ts` mocks
-the Resend client and asserts that a `{ error }` result is thrown.
+the Resend client and asserts that a `{ error }` result is thrown without the
+URL. `tests/api/auth/send-verification-rate-limit.test.ts` stubs production
+`NODE_ENV` and asserts 429 on the fourth send.
 
 Route protection is covered in `tests/lib/routes.test.ts` (which paths are
 public) and `tests/proxy.test.ts`, which calls the proxy with a `NextRequest`

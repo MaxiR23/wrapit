@@ -3,7 +3,7 @@
 // Tests for the public and private route definitions.
 //
 // Tested:
-// - Home, the auth pages and the Better Auth API are public
+// - Home, the auth pages (including check-email and verify-email) and the Better Auth API are public
 // - Anything else is private, including /account and /tasks
 // - Auth pages are recognized as auth pages, other public routes are not
 // - A trailing slash does not change the answer
@@ -41,6 +41,8 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/sign-up')).toBe(true);
     expect(isPublicPath('/forgot-password')).toBe(true);
     expect(isPublicPath('/reset-password')).toBe(true);
+    expect(isPublicPath('/check-email')).toBe(true);
+    expect(isPublicPath('/verify-email')).toBe(true);
   });
 
   it('accepts the Better Auth endpoints below /api/auth', () => {
@@ -136,6 +138,8 @@ describe('isAuthPath', () => {
     expect(isAuthPath('/forgot-password')).toBe(true);
     expect(isAuthPath('/reset-password')).toBe(true);
     expect(isAuthPath('/reset-password/')).toBe(true);
+    expect(isAuthPath('/check-email')).toBe(true);
+    expect(isAuthPath('/verify-email')).toBe(true);
   });
 
   it('rejects other routes, public ones included', () => {
