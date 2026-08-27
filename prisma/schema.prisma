@@ -64,6 +64,14 @@ enum ActivityEventType {
   MEMBER_REMOVED
   OWNERSHIP_TRANSFERRED
   MEMBER_LEFT
+  PROJECT_ARCHIVED
+  PROJECT_RESTORED
+  PROJECT_DELETED
+}
+
+enum RestoreUndoKind {
+  CARDS
+  PROJECT
 }
 
 model User {
@@ -90,6 +98,7 @@ model User {
   cardAssignments      CardAssignee[]
   cardComments         Comment[]
   archivedCards        Card[]             @relation("CardArchivedBy")
+  archivedProjects     Project[]          @relation("ProjectArchivedBy")
   restoreUndoTokens    RestoreUndoToken[]
   activityEvents       ActivityEvent[]
   activeStatusId       String?     @unique
@@ -155,6 +164,10 @@ model Project {
 
   publicLinkEnabled Boolean @default(false)
 
+  archivedAt   DateTime?
+  archivedById String?
+  archivedBy   User?     @relation("ProjectArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+
   columns           Column[]
   memberships       Membership[]
   invitations       Invitation[]
@@ -162,6 +175,8 @@ model Project {
   labels            Label[]
   activityEvents    ActivityEvent[]
   restoreUndoTokens RestoreUndoToken[]
+
+  @@index([archivedById])
 }
 
 model Column {
@@ -386,9 +401,10 @@ model RecentProject {
 }
 
 model RestoreUndoToken {
-  id        String   @id
+  id        String          @id
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
+  kind      RestoreUndoKind @default(CARDS)
   cards     Json
 
   userId    String

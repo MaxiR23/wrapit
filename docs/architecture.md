@@ -100,6 +100,8 @@ user. Label and assignee ids must belong to the target column's project
 transaction inserts one `ActivityEvent` (`CARD_CREATED`) so a logging failure
 rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
 `restoreArchivedCards`, `rearchiveArchivedCards`, `deleteArchivedCards`,
+`archiveProject`, `restoreArchivedProjects`, `rearchiveArchivedProjects`,
+`deleteArchivedProject`,
 `updateCardAssignees`, `updateCardLabel`, due-date `updateCardField`,
 `createComment`, `acceptInvitation`, and `removeMember` do the same for their
 types. Title and description writes, subtasks, column/label CRUD, and
@@ -182,8 +184,10 @@ projects; cards belong to columns. Mutations walk that chain — card → column
 project → membership — so a forged id for someone else's card cannot succeed.
 
 `src/lib/membership.ts` owns the Prisma where clauses (`accessibleByUser` for
-any member, `withBoardAccess` for a minimum board access, `administeredByUser`
-for OWNER/ADMIN team administration) and the last-OWNER invariant
+any member of a live project, `withBoardAccess` for a minimum board access,
+`administeredByUser` for OWNER/ADMIN team administration, and
+`archivedAccessibleByUser` / `archivedAdministeredByUser` for the same on
+archived projects). Live helpers include `archivedAt: null`. It also owns the last-OWNER invariant
 (`assertNotLastOwner` / `LastOwnerError`). `src/lib/ownership.ts` centralizes
 the column/card/label lookups (`getColumnForUser`, `getCardForUser`,
 `getLabelForUser`) using `withBoardAccess`. Actions return `{ error: 'Unauthorized' }`
@@ -264,7 +268,7 @@ in `docs/kanban.md`.
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-    src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, unassign, owner backfill
+    src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, archived counterparts, last-OWNER guard, unassign, owner backfill
     src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
     src/lib/invitations.ts              invite-by-username checks, notification copy
     src/lib/notifications.ts            list/mark-read for the session user's notifications
@@ -351,13 +355,18 @@ in `docs/kanban.md`.
     src/actions/restoreArchivedCards.ts restore archived cards to their stored column; mint undo token
     src/actions/rearchiveArchivedCards.ts redeem restore undo token; original archive metadata
     src/actions/deleteArchivedCards.ts  permanently delete archived cards
-    src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks
+    src/actions/archiveProject.ts       set project archivedAt and archivedById when archivedAt is null
+    src/actions/restoreArchivedProjects.ts restore archived projects; mint PROJECT undo token
+    src/actions/rearchiveArchivedProjects.ts redeem project restore undo token
+    src/actions/deleteArchivedProject.ts permanently delete one archived project (typed title)
+    src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks and projects
     src/lib/archivedQuery.ts            load archived cards for a member (server-only)
+    src/lib/archivedProjectsQuery.ts    load archived projects for a member (server-only)
     src/lib/archivedCopy.ts             English archived-screen copy
     src/lib/archivedExport.ts           CSV/JSON export of loaded rows
-    src/lib/archivedScope.ts            tasks-scope adapter stub
+    src/lib/archivedScope.ts            tasks and projects scope adapters
     src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
-    src/lib/validation/archived.ts      restore, rearchive, and delete schemas
+    src/lib/validation/archived.ts      restore, rearchive, delete, and archive-project schemas
     src/actions/createSubtask.ts        append a subtask on an accessible card
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
@@ -375,8 +384,9 @@ in `docs/kanban.md`.
     src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
     src/app/tasks/page.tsx              My tasks shell: assigned cards across projects
     src/app/account/page.tsx            account shell, tab routing, profile, visibility, activity
-    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent; ?card= opens detail)
-    src/app/projects/[projectId]/archived/page.tsx  archived tasks in ProjectsShell (member only)
+    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; archived project redirects to /archived; else 404; records recent; ?card= opens detail)
+    src/app/projects/[projectId]/archived/page.tsx  archived tasks in ProjectsShell (member only; archived project redirects)
+    src/app/archived/page.tsx           archived projects in ProjectsShell
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -387,7 +397,7 @@ in `docs/kanban.md`.
     src/components/auth/                sign up, sign in, password reset, sign-in hero, AuthNav
     src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
-    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, viewer time zone, OpenPanel exclusion, shellPanelClassName
+    src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, archive confirm, viewer time zone, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail, due date+time control

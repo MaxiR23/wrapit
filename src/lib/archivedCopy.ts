@@ -59,4 +59,32 @@ export const archivedCopy = {
   exportToast: (n: number) => `Preparing download of ${n} tasks`,
   swipeRestore: 'Restore',
   swipeDelete: 'Delete',
+  projects: {
+    breadcrumbHome: 'Projects',
+    searchPlaceholder: 'Search archived projects',
+    searchAriaLabel: 'Search archived projects',
+    contextBand:
+      'Archived projects from your team. Restoring returns them to Projects with the board intact.',
+    adminOnly: 'Only owners and admins can restore or delete archived projects.',
+    readOnly: 'Read only. Restore this project to edit it.',
+    kicker: 'Archived project',
+    finalStatus: 'Final status',
+    progress: 'Progress',
+    team: 'Team',
+    headers: {
+      name: 'Project',
+      status: 'Status',
+      progress: 'Progress',
+      team: 'Team',
+      archived: 'Archived',
+    },
+    deleteTitle: 'Delete this project?',
+    deleteBody: (name: string) =>
+      `"${name}" is permanently deleted, with every card, comment, and its history. This cannot be undone.`,
+    deleteConfirmHint: 'Type the project title to confirm.',
+    titlePlaceholder: 'Project title',
+    restoredOne: (name: string) => `"${name}" restored`,
+    restoredMany: (n: number) => `${n} projects restored`,
+    deletedOne: (name: string) => `"${name}" permanently deleted`,
+  },
 } as const;

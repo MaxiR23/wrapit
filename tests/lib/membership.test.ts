@@ -35,36 +35,60 @@ const {
   LastOwnerError,
   accessibleByUser,
   administeredByUser,
+  archivedAccessibleByUser,
+  archivedAdministeredByUser,
   assertNotLastOwner,
   backfillOwnerMemberships,
   withBoardAccess,
 } = await import('@/lib/membership');
 
 describe('accessibleByUser', () => {
-  it('returns a membership some-filter for the given user id', () => {
+  it('returns a live-project membership some-filter for the given user id', () => {
     expect(accessibleByUser('user-ada')).toEqual({
+      archivedAt: null,
       memberships: { some: { userId: 'user-ada' } },
     });
   });
 });
 
 describe('withBoardAccess', () => {
-  it('filters memberships to access at least COMMENT', () => {
+  it('filters memberships to access at least COMMENT on a live project', () => {
     expect(withBoardAccess('user-ada', 'COMMENT')).toEqual({
+      archivedAt: null,
       memberships: { some: { userId: 'user-ada', access: { in: ['COMMENT', 'EDIT'] } } },
     });
   });
 
-  it('filters memberships to EDIT only', () => {
+  it('filters memberships to EDIT only on a live project', () => {
     expect(withBoardAccess('user-ada', 'EDIT')).toEqual({
+      archivedAt: null,
       memberships: { some: { userId: 'user-ada', access: { in: ['EDIT'] } } },
     });
   });
 });
 
 describe('administeredByUser', () => {
-  it('filters memberships to OWNER or ADMIN', () => {
+  it('filters memberships to OWNER or ADMIN on a live project', () => {
     expect(administeredByUser('user-ada')).toEqual({
+      archivedAt: null,
+      memberships: { some: { userId: 'user-ada', role: { in: ['OWNER', 'ADMIN'] } } },
+    });
+  });
+});
+
+describe('archivedAccessibleByUser', () => {
+  it('returns an archived-project membership some-filter for the given user id', () => {
+    expect(archivedAccessibleByUser('user-ada')).toEqual({
+      archivedAt: { not: null },
+      memberships: { some: { userId: 'user-ada' } },
+    });
+  });
+});
+
+describe('archivedAdministeredByUser', () => {
+  it('filters memberships to OWNER or ADMIN on an archived project', () => {
+    expect(archivedAdministeredByUser('user-ada')).toEqual({
+      archivedAt: { not: null },
       memberships: { some: { userId: 'user-ada', role: { in: ['OWNER', 'ADMIN'] } } },
     });
   });

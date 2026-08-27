@@ -43,6 +43,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `Membership` (roles `OWNER`, `ADMIN`, `MEMBER` and board access `EDIT`,
   `COMMENT`, `VIEW`); `ownerId` is creator metadata. `publicLinkEnabled` is a
   boolean defaulting to false; serving a signed-out visitor is a later slice.
+  An optional `archivedAt` hides the project from live lists and board reads.
+  An optional `archivedById` points at the user who archived it (`onDelete: SetNull`).
 - `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
   It holds `role`, `access` (default `EDIT`), and `starred`. OWNER and ADMIN
   are constrained to `EDIT`. Every project must have at least one OWNER.
@@ -99,7 +101,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `type` is `ActivityEventType` (`CARD_CREATED`, `CARD_MOVED`, `CARD_ARCHIVED`,
   `CARD_RESTORED`, `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
   `COMMENT_ADDED`, `PROJECT_CREATED`, `MEMBER_ADDED`, `MEMBER_REMOVED`,
-  `OWNERSHIP_TRANSFERRED`, `MEMBER_LEFT`).
+  `OWNERSHIP_TRANSFERRED`, `MEMBER_LEFT`, `PROJECT_ARCHIVED`, `PROJECT_RESTORED`,
+  `PROJECT_DELETED`).
   `payload` is JSON; the
   app parses it with a per-type Zod map before write and again on read. Every
   payload snapshots `actorName` / `actorUsername` plus type-specific ids and
@@ -116,8 +119,10 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   logged. Indexed on `(projectId, createdAt)` for the board log and
   `(actorId, createdAt)` for the account timeline.
 - `RestoreUndoToken` belongs to a `User` and a `Project`. Its `id` is the
-  secret the restore toast redeems. `cards` is JSON: the `archivedAt` /
-  `archivedById` restore read itself, per card. Rows last five minutes, are
+  secret the restore toast redeems. `kind` is `RestoreUndoKind` (`CARDS` or
+  `PROJECT`, default `CARDS`) so a card undo cannot rearchive a project and
+  vice versa. `cards` is JSON: the `archivedAt` /
+  `archivedById` restore read itself, per card or per project. Rows last five minutes, are
   single-use, and cascade when the user or project is deleted. Expired rows are
   removed lazily on the next restore or redeem (`expiresAt <= now`).
 - `RecentProject` belongs to a `User` and a `Project`. It records when that

@@ -18,6 +18,7 @@ export type ProjectSummary = {
   percent: number;
   updatedLabel: string;
   starred: boolean;
+  canAdminister: boolean;
   members: ProjectGridMember[];
 };
 

@@ -315,14 +315,25 @@ async function loadAssignedContext(db: MyTasksDb, userId: string): Promise<Assig
   const memberships = await db.membership.findMany({ where: { userId } });
   if (memberships.length === 0) return null;
 
-  const projectIds = memberships.map((membership) => asString(membership.projectId));
-  const memberProjectIds = new Set(projectIds);
+  const membershipProjectIds = memberships.map((membership) => asString(membership.projectId));
   const accessByProjectId = new Map(
     memberships.map((membership) => [
       asString(membership.projectId),
       parseAccess(membership.access),
     ]),
   );
+
+  const projects =
+    membershipProjectIds.length === 0
+      ? []
+      : await db.project.findMany({
+          where: { id: { in: membershipProjectIds }, archivedAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
+  if (projects.length === 0) return null;
+
+  const projectIds = projects.map((project) => asString(project.id));
+  const memberProjectIds = new Set(projectIds);
 
   const assignments = await db.cardAssignee.findMany({ where: { userId } });
   const assignedCardIds = assignments.map((row) => asString(row.cardId));
@@ -369,14 +380,6 @@ async function loadAssignedContext(db: MyTasksDb, userId: string): Promise<Assig
     const doneId = projectId ? (doneIdByProjectId.get(projectId) ?? null) : null;
     completedByCardId.set(asString(card.id), doneId != null && asString(card.columnId) === doneId);
   }
-
-  const projects =
-    projectIds.length === 0
-      ? []
-      : await db.project.findMany({
-          where: { id: { in: projectIds } },
-          orderBy: { createdAt: 'desc' },
-        });
 
   return {
     memberships,

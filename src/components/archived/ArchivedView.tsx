@@ -6,9 +6,13 @@ import { ArrowUpDown, Clock, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { deleteArchivedCards } from '@/actions/deleteArchivedCards';
+import { deleteArchivedProject } from '@/actions/deleteArchivedProject';
 import { rearchiveArchivedCards } from '@/actions/rearchiveArchivedCards';
+import { rearchiveArchivedProjects } from '@/actions/rearchiveArchivedProjects';
 import { restoreArchivedCards } from '@/actions/restoreArchivedCards';
+import { restoreArchivedProjects } from '@/actions/restoreArchivedProjects';
 import ArchivedDeleteDialog from '@/components/archived/ArchivedDeleteDialog';
+import ArchivedDeleteProjectDialog from '@/components/archived/ArchivedDeleteProjectDialog';
 import ArchivedDetail from '@/components/archived/ArchivedDetail';
 import ArchivedEmptyState from '@/components/archived/ArchivedEmptyState';
 import ArchivedExportDialog from '@/components/archived/ArchivedExportDialog';
@@ -18,13 +22,19 @@ import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
   ARCHIVED_PAGE_SIZE,
+  ARCHIVED_PROJECTS_EMPTY,
   archivedCountLabel,
   archivedPhoneSelectedLabel,
+  archivedProjectCountLabel,
+  archivedProjectSelectedLabel,
   archivedSelectedLabel,
+  filterArchivedProjects,
   filterArchivedTasks,
+  reviveArchivedProject,
   reviveArchivedTask,
   sliceArchivedTasks,
   type ArchivedDateRange,
+  type ArchivedProject,
   type ArchivedSort,
   type ArchivedTask,
 } from '@/lib/archived';
@@ -55,17 +65,23 @@ function downloadText(filename: string, text: string, mime: string) {
 export default function ArchivedView({
   projectId,
   projectTitle,
-  initialCards,
-  canAdminister,
+  initialCards = [],
+  initialProjects,
+  canAdminister = false,
 }: {
-  projectId: string;
-  projectTitle: string;
-  initialCards: ArchivedTask[];
-  canAdminister: boolean;
+  projectId?: string;
+  projectTitle?: string;
+  initialCards?: ArchivedTask[];
+  initialProjects?: ArchivedProject[];
+  canAdminister?: boolean;
 }) {
+  const isProjects = initialProjects != null;
   const router = useRouter();
   const { query, setQuery } = useProjectsSearch();
   const [cards, setCards] = useState(() => initialCards.map(reviveArchivedTask));
+  const [projects, setProjects] = useState(() =>
+    (initialProjects ?? []).map(reviveArchivedProject),
+  );
   const [range, setRange] = useState<ArchivedDateRange>('all');
   const [sort, setSort] = useState<ArchivedSort>('date');
   const [limit, setLimit] = useState(ARCHIVED_PAGE_SIZE);
@@ -86,15 +102,24 @@ export default function ArchivedView({
     setSelectionMode(false);
   }
 
-  const filtered = useMemo(
+  const filteredCards = useMemo(
     () => filterArchivedTasks(cards, { query, range, sort, now }),
     [cards, query, range, sort, now],
   );
-  const { shown, remaining } = sliceArchivedTasks(filtered, limit);
-  const selectedShown = shown.filter((card) => selectedIds.includes(card.id));
+  const filteredProjects = useMemo(
+    () => filterArchivedProjects(projects, { query, range, sort, now }),
+    [projects, query, range, sort, now],
+  );
+  const { shown, remaining } = isProjects
+    ? sliceArchivedTasks(filteredProjects, limit)
+    : sliceArchivedTasks(filteredCards, limit);
+  const selectedShown = shown.filter((item) => selectedIds.includes(item.id));
   const allShownSelected = shown.length > 0 && selectedShown.length === shown.length;
   const filtersOn = query.trim() !== '' || range !== 'all';
-  const openCard = openId ? (cards.find((card) => card.id === openId) ?? null) : null;
+  const openCard =
+    !isProjects && openId ? (cards.find((card) => card.id === openId) ?? null) : null;
+  const openProject =
+    isProjects && openId ? (projects.find((project) => project.id === openId) ?? null) : null;
 
   const clearSelection = useCallback(() => {
     setSelectedIds([]);
@@ -135,6 +160,11 @@ export default function ArchivedView({
     return cards.filter((card) => wanted.has(card.id));
   }
 
+  function projectsByIds(ids: string[]): ArchivedProject[] {
+    const wanted = new Set(ids);
+    return projects.filter((project) => wanted.has(project.id));
+  }
+
   function bumpCardGens(ids: string[]): Map<string, number> {
     const snapshot = new Map<string, number>();
     for (const id of ids) {
@@ -163,14 +193,53 @@ export default function ArchivedView({
     });
   }
 
+  function putProjectsBack(removed: ArchivedProject[]) {
+    setProjects((current) => {
+      const existing = new Set(current.map((project) => project.id));
+      return [...current, ...removed.filter((project) => !existing.has(project.id))];
+    });
+  }
+
+  function canRestoreIds(ids: string[]): boolean {
+    if (isProjects) {
+      return ids.length > 0 && projectsByIds(ids).every((project) => project.canAdminister);
+    }
+    return canAdminister && ids.length > 0;
+  }
+
   async function runRestore(ids: string[]) {
-    if (!canAdminister || ids.length === 0) return;
-    const removed = cardsByIds(ids);
+    if (!canRestoreIds(ids)) return;
     const gens = bumpCardGens(ids);
-    setCards((current) => current.filter((card) => !ids.includes(card.id)));
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setOpenId((current) => (current && ids.includes(current) ? null : current));
     setSwipe(null);
+    if (isProjects) {
+      const removed = projectsByIds(ids);
+      setProjects((current) => current.filter((project) => !ids.includes(project.id)));
+      const result = await restoreArchivedProjects({ projectIds: ids });
+      if ('error' in result) {
+        putProjectsBack(removed);
+        setToast({ message: result.error, role: 'alert' });
+        return;
+      }
+      if (!gensAreCurrent(gens)) return;
+      const message =
+        removed.length === 1 && removed[0]
+          ? archivedCopy.projects.restoredOne(removed[0].title)
+          : archivedCopy.projects.restoredMany(ids.length);
+      setToast({
+        message,
+        role: 'status',
+        onUndo: () => {
+          void runUndoProjects(ids, removed, result.data.undoToken);
+        },
+      });
+      router.refresh();
+      return;
+    }
+    if (!projectId) return;
+    const removed = cardsByIds(ids);
+    setCards((current) => current.filter((card) => !ids.includes(card.id)));
     const result = await restoreArchivedCards({ projectId, cardIds: ids });
     if ('error' in result) {
       putCardsBack(removed);
@@ -207,8 +276,22 @@ export default function ArchivedView({
     router.refresh();
   }
 
+  async function runUndoProjects(ids: string[], removed: ArchivedProject[], token: string) {
+    const gens = bumpCardGens(ids);
+    setToast(null);
+    putProjectsBack(removed);
+    const result = await rearchiveArchivedProjects({ token });
+    if ('error' in result) {
+      setProjects((current) => current.filter((project) => !ids.includes(project.id)));
+      setToast({ message: result.error, role: 'alert' });
+      return;
+    }
+    if (!gensAreCurrent(gens)) return;
+    router.refresh();
+  }
+
   async function runDelete(ids: string[]) {
-    if (!canAdminister || ids.length === 0) return;
+    if (!canAdminister || ids.length === 0 || !projectId) return;
     const gens = bumpCardGens(ids);
     const removed = cardsByIds(ids);
     setPendingDeleteIds(null);
@@ -230,7 +313,27 @@ export default function ArchivedView({
     router.refresh();
   }
 
+  async function runDeleteProject(id: string, title: string) {
+    const target = projects.find((project) => project.id === id);
+    if (!target?.canAdminister) return;
+    const gens = bumpCardGens([id]);
+    setPendingDeleteIds(null);
+    setProjects((current) => current.filter((project) => project.id !== id));
+    setSelectedIds((current) => current.filter((item) => item !== id));
+    setOpenId((current) => (current === id ? null : current));
+    const result = await deleteArchivedProject({ projectId: id, title });
+    if ('error' in result) {
+      putProjectsBack([target]);
+      setToast({ message: result.error, role: 'alert' });
+      return;
+    }
+    if (!gensAreCurrent(gens)) return;
+    setToast({ message: archivedCopy.projects.deletedOne(target.title), role: 'alert' });
+    router.refresh();
+  }
+
   function runExport(ids: string[], format: ArchivedExportFormat) {
+    if (isProjects || !projectId || !projectTitle) return;
     const rows = cardsByIds(ids);
     if (rows.length === 0) return;
     const filename = archivedExportFilename(projectTitle, format);
@@ -247,7 +350,28 @@ export default function ArchivedView({
     setToast({ message: archivedCopy.exportToast(rows.length), role: 'status' });
   }
 
-  const adminTitle = canAdminister ? undefined : archivedCopy.adminOnly;
+  const selectedCanRestore = canRestoreIds(selectedIds);
+  const adminTitle = isProjects
+    ? archivedCopy.projects.adminOnly
+    : canAdminister
+      ? undefined
+      : archivedCopy.adminOnly;
+  const countLabel = isProjects
+    ? archivedProjectCountLabel(filteredProjects.length)
+    : archivedCountLabel(filteredCards.length);
+  const selectedLabel = isProjects
+    ? archivedProjectSelectedLabel(selectedIds.length)
+    : archivedSelectedLabel(selectedIds.length);
+  const searchPlaceholder = isProjects
+    ? archivedCopy.projects.searchPlaceholder
+    : archivedCopy.searchPlaceholder;
+  const searchAriaLabel = isProjects
+    ? archivedCopy.projects.searchAriaLabel
+    : archivedCopy.searchAriaLabel;
+  const pendingDeleteProject =
+    isProjects && pendingDeleteIds != null && pendingDeleteIds.length === 1
+      ? (projects.find((project) => project.id === pendingDeleteIds[0]) ?? null)
+      : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -260,35 +384,44 @@ export default function ArchivedView({
               'rounded-sm no-underline hover:text-muted-foreground',
             )}
           >
-            {archivedCopy.breadcrumbProjects}
+            {isProjects ? archivedCopy.projects.breadcrumbHome : archivedCopy.breadcrumbProjects}
           </Link>
-          {' / '}
-          <Link
-            href={projectPath(projectId)}
-            className={cn(
-              shellFocusClassName,
-              'rounded-sm no-underline hover:text-muted-foreground',
-            )}
-          >
-            {projectTitle}
-          </Link>
-          {' / '}
-          <span>{archivedCopy.breadcrumbArchived}</span>
+          {isProjects || !projectId || !projectTitle ? (
+            <>
+              {' / '}
+              <span>{archivedCopy.breadcrumbArchived}</span>
+            </>
+          ) : (
+            <>
+              {' / '}
+              <Link
+                href={projectPath(projectId)}
+                className={cn(
+                  shellFocusClassName,
+                  'rounded-sm no-underline hover:text-muted-foreground',
+                )}
+              >
+                {projectTitle}
+              </Link>
+              {' / '}
+              <span>{archivedCopy.breadcrumbArchived}</span>
+            </>
+          )}
         </nav>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h1 className="text-[15.5px] font-semibold tracking-[-0.025em] tablet:text-[23px] lg:text-[27px]">
               {archivedCopy.title}
             </h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              {archivedCountLabel(filtered.length)}
-            </p>
+            <p className="mt-1 text-[13px] text-muted-foreground">{countLabel}</p>
           </div>
         </div>
         <div className="hidden items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-[11px] lg:flex">
           <Clock className="size-[15px] shrink-0 text-subtle" strokeWidth={1.5} />
           <p className="text-[13px] text-muted-foreground text-pretty">
-            {archivedCopy.contextBand(projectTitle)}
+            {isProjects
+              ? archivedCopy.projects.contextBand
+              : archivedCopy.contextBand(projectTitle ?? '')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -345,8 +478,8 @@ export default function ArchivedView({
             type="search"
             value={query}
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={archivedCopy.searchPlaceholder}
-            aria-label={archivedCopy.searchAriaLabel}
+            placeholder={searchPlaceholder}
+            aria-label={searchAriaLabel}
             className={cn(
               shellFocusClassName,
               'h-10 w-full rounded-md border border-input bg-surface pr-3 pl-9 text-base text-foreground placeholder:text-subtle',
@@ -383,11 +516,11 @@ export default function ArchivedView({
 
       {selectedIds.length > 0 ? (
         <div className="hidden items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 lg:flex">
-          <p className="mr-auto text-[13px]">{archivedSelectedLabel(selectedIds.length)}</p>
+          <p className="mr-auto text-[13px]">{selectedLabel}</p>
           <button
             type="button"
-            disabled={!canAdminister}
-            title={adminTitle}
+            disabled={!selectedCanRestore}
+            title={selectedCanRestore ? undefined : adminTitle}
             onClick={() => void runRestore(selectedIds)}
             className={cn(
               shellFocusClassName,
@@ -396,28 +529,32 @@ export default function ArchivedView({
           >
             {archivedCopy.restore}
           </button>
-          <button
-            type="button"
-            onClick={() => setExportIds(selectedIds)}
-            className={cn(
-              shellFocusClassName,
-              'h-[30px] rounded-md border border-border px-3 text-[12.5px] font-medium',
-            )}
-          >
-            {archivedCopy.export}
-          </button>
-          <button
-            type="button"
-            disabled={!canAdminister}
-            title={adminTitle}
-            onClick={() => setPendingDeleteIds(selectedIds)}
-            className={cn(
-              shellFocusClassName,
-              'h-[30px] rounded-md border border-danger-edge px-3 text-[12.5px] font-medium text-danger disabled:opacity-50',
-            )}
-          >
-            {archivedCopy.delete}
-          </button>
+          {isProjects ? null : (
+            <button
+              type="button"
+              onClick={() => setExportIds(selectedIds)}
+              className={cn(
+                shellFocusClassName,
+                'h-[30px] rounded-md border border-border px-3 text-[12.5px] font-medium',
+              )}
+            >
+              {archivedCopy.export}
+            </button>
+          )}
+          {isProjects ? null : (
+            <button
+              type="button"
+              disabled={!canAdminister}
+              title={adminTitle}
+              onClick={() => setPendingDeleteIds(selectedIds)}
+              className={cn(
+                shellFocusClassName,
+                'h-[30px] rounded-md border border-danger-edge px-3 text-[12.5px] font-medium text-danger disabled:opacity-50',
+              )}
+            >
+              {archivedCopy.delete}
+            </button>
+          )}
           <button
             type="button"
             aria-label={archivedCopy.clearSelection}
@@ -433,6 +570,7 @@ export default function ArchivedView({
         <ArchivedEmptyState
           projectTitle={projectTitle}
           filtered={filtersOn}
+          empty={isProjects ? ARCHIVED_PROJECTS_EMPTY : undefined}
           onClear={() => {
             onSearchChange('');
             changeRange('all');
@@ -445,55 +583,69 @@ export default function ArchivedView({
               type="checkbox"
               checked={allShownSelected}
               aria-label={archivedCopy.selectAll}
-              onChange={() => setSelectedIds(allShownSelected ? [] : shown.map((card) => card.id))}
+              onChange={() => setSelectedIds(allShownSelected ? [] : shown.map((item) => item.id))}
               className="size-[17px] rounded-[4px] border border-border-strong accent-foreground"
             />
-            <span>{archivedCopy.headers.name}</span>
-            <span>{archivedCopy.headers.column}</span>
-            <span>{archivedCopy.headers.subtasks}</span>
-            <span>{archivedCopy.headers.assignees}</span>
-            <span>{archivedCopy.headers.archived}</span>
+            {isProjects ? (
+              <>
+                <span>{archivedCopy.projects.headers.name}</span>
+                <span>{archivedCopy.projects.headers.status}</span>
+                <span>{archivedCopy.projects.headers.progress}</span>
+                <span>{archivedCopy.projects.headers.team}</span>
+                <span>{archivedCopy.projects.headers.archived}</span>
+              </>
+            ) : (
+              <>
+                <span>{archivedCopy.headers.name}</span>
+                <span>{archivedCopy.headers.column}</span>
+                <span>{archivedCopy.headers.subtasks}</span>
+                <span>{archivedCopy.headers.assignees}</span>
+                <span>{archivedCopy.headers.archived}</span>
+              </>
+            )}
             <span />
           </div>
           <div className="tablet:hidden">
-            {shown.map((card) => (
+            {shown.map((item) => (
               <ArchivedRow
-                key={`phone-${card.id}`}
-                card={card}
-                selected={selectedIds.includes(card.id)}
+                key={`phone-${item.id}`}
+                card={isProjects ? undefined : (item as ArchivedTask)}
+                project={isProjects ? (item as ArchivedProject) : undefined}
+                selected={selectedIds.includes(item.id)}
                 selectionMode={selectionMode}
                 swipeEnabled
-                canAdminister={canAdminister}
-                dx={swipe?.id === card.id ? swipe.dx : 0}
-                tween={swipe?.id === card.id ? swipe.tween : false}
-                onOpen={() => setOpenId(card.id)}
-                onToggleSelect={() => toggleSelected(card.id)}
-                onRestore={() => void runRestore([card.id])}
-                onExport={() => setExportIds([card.id])}
-                onDelete={() => setPendingDeleteIds([card.id])}
-                onLongPress={() => enterSelection(card.id)}
-                onSwipeChange={(dx) => setSwipe({ id: card.id, dx, tween: false })}
-                onSwipeEnd={(dx) => setSwipe(dx === 0 ? null : { id: card.id, dx, tween: true })}
+                canAdminister={isProjects ? (item as ArchivedProject).canAdminister : canAdminister}
+                dx={swipe?.id === item.id ? swipe.dx : 0}
+                tween={swipe?.id === item.id ? swipe.tween : false}
+                onOpen={() => setOpenId(item.id)}
+                onToggleSelect={() => toggleSelected(item.id)}
+                onRestore={() => void runRestore([item.id])}
+                onExport={() => setExportIds([item.id])}
+                onDelete={() => setPendingDeleteIds([item.id])}
+                onLongPress={() => enterSelection(item.id)}
+                onSwipeChange={(dx) => setSwipe({ id: item.id, dx, tween: false })}
+                onSwipeEnd={(dx) => setSwipe(dx === 0 ? null : { id: item.id, dx, tween: true })}
               />
             ))}
           </div>
           <div className="hidden tablet:block">
-            {shown.map((card) => (
+            {shown.map((item) => (
               <ArchivedRow
-                key={`wide-${card.id}`}
-                card={card}
-                selected={selectedIds.includes(card.id)}
+                key={`wide-${item.id}`}
+                card={isProjects ? undefined : (item as ArchivedTask)}
+                project={isProjects ? (item as ArchivedProject) : undefined}
+                selected={selectedIds.includes(item.id)}
                 selectionMode={selectionMode}
                 swipeEnabled={false}
-                canAdminister={canAdminister}
+                canAdminister={isProjects ? (item as ArchivedProject).canAdminister : canAdminister}
                 dx={0}
                 tween={false}
-                onOpen={() => setOpenId(card.id)}
-                onToggleSelect={() => toggleSelected(card.id)}
-                onRestore={() => void runRestore([card.id])}
-                onExport={() => setExportIds([card.id])}
-                onDelete={() => setPendingDeleteIds([card.id])}
-                onLongPress={() => enterSelection(card.id)}
+                onOpen={() => setOpenId(item.id)}
+                onToggleSelect={() => toggleSelected(item.id)}
+                onRestore={() => void runRestore([item.id])}
+                onExport={() => setExportIds([item.id])}
+                onDelete={() => setPendingDeleteIds([item.id])}
+                onLongPress={() => enterSelection(item.id)}
                 onSwipeChange={() => {}}
                 onSwipeEnd={() => {}}
               />
@@ -517,11 +669,11 @@ export default function ArchivedView({
 
       {selectedIds.length > 0 ? (
         <div className="sticky bottom-2 z-20 flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 lg:hidden">
-          <p className="mr-auto text-[13px]">{archivedSelectedLabel(selectedIds.length)}</p>
+          <p className="mr-auto text-[13px]">{selectedLabel}</p>
           <button
             type="button"
-            disabled={!canAdminister}
-            title={adminTitle}
+            disabled={!selectedCanRestore}
+            title={selectedCanRestore ? undefined : adminTitle}
             onClick={() => void runRestore(selectedIds)}
             className={cn(
               shellFocusClassName,
@@ -530,28 +682,32 @@ export default function ArchivedView({
           >
             {archivedCopy.restore}
           </button>
-          <button
-            type="button"
-            onClick={() => setExportIds(selectedIds)}
-            className={cn(
-              shellFocusClassName,
-              'h-9 rounded-md border border-border px-3 text-[12.5px] font-medium',
-            )}
-          >
-            {archivedCopy.export}
-          </button>
-          <button
-            type="button"
-            disabled={!canAdminister}
-            title={adminTitle}
-            onClick={() => setPendingDeleteIds(selectedIds)}
-            className={cn(
-              shellFocusClassName,
-              'h-9 rounded-md border border-danger-edge px-3 text-[12.5px] font-medium text-danger disabled:opacity-50',
-            )}
-          >
-            {archivedCopy.delete}
-          </button>
+          {isProjects ? null : (
+            <button
+              type="button"
+              onClick={() => setExportIds(selectedIds)}
+              className={cn(
+                shellFocusClassName,
+                'h-9 rounded-md border border-border px-3 text-[12.5px] font-medium',
+              )}
+            >
+              {archivedCopy.export}
+            </button>
+          )}
+          {isProjects ? null : (
+            <button
+              type="button"
+              disabled={!canAdminister}
+              title={adminTitle}
+              onClick={() => setPendingDeleteIds(selectedIds)}
+              className={cn(
+                shellFocusClassName,
+                'h-9 rounded-md border border-danger-edge px-3 text-[12.5px] font-medium text-danger disabled:opacity-50',
+              )}
+            >
+              {archivedCopy.delete}
+            </button>
+          )}
         </div>
       ) : null}
 
@@ -565,22 +721,45 @@ export default function ArchivedView({
           onDelete={() => setPendingDeleteIds([openCard.id])}
         />
       ) : null}
+      {openProject ? (
+        <ArchivedDetail
+          project={openProject}
+          canAdminister={openProject.canAdminister}
+          onClose={() => setOpenId(null)}
+          onRestore={() => void runRestore([openProject.id])}
+          onExport={() => {}}
+          onDelete={() => setPendingDeleteIds([openProject.id])}
+        />
+      ) : null}
 
-      <ArchivedDeleteDialog
-        open={pendingDeleteIds != null && pendingDeleteIds.length > 0}
-        names={cardsByIds(pendingDeleteIds ?? []).map((card) => card.title)}
-        onCancel={() => setPendingDeleteIds(null)}
-        onConfirm={() => {
-          if (pendingDeleteIds) void runDelete(pendingDeleteIds);
-        }}
-      />
-      <ArchivedExportDialog
-        open={exportIds != null && exportIds.length > 0}
-        onCancel={() => setExportIds(null)}
-        onPick={(format) => {
-          if (exportIds) runExport(exportIds, format);
-        }}
-      />
+      {isProjects ? (
+        <ArchivedDeleteProjectDialog
+          open={pendingDeleteProject != null}
+          title={pendingDeleteProject?.title ?? null}
+          onCancel={() => setPendingDeleteIds(null)}
+          onConfirm={(typedTitle) => {
+            if (pendingDeleteProject) void runDeleteProject(pendingDeleteProject.id, typedTitle);
+          }}
+        />
+      ) : (
+        <ArchivedDeleteDialog
+          open={pendingDeleteIds != null && pendingDeleteIds.length > 0}
+          names={cardsByIds(pendingDeleteIds ?? []).map((card) => card.title)}
+          onCancel={() => setPendingDeleteIds(null)}
+          onConfirm={() => {
+            if (pendingDeleteIds) void runDelete(pendingDeleteIds);
+          }}
+        />
+      )}
+      {isProjects ? null : (
+        <ArchivedExportDialog
+          open={exportIds != null && exportIds.length > 0}
+          onCancel={() => setExportIds(null)}
+          onPick={(format) => {
+            if (exportIds) runExport(exportIds, format);
+          }}
+        />
+      )}
       <BoardToast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );

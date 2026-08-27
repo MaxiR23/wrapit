@@ -20,6 +20,8 @@ import {
 } from '@/lib/boardView';
 import type { LabelView } from '@/lib/labels';
 import { activityCopy } from '@/lib/activityCopy';
+import { archivedCopy } from '@/lib/archivedCopy';
+import { ARCHIVE_PROJECT_LABEL } from '@/lib/messages';
 import {
   boardProgressEmptyLabel,
   boardProgressLabel,
@@ -43,6 +45,8 @@ export default function BoardHeader({
   visibleCount,
   logOpen = false,
   onToggleLog,
+  canAdminister = true,
+  onArchive,
 }: {
   title: string;
   projectId: string;
@@ -58,6 +62,8 @@ export default function BoardHeader({
   visibleCount: number;
   logOpen?: boolean;
   onToggleLog?: () => void;
+  canAdminister?: boolean;
+  onArchive?: () => void;
 }) {
   const hasCards = taskCount > 0;
   const { query, setQuery } = useProjectsSearch();
@@ -142,6 +148,21 @@ export default function BoardHeader({
         <div className="mx-0.5 hidden h-6 w-px bg-border tablet:block" />
         <BoardFiltersPopover labels={labels} filters={filters} onChange={onFiltersChange} />
         <BoardVisibilityPopover visibility={visibility} onChange={onVisibilityChange} />
+        <button
+          type="button"
+          aria-label={ARCHIVE_PROJECT_LABEL}
+          disabled={!canAdminister}
+          title={canAdminister ? undefined : archivedCopy.projects.adminOnly}
+          onClick={onArchive}
+          className={cn(
+            shellFocusClassName,
+            'inline-flex h-10 items-center rounded-md border border-border bg-surface px-3',
+            'text-[12.5px] font-medium text-muted-foreground hover:border-border-strong hover:text-foreground',
+            'tablet:h-[38px] lg:h-9 disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          Archive
+        </button>
         <Link
           href={projectArchivedPath(projectId)}
           className={cn(

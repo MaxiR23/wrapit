@@ -38,12 +38,19 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
   const invitee = await prisma.user.findFirst({ where: { id: session.user.id } });
   const inviter = await prisma.user.findFirst({ where: { id: invitation.inviterId } });
   const project = await prisma.project.findFirst({ where: { id: invitation.projectId } });
-  if (!invitee || !inviter || !project) {
+  if (!invitee || !inviter || !project || project.archivedAt != null) {
     return { error: 'Unauthorized' };
   }
 
   try {
     await prisma.$transaction(async (tx) => {
+      const live = await tx.project.updateMany({
+        where: { id: invitation.projectId, archivedAt: null },
+        data: { title: project.title },
+      });
+      if (live.count !== 1) {
+        throw new InvitationNotPendingError();
+      }
       await claimPendingInvitation(tx, { id: invitation.id, status: 'ACCEPTED' });
       await tx.membership.create({
         data: {

@@ -11,8 +11,8 @@ import { canAdministerProject, type MembershipRole } from '@/lib/boardAccess';
 import { countOpenMyTasksForUser } from '@/lib/myTasks';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { prisma } from '@/lib/prisma';
-import { listProjectMembersForUser } from '@/lib/projects';
-import { SIGN_IN_PATH } from '@/lib/routes';
+import { getArchivedProjectForUser, listProjectMembersForUser } from '@/lib/projects';
+import { ARCHIVED_PATH, SIGN_IN_PATH } from '@/lib/routes';
 
 export const metadata: Metadata = {
   title: 'Archived | wrapit',
@@ -35,6 +35,10 @@ export default async function ProjectArchivedPage({
   const { projectId } = await params;
   const archived = await getArchivedCardsForUser(projectId, session.user.id);
   if (!archived) {
+    const archivedProject = await getArchivedProjectForUser(projectId, session.user.id);
+    if (archivedProject) {
+      redirect(ARCHIVED_PATH);
+    }
     notFound();
   }
 

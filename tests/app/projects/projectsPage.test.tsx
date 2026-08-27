@@ -62,6 +62,10 @@ vi.mock('@/actions/setProjectStarred', () => ({
   setProjectStarred: vi.fn(),
 }));
 
+vi.mock('@/actions/archiveProject', () => ({
+  archiveProject: vi.fn(),
+}));
+
 vi.mock('@/actions/listNotifications', () => ({
   listNotifications: vi.fn(async () => ({ data: { items: [], unreadCount: 0 } })),
 }));
@@ -91,6 +95,7 @@ const sprintBoard = {
   percent: 50,
   updatedLabel: 'Updated yesterday',
   starred: false,
+  canAdminister: true,
   members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 
@@ -117,6 +122,7 @@ describe('Projects page', () => {
         percent: 0,
         updatedLabel: 'Updated just now',
         starred: false,
+        canAdminister: true,
         members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
       },
     ]);

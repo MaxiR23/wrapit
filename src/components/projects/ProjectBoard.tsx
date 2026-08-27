@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { archiveCard } from '@/actions/archiveCard';
@@ -9,6 +10,7 @@ import { moveCard } from '@/actions/moveCard';
 import { updateBoardVisibility } from '@/actions/updateBoardVisibility';
 import CardDetailDialog from '@/components/cards/CardDetailDialog';
 import NewCardDialog, { type CreatedBoardCard } from '@/components/cards/NewCardDialog';
+import ArchiveProjectDialog from '@/components/projects/ArchiveProjectDialog';
 import BoardActivityLog from '@/components/projects/BoardActivityLog';
 import BoardDesktop from '@/components/projects/BoardDesktop';
 import BoardHeader from '@/components/projects/BoardHeader';
@@ -54,7 +56,7 @@ import type { BoardAccess } from '@/lib/membership';
 import type { ActivityCursor, ActivityEventListItem } from '@/lib/activity';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
-import { projectArchivedPath } from '@/lib/routes';
+import { ARCHIVED_PATH, projectArchivedPath } from '@/lib/routes';
 
 export type ProjectBoardHandle = {
   commitMove: (cardId: string, targetColumnId: string) => Promise<void>;
@@ -125,6 +127,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
 ) {
   const { openPanel, setOpenPanel } = useOpenPanel();
   const { query, setQuery } = useProjectsSearch();
+  const router = useRouter();
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const initial = buildInitialState(columns);
   const [itemsByColumn, setItemsByColumn] = useState<ItemsByColumn>(initial.itemsByColumn);
   const [labels, setLabels] = useState(initialLabels);
@@ -504,6 +508,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           visibleCount={visibleCards.length}
           logOpen={surface === 'log'}
           onToggleLog={handleToggleLog}
+          canAdminister={canAdminister}
+          onArchive={() => setArchiveOpen(true)}
         />
 
         {error ? (
@@ -648,6 +654,15 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           onPublicLinkChange={setPublicLinkEnabled}
         />
 
+        <ArchiveProjectDialog
+          open={archiveOpen}
+          projectId={projectId}
+          canAdminister={canAdminister}
+          onOpenChange={setArchiveOpen}
+          onArchived={() => {
+            router.push(ARCHIVED_PATH);
+          }}
+        />
         <BoardToast toast={toast} onDismiss={() => setToast(null)} />
       </div>
     </ViewerTimeZoneProvider>

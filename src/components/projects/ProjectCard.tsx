@@ -1,8 +1,11 @@
+import { Archive } from 'lucide-react';
 import Link from 'next/link';
 
 import ProjectStarButton, { type OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { archivedCopy } from '@/lib/archivedCopy';
 import { initials } from '@/lib/initials';
+import { ARCHIVE_PROJECT_LABEL } from '@/lib/messages';
 import { projectStatusBarClass, taskProgressLabel, type ProjectSummary } from '@/lib/projectGrid';
 import { projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -10,9 +13,11 @@ import { cn } from '@/lib/utils';
 export default function ProjectCard({
   project,
   onToggle,
+  onArchive,
 }: {
   project: ProjectSummary;
   onToggle?: OnToggleStar;
+  onArchive?: (project: ProjectSummary) => void;
 }) {
   return (
     <article className="relative rounded-xl border border-border bg-card tabular-nums transition-[background,border-color] duration-[160ms] ease-in-out hover:border-border-strong hover:bg-card-hover">
@@ -65,12 +70,27 @@ export default function ProjectCard({
         </div>
       </Link>
 
-      <ProjectStarButton
-        projectId={project.id}
-        starred={project.starred}
-        onToggle={onToggle}
-        className="absolute top-[18px] right-[18px] z-10"
-      />
+      <div className="absolute top-[18px] right-[18px] z-10 flex items-center gap-1">
+        <button
+          type="button"
+          aria-label={ARCHIVE_PROJECT_LABEL}
+          disabled={!project.canAdminister}
+          title={project.canAdminister ? undefined : archivedCopy.projects.adminOnly}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!project.canAdminister) return;
+            onArchive?.(project);
+          }}
+          className={cn(
+            shellFocusClassName,
+            'inline-flex rounded-sm text-subtle disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <Archive className="size-3.5" strokeWidth={1.75} />
+        </button>
+        <ProjectStarButton projectId={project.id} starred={project.starred} onToggle={onToggle} />
+      </div>
     </article>
   );
 }

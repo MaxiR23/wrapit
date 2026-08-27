@@ -174,6 +174,9 @@ function createRow(rows: Row[], data: Row) {
   ) {
     withDefaults.publicLinkEnabled = false;
   }
+  if (withDefaults.cards != null && withDefaults.kind == null) {
+    withDefaults.kind = 'CARDS';
+  }
   const row = {
     id: typeof data.id === 'string' ? data.id : `fake-${rows.length + 1}`,
     createdAt: data.createdAt instanceof Date ? data.createdAt : new Date(),
@@ -469,6 +472,47 @@ export function createPrismaFake() {
 
   function cascadeProjectChildren(projectIds: unknown[]) {
     const ids = new Set(projectIds);
+    const columns = fake.column.rows.filter((row) => ids.has(row.projectId));
+    const columnIds = new Set(columns.map((column) => column.id));
+    const cards = fake.card.rows.filter((row) => columnIds.has(row.columnId));
+    cascadeCardChildren(cards.map((card) => card.id));
+    fake.card.rows.splice(
+      0,
+      fake.card.rows.length,
+      ...fake.card.rows.filter((row) => !columnIds.has(row.columnId)),
+    );
+    fake.column.rows.splice(
+      0,
+      fake.column.rows.length,
+      ...fake.column.rows.filter((row) => !ids.has(row.projectId)),
+    );
+    fake.membership.rows.splice(
+      0,
+      fake.membership.rows.length,
+      ...fake.membership.rows.filter((row) => !ids.has(row.projectId)),
+    );
+    const invitations = fake.invitation.rows.filter((row) => ids.has(row.projectId));
+    const invitationIds = new Set(invitations.map((invitation) => invitation.id));
+    for (const notification of fake.notification.rows) {
+      if (invitationIds.has(notification.invitationId)) {
+        notification.invitationId = null;
+      }
+    }
+    fake.invitation.rows.splice(
+      0,
+      fake.invitation.rows.length,
+      ...fake.invitation.rows.filter((row) => !ids.has(row.projectId)),
+    );
+    fake.recentProject.rows.splice(
+      0,
+      fake.recentProject.rows.length,
+      ...fake.recentProject.rows.filter((row) => !ids.has(row.projectId)),
+    );
+    fake.label.rows.splice(
+      0,
+      fake.label.rows.length,
+      ...fake.label.rows.filter((row) => !ids.has(row.projectId)),
+    );
     fake.activityEvent.rows.splice(
       0,
       fake.activityEvent.rows.length,

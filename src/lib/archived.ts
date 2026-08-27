@@ -58,6 +58,29 @@ export type ArchivedProjectPayload = {
   cards: ArchivedTask[];
 };
 
+export type ArchivedProjectColumn = {
+  id: string;
+  title: string;
+  cardCount: number;
+};
+
+export type ArchivedProject = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'NEW' | 'IN_PROGRESS' | 'PAUSED' | 'DONE';
+  statusLabel: string;
+  taskCount: number;
+  doneCount: number;
+  percent: number;
+  ownerName: string;
+  members: ArchivedPerson[];
+  columns: ArchivedProjectColumn[];
+  archivedAt: Date;
+  archivedBy: ArchivedPerson | null;
+  canAdminister: boolean;
+};
+
 export function archivedAgeDays(archivedAt: Date, now = new Date()): number {
   return Math.floor((now.getTime() - archivedAt.getTime()) / DAY_MS);
 }
@@ -69,32 +92,67 @@ export function matchesArchivedSearch(card: ArchivedTask, query: string): boolea
   return (card.label?.name ?? '').toLowerCase().includes(needle);
 }
 
+export function matchesArchivedName(name: string, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return name.toLowerCase().includes(needle);
+}
+
 export function matchesArchivedRange(
-  card: ArchivedTask,
+  item: { archivedAt: Date },
   range: ArchivedDateRange,
   now = new Date(),
 ): boolean {
   if (range === 'all') return true;
-  const ago = archivedAgeDays(card.archivedAt, now);
+  const ago = archivedAgeDays(item.archivedAt, now);
   if (range === '7') return ago <= 7;
   if (range === '30') return ago <= 30;
   return ago > 30;
+}
+
+export function filterArchivedItems<T extends { id: string; archivedAt: Date }>(
+  items: T[],
+  input: {
+    query: string;
+    range: ArchivedDateRange;
+    sort: ArchivedSort;
+    now?: Date;
+    matchesSearch: (item: T, query: string) => boolean;
+    nameOf: (item: T) => string;
+  },
+): T[] {
+  const now = input.now ?? new Date();
+  const matched = items.filter(
+    (item) =>
+      input.matchesSearch(item, input.query) && matchesArchivedRange(item, input.range, now),
+  );
+  return matched.slice().sort((left, right) => {
+    if (input.sort === 'name') return input.nameOf(left).localeCompare(input.nameOf(right));
+    const byDate = right.archivedAt.getTime() - left.archivedAt.getTime();
+    if (byDate !== 0) return byDate;
+    return right.id.localeCompare(left.id);
+  });
 }
 
 export function filterArchivedTasks(
   cards: ArchivedTask[],
   input: { query: string; range: ArchivedDateRange; sort: ArchivedSort; now?: Date },
 ): ArchivedTask[] {
-  const now = input.now ?? new Date();
-  const matched = cards.filter(
-    (card) =>
-      matchesArchivedSearch(card, input.query) && matchesArchivedRange(card, input.range, now),
-  );
-  return matched.slice().sort((left, right) => {
-    if (input.sort === 'name') return left.title.localeCompare(right.title);
-    const byDate = right.archivedAt.getTime() - left.archivedAt.getTime();
-    if (byDate !== 0) return byDate;
-    return right.id.localeCompare(left.id);
+  return filterArchivedItems(cards, {
+    ...input,
+    matchesSearch: matchesArchivedSearch,
+    nameOf: (card) => card.title,
+  });
+}
+
+export function filterArchivedProjects(
+  projects: ArchivedProject[],
+  input: { query: string; range: ArchivedDateRange; sort: ArchivedSort; now?: Date },
+): ArchivedProject[] {
+  return filterArchivedItems(projects, {
+    ...input,
+    matchesSearch: (project, query) => matchesArchivedName(project.title, query),
+    nameOf: (project) => project.title,
   });
 }
 
@@ -110,8 +168,16 @@ export function archivedCountLabel(count: number): string {
   return count === 1 ? '1 archived task' : `${count} archived tasks`;
 }
 
+export function archivedProjectCountLabel(count: number): string {
+  return count === 1 ? '1 archived project' : `${count} archived projects`;
+}
+
 export function archivedSelectedLabel(count: number): string {
   return count === 1 ? '1 task selected' : `${count} tasks selected`;
+}
+
+export function archivedProjectSelectedLabel(count: number): string {
+  return count === 1 ? '1 project selected' : `${count} projects selected`;
 }
 
 export function archivedPhoneSelectedLabel(count: number): string {
@@ -122,8 +188,8 @@ export function formatArchivedDate(date: Date, locale = activityCopy.locale): st
   return date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function archivedByLine(card: ArchivedTask): string | null {
-  const name = card.archivedBy?.name.trim();
+export function archivedByLine(item: { archivedBy: ArchivedPerson | null }): string | null {
+  const name = item.archivedBy?.name.trim();
   if (!name) return null;
   return `by ${name}`;
 }
@@ -137,12 +203,23 @@ export function archivedTaskDetailLine(card: ArchivedTask): string {
   return `${subtaskText} · ${commentText}`;
 }
 
+export function archivedProjectDetailLine(project: ArchivedProject): string {
+  const tasks = project.taskCount === 1 ? '1 task' : `${project.taskCount} tasks`;
+  const owner = project.ownerName.trim();
+  return owner ? `${tasks} · ${owner}` : tasks;
+}
+
 export function archivedEmptyCopy(projectTitle: string): { title: string; body: string } {
   return {
     title: `No archived tasks in ${projectTitle}`,
     body: 'Archive a card from the board and you will find it here.',
   };
 }
+
+export const ARCHIVED_PROJECTS_EMPTY = {
+  title: 'No archived projects',
+  body: 'When you archive a project from its board it will show up here, with its history intact.',
+} as const;
 
 export const ARCHIVED_FILTER_EMPTY = {
   title: 'No results',
@@ -157,5 +234,12 @@ export function reviveArchivedTask(card: ArchivedTask): ArchivedTask {
       ...comment,
       createdAt: new Date(comment.createdAt),
     })),
+  };
+}
+
+export function reviveArchivedProject(project: ArchivedProject): ArchivedProject {
+  return {
+    ...project,
+    archivedAt: new Date(project.archivedAt),
   };
 }

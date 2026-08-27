@@ -68,9 +68,10 @@ export async function listAccountProjectsForUser(
 
   const projectIds = memberships.map((membership) => String(membership.projectId));
   const projects = await db.project.findMany({
-    where: { id: { in: projectIds } },
+    where: { id: { in: projectIds }, archivedAt: null },
     orderBy: { createdAt: 'desc' },
   });
+  const memberProjectIds = new Set(projects.map((project) => String(project.id)));
 
   const assignments = await db.cardAssignee.findMany({
     where: { userId },
@@ -93,7 +94,6 @@ export async function listAccountProjectsForUser(
   const projectIdByColumnId = new Map(
     columns.map((column) => [String(column.id), String(column.projectId)]),
   );
-  const memberProjectIds = new Set(projectIds);
   const counts = new Map<string, number>();
   for (const card of cards) {
     const projectId = projectIdByColumnId.get(String(card.columnId));

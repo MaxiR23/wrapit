@@ -8,10 +8,12 @@ export default function ProjectList({
   projects,
   className,
   onToggle,
+  onArchive,
 }: {
   projects: ProjectSummary[];
   className?: string;
   onToggle?: OnToggleStar;
+  onArchive?: (project: ProjectSummary) => void;
 }) {
   return (
     <div className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
@@ -29,7 +31,12 @@ export default function ProjectList({
         <span className="hidden lg:block">Updated</span>
       </div>
       {projects.map((project) => (
-        <ProjectListRow key={project.id} project={project} onToggle={onToggle} />
+        <ProjectListRow
+          key={project.id}
+          project={project}
+          onToggle={onToggle}
+          onArchive={onArchive}
+        />
       ))}
     </div>
   );

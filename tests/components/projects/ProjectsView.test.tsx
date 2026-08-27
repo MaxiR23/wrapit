@@ -60,6 +60,12 @@ vi.mock('@/actions/setProjectStarred', () => ({
   setProjectStarred,
 }));
 
+vi.mock('@/actions/archiveProject', () => ({
+  archiveProject: vi.fn(async ({ projectId }: { projectId: string }) => ({
+    data: { id: projectId },
+  })),
+}));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh }),
 }));
@@ -79,6 +85,7 @@ const project: ProjectSummary = {
   percent: 46,
   updatedLabel: 'Updated 2 hours ago',
   starred: false,
+  canAdminister: true,
   members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 

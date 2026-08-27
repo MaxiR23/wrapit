@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 
 import { setProjectStarred } from '@/actions/setProjectStarred';
 import { updateViewMode } from '@/actions/updateViewMode';
+import ArchiveProjectDialog from '@/components/projects/ArchiveProjectDialog';
+import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
 import ProjectGrid from '@/components/projects/ProjectGrid';
 import ProjectList from '@/components/projects/ProjectList';
 import ProjectsEmptyState from '@/components/projects/ProjectsEmptyState';
@@ -12,6 +14,7 @@ import ProjectsHeader, { type ProjectsViewMode } from '@/components/projects/Pro
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import RecentProjects from '@/components/projects/RecentProjects';
 import StarredProjects from '@/components/projects/StarredProjects';
+import { archivedCopy } from '@/lib/archivedCopy';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import {
   applyOptimisticStarred,
@@ -19,6 +22,7 @@ import {
   starredMapFromProjects,
   type ProjectSummary,
 } from '@/lib/projectGrid';
+import { ARCHIVED_PATH } from '@/lib/routes';
 
 type StarWrite = {
   desired: boolean;
@@ -39,6 +43,9 @@ export default function ProjectsView({
   const latestViewRef = useRef(initialView);
   const persistInFlightRef = useRef(false);
   const [starError, setStarError] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ProjectSummary | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [toast, setToast] = useState<BoardToastMessage | null>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const starWritesRef = useRef(new Map<string, StarWrite>());
@@ -48,10 +55,12 @@ export default function ProjectsView({
     applyOptimisticStarred,
   );
   const { query } = useProjectsSearch();
-  const visible = filterProjectsByTitle(projects, query).map((project) => ({
-    ...project,
-    starred: optimisticStarredById[project.id] ?? project.starred,
-  }));
+  const visible = filterProjectsByTitle(projects, query)
+    .filter((project) => !hiddenIds.includes(project.id))
+    .map((project) => ({
+      ...project,
+      starred: optimisticStarredById[project.id] ?? project.starred,
+    }));
   const starred = visible.filter((project) => project.starred);
   const rest = visible.filter((project) => !project.starred);
   const isEmpty = projects.length === 0;
@@ -154,27 +163,62 @@ export default function ProjectsView({
             <p className="text-sm text-muted-foreground">No projects match your search.</p>
           ) : (
             <>
-              <StarredProjects projects={starred} onToggle={handleToggle} />
+              <StarredProjects
+                projects={starred}
+                onToggle={handleToggle}
+                onArchive={setArchiveTarget}
+              />
               {rest.length > 0 ? (
                 view === 'list' ? (
                   <>
                     <div className="md:hidden">
-                      <ProjectGrid projects={rest} onToggle={handleToggle} />
+                      <ProjectGrid
+                        projects={rest}
+                        onToggle={handleToggle}
+                        onArchive={setArchiveTarget}
+                      />
                     </div>
                     <ProjectList
                       projects={rest}
                       className="hidden md:block"
                       onToggle={handleToggle}
+                      onArchive={setArchiveTarget}
                     />
                   </>
                 ) : (
-                  <ProjectGrid projects={rest} onToggle={handleToggle} />
+                  <ProjectGrid
+                    projects={rest}
+                    onToggle={handleToggle}
+                    onArchive={setArchiveTarget}
+                  />
                 )
               ) : null}
             </>
           )}
         </>
       )}
+      <ArchiveProjectDialog
+        open={archiveTarget != null}
+        projectId={archiveTarget?.id ?? null}
+        canAdminister={archiveTarget?.canAdminister ?? false}
+        onOpenChange={(open) => {
+          if (!open) setArchiveTarget(null);
+        }}
+        onArchived={() => {
+          const archived = archiveTarget;
+          if (!archived) return;
+          setHiddenIds((current) =>
+            current.includes(archived.id) ? current : [...current, archived.id],
+          );
+          setToast({
+            message: `"${archived.title}" archived`,
+            role: 'status',
+            action: { href: ARCHIVED_PATH, label: archivedCopy.viewArchived },
+          });
+          router.refresh();
+        }}
+      />
+      <BoardToast toast={toast} onDismiss={() => setToast(null)} />
     </>
   );
 }

@@ -130,6 +130,20 @@ describe('acceptInvitation', () => {
     ]);
   });
 
+  it('rejects an invite to an archived project without writing', async () => {
+    const { project, invitation } = await seedPendingInvite();
+    await db.project.update({
+      where: { id: project.id },
+      data: { archivedAt: new Date('2026-08-09T10:00:00.000Z') },
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'PENDING' }));
+    expect(db.membership.rows).toHaveLength(1);
+  });
+
   it('rejects when the inviter tries to accept', async () => {
     const { invitation } = await seedPendingInvite();
     getSession.mockResolvedValue({ user: inviter });
