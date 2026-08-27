@@ -26,19 +26,14 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { PROJECTS_PATH, SIGN_IN_PATH } from '@/lib/routes';
+import { CHECK_EMAIL_PATH, SIGN_IN_PATH, VERIFY_EMAIL_PATH } from '@/lib/routes';
 import { signUpSchema, type SignUpInput } from '@/lib/validation/signUp';
 
-// Better Auth answers a duplicate email with 422 and this code. The plain
-// USER_ALREADY_EXISTS code covers configurations that do not append the hint.
-const EMAIL_TAKEN_CODES = ['USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL', 'USER_ALREADY_EXISTS'];
+// Duplicate email is a 200 synthetic user under requireEmailVerification, so it
+// never reaches this list. A taken username hits the unique constraint and is
+// USERNAME_IS_ALREADY_TAKEN or FAILED_TO_CREATE_USER; both ask for another one.
+const USERNAME_TAKEN_CODES = ['USERNAME_IS_ALREADY_TAKEN', 'FAILED_TO_CREATE_USER'];
 
-// Present when the username plugin is used; with additionalFields a duplicate
-// username hits the DB unique constraint and usually surfaces as a generic
-// FAILED_TO_CREATE_USER, which falls through to GENERIC_ERROR_MESSAGE on root.
-const USERNAME_TAKEN_CODES = ['USERNAME_IS_ALREADY_TAKEN'];
-
-const EMAIL_TAKEN_MESSAGE = 'That email is already registered.';
 const USERNAME_TAKEN_MESSAGE = 'That username is already taken.';
 
 export default function SignUpForm() {
@@ -52,12 +47,13 @@ export default function SignUpForm() {
 
   async function onSubmit(values: SignUpInput) {
     // The client returns { data, error } instead of throwing.
-    const { error } = await authClient.signUp.email(values);
+    const { error } = await authClient.signUp.email({
+      ...values,
+      callbackURL: VERIFY_EMAIL_PATH,
+    });
 
     if (error) {
-      if (error.code && EMAIL_TAKEN_CODES.includes(error.code)) {
-        form.setError('email', { message: EMAIL_TAKEN_MESSAGE });
-      } else if (error.code && USERNAME_TAKEN_CODES.includes(error.code)) {
+      if (error.code && USERNAME_TAKEN_CODES.includes(error.code)) {
         form.setError('username', { message: USERNAME_TAKEN_MESSAGE });
       } else {
         // Only recognized codes get a specific message.
@@ -66,7 +62,7 @@ export default function SignUpForm() {
       return;
     }
 
-    router.push(PROJECTS_PATH);
+    router.push(`${CHECK_EMAIL_PATH}?email=${encodeURIComponent(values.email)}`);
   }
 
   return (

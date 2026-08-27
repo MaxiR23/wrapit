@@ -5,7 +5,7 @@ production-style stack and eventually contribute to similar codebases.
 
 ## Status
 
-Stack and tooling are in place. Authentication covers sign up, sign in, sign out
+Stack and tooling are in place. Authentication covers sign up, email verification, sign in, sign out
 and route protection. Projects can be listed, created and opened inside the
 projects shell. The project board shows columns and cards, with desktop
 drag-and-drop and a mobile carousel; moves persist by appending to the target

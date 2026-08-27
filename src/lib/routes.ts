@@ -15,6 +15,8 @@ export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
 export const RESET_PASSWORD_PATH = '/reset-password';
+export const CHECK_EMAIL_PATH = '/check-email';
+export const VERIFY_EMAIL_PATH = '/verify-email';
 
 export const ACCOUNT_TABS = ['profile', 'visibility', 'activity'] as const;
 
@@ -62,12 +64,14 @@ export function isAccountTab(value: unknown): value is AccountTab {
   return typeof value === 'string' && ACCOUNT_TABS.includes(value as AccountTab);
 }
 
-/** Pages that show the sign in, sign up, or password-reset forms. */
+/** Pages that show the sign in, sign up, password-reset, or email-verification UI. */
 const AUTH_PATHS: readonly string[] = [
   SIGN_IN_PATH,
   SIGN_UP_PATH,
   FORGOT_PASSWORD_PATH,
   RESET_PASSWORD_PATH,
+  CHECK_EMAIL_PATH,
+  VERIFY_EMAIL_PATH,
 ];
 
 /** Public pages, matched exactly. */

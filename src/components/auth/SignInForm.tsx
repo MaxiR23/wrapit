@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import AuthFormSpinner from '@/components/auth/AuthFormSpinner';
@@ -20,6 +21,7 @@ import {
   authFormErrorBandClassName,
   authFormHeaderClassName,
   authFormSubtitleClassName,
+  authFormSuccessBandClassName,
   authFormTitleClassName,
   authInputClassName,
 } from '@/components/auth/formClasses';
@@ -27,8 +29,13 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { authClient } from '@/lib/authClient';
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
-import { PROJECTS_PATH, FORGOT_PASSWORD_PATH, SIGN_UP_PATH } from '@/lib/routes';
+import {
+  EMAIL_NOT_VERIFIED_MESSAGE,
+  GENERIC_ERROR_MESSAGE,
+  VERIFICATION_RATE_LIMIT_MESSAGE,
+  VERIFICATION_RESEND_CONFIRMATION,
+} from '@/lib/messages';
+import { PROJECTS_PATH, FORGOT_PASSWORD_PATH, SIGN_UP_PATH, VERIFY_EMAIL_PATH } from '@/lib/routes';
 import { signInSchema, type SignInInput } from '@/lib/validation/signIn';
 
 // Better Auth answers both a wrong password and an email that was never
@@ -39,8 +46,13 @@ const CREDENTIALS_ERROR_CODES = ['INVALID_EMAIL_OR_PASSWORD', 'USER_NOT_FOUND', 
 
 const CREDENTIALS_ERROR_MESSAGE = 'Invalid email or password.';
 
+function isUnverifiedError(error: { status?: number; code?: string | null }): boolean {
+  return error.status === 403 || error.code === 'EMAIL_NOT_VERIFIED';
+}
+
 export default function SignInForm() {
   const router = useRouter();
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   const form = useForm<SignInInput>({
     resolver: zodResolver(signInSchema),
@@ -48,11 +60,19 @@ export default function SignInForm() {
     defaultValues: { email: '', password: '' },
   });
 
+  const showUnverified = form.formState.errors.root?.message === EMAIL_NOT_VERIFIED_MESSAGE;
+
   async function onSubmit(values: SignInInput) {
+    setResendStatus('idle');
     // The client returns { data, error } instead of throwing.
     const { error } = await authClient.signIn.email(values);
 
     if (error) {
+      if (isUnverifiedError(error)) {
+        form.setError('root', { message: EMAIL_NOT_VERIFIED_MESSAGE });
+        return;
+      }
+
       // A rejected credential is always a form-level error, never a field one.
       // Pinning it on the email input would itself hint that the email is the
       // part that was wrong.
@@ -68,6 +88,25 @@ export default function SignInForm() {
 
     router.push(PROJECTS_PATH);
     router.refresh();
+  }
+
+  async function onResend() {
+    const email = form.getValues('email');
+    setResendStatus('sending');
+    const { error } = await authClient.sendVerificationEmail({
+      email,
+      callbackURL: VERIFY_EMAIL_PATH,
+    });
+
+    if (error) {
+      setResendStatus('idle');
+      form.setError('root', {
+        message: error.status === 429 ? VERIFICATION_RATE_LIMIT_MESSAGE : GENERIC_ERROR_MESSAGE,
+      });
+      return;
+    }
+
+    setResendStatus('sent');
   }
 
   return (
@@ -90,6 +129,32 @@ export default function SignInForm() {
         <p role="alert" className={authFormErrorBandClassName}>
           {form.formState.errors.root.message}
         </p>
+      )}
+
+      {resendStatus === 'sent' && (
+        <p role="status" className={authFormSuccessBandClassName}>
+          {VERIFICATION_RESEND_CONFIRMATION}
+        </p>
+      )}
+
+      {showUnverified && resendStatus !== 'sent' && (
+        <Button
+          type="button"
+          disabled={resendStatus === 'sending'}
+          onClick={() => {
+            void onResend();
+          }}
+          className={authButtonClassName}
+        >
+          {resendStatus === 'sending' ? (
+            <>
+              <AuthFormSpinner />
+              Sending...
+            </>
+          ) : (
+            'Send a new verification email'
+          )}
+        </Button>
       )}
 
       <FieldGroup className={authFieldGroupClassName}>

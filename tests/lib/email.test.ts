@@ -1,14 +1,16 @@
 // tests/lib/email.test.ts
 //
-// Tests for the Resend password-reset email helper.
+// Tests for the Resend password-reset and verification email helpers.
 //
 // Tested:
 // - Sends the reset email with the given address and URL
 // - Resolves when Resend returns no error
 // - Throws with the Resend error details when Resend reports a failure
+// - Sends the verification email with the given address and URL
+// - Throws without the URL and logs only Resend metadata when Resend fails
 //
 // What is covered:
-// - Happy path, Resend { error } failure (Resend does not throw)
+// - Happy path, Resend { error } failure (Resend does not throw), token not in logs
 //
 // Run with: pnpm test:run tests/lib/email.test.ts
 //
@@ -24,10 +26,14 @@ vi.mock('resend', () => ({
   },
 }));
 
-const { sendResetPasswordEmail } = await import('@/lib/email');
+const logInfo = vi.fn();
+vi.mock('@/lib/log', () => ({ logInfo }));
+
+const { sendResetPasswordEmail, sendVerificationEmail } = await import('@/lib/email');
 
 const to = 'ada@example.com';
 const resetUrl = 'http://localhost:3000/reset-password?token=a-reset-token';
+const verifyUrl = 'http://localhost:3000/api/auth/verify-email?token=a-verify-token';
 
 describe('sendResetPasswordEmail', () => {
   beforeEach(() => {
@@ -58,8 +64,65 @@ describe('sendResetPasswordEmail', () => {
       },
     });
 
-    await expect(sendResetPasswordEmail(to, resetUrl)).rejects.toThrow(
+    let thrown: Error | undefined;
+    try {
+      await sendResetPasswordEmail(to, resetUrl);
+    } catch (error) {
+      thrown = error as Error;
+    }
+    expect(thrown).toBeDefined();
+    expect(thrown?.message).toMatch(/invalid_api_key.*API key is invalid/);
+    expect(thrown?.message).not.toContain(resetUrl);
+  });
+});
+
+describe('sendVerificationEmail', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sends the verification email with the given address and URL', async () => {
+    send.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+
+    await sendVerificationEmail(to, verifyUrl);
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'onboarding@resend.dev',
+        to,
+        html: expect.stringContaining(verifyUrl),
+      }),
+    );
+  });
+
+  it('throws without the URL and logs only Resend metadata when Resend fails', async () => {
+    send.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'invalid_api_key',
+        message: 'API key is invalid',
+        statusCode: 401,
+      },
+    });
+
+    await expect(sendVerificationEmail(to, verifyUrl)).rejects.toThrow(
       /invalid_api_key.*API key is invalid/,
     );
+
+    let thrown: Error | undefined;
+    try {
+      await sendVerificationEmail(to, verifyUrl);
+    } catch (error) {
+      thrown = error as Error;
+    }
+    expect(thrown).toBeDefined();
+    expect(thrown?.message).not.toContain(verifyUrl);
+    expect(thrown?.message).not.toContain('a-verify-token');
+    expect(logInfo).toHaveBeenCalledWith('email.verification_failed', {
+      name: 'invalid_api_key',
+      statusCode: 401,
+    });
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(verifyUrl);
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(to);
   });
 });

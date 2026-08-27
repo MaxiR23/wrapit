@@ -7,6 +7,33 @@
  */
 export const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
+/** Shown when sign-in succeeds on credentials but the email is not verified. */
+export const EMAIL_NOT_VERIFIED_MESSAGE =
+  'Verify your email before signing in. Check your inbox, or request a new link.';
+
+/**
+ * Shown after every successful resend request, whether or not the address has
+ * an unverified account. Deliberately the same string so the response cannot
+ * reveal whether the email is registered.
+ */
+export const VERIFICATION_RESEND_CONFIRMATION =
+  'If that email is registered and still needs verifying, a new link is on its way.';
+
+/** Shown when the verification JWT is missing, expired, or invalid. */
+export const VERIFICATION_LINK_INVALID_MESSAGE =
+  'This verification link is invalid or has expired.';
+
+/**
+ * Shown when a still-valid verification link is opened after the email is
+ * already verified. Better Auth verification tokens are JWTs, so a reused
+ * unexpired link is "already verified" rather than invalid.
+ */
+export const EMAIL_ALREADY_VERIFIED_MESSAGE =
+  'This email is already verified. Sign in to continue.';
+
+/** Shown when Better Auth returns 429 for a verification send. */
+export const VERIFICATION_RATE_LIMIT_MESSAGE = 'Please wait before requesting another email.';
+
 /**
  * Shown for every non-invitable target (unknown username, self, already a
  * member, pending invitation). Deliberately the same string in every branch

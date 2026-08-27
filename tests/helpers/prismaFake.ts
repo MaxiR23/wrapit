@@ -135,6 +135,12 @@ function matches(
 }
 
 function createRow(rows: Row[], data: Row) {
+  if (typeof data.email === 'string' && rows.some((row) => row.email === data.email)) {
+    throw new Error('unique constraint');
+  }
+  if (typeof data.username === 'string' && rows.some((row) => row.username === data.username)) {
+    throw new Error('unique constraint');
+  }
   if (
     data.userId != null &&
     data.order != null &&
