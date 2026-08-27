@@ -1,22 +1,38 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useTransition, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { createInvitation } from '@/actions/createInvitation';
+import { leaveProject } from '@/actions/leaveProject';
+import { transferOwnership } from '@/actions/transferOwnership';
 import { updatePublicLink } from '@/actions/updatePublicLink';
 import { useProfileAutosave } from '@/components/account/useProfileAutosave';
 import BoardCheckRow from '@/components/projects/BoardCheckRow';
+import ShareConfirm from '@/components/projects/ShareConfirm';
 import type { ShareMember } from '@/components/projects/boardTypes';
 import ShareMemberRow from '@/components/projects/ShareMemberRow';
 import { shellFocusClassName } from '@/components/projects/shell';
-import { publicBoardUrl } from '@/lib/boardAccess';
+import {
+  LEAVE_PROJECT_LABEL,
+  membershipsAfterOwnershipTransfer,
+  publicBoardUrl,
+  type MembershipRole,
+} from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
-import { CANT_INVITE_USER_MESSAGE } from '@/lib/messages';
+import {
+  CANT_INVITE_USER_MESSAGE,
+  GENERIC_ERROR_MESSAGE,
+  LEAVE_PROJECT_DESCRIPTION,
+  OWNER_MUST_TRANSFER_MESSAGE,
+} from '@/lib/messages';
+import { PROJECTS_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 export default function ShareModalBody({
   projectId,
   members,
+  currentUserId,
   canAdminister,
   publicLinkEnabled,
   shareUrl,
@@ -24,10 +40,12 @@ export default function ShareModalBody({
   onCopied,
   onAccessChange,
   onRemoved,
+  onOwnershipChange,
   onPublicLinkChange,
 }: {
   projectId: string;
   members: ShareMember[];
+  currentUserId: string;
   canAdminister: boolean;
   publicLinkEnabled: boolean;
   shareUrl: string;
@@ -35,12 +53,47 @@ export default function ShareModalBody({
   onCopied: () => void;
   onAccessChange: (membershipId: string, access: BoardAccess) => void;
   onRemoved: (membershipId: string) => void;
+  onOwnershipChange: (ownerMembershipId: string) => void;
   onPublicLinkChange: (enabled: boolean) => void;
 }) {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [transferConfirmId, setTransferConfirmId] = useState<string | null>(null);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [leavePending, startLeave] = useTransition();
   const canInvite = canAdminister && username.trim().length > 0 && !inviting;
+
+  const ownerMembershipId = members.find((member) => member.role === 'OWNER')?.membershipId ?? '';
+
+  const ownership = useProfileAutosave({
+    initial: ownerMembershipId,
+    debounceMs: 0,
+    resetKey: ownerMembershipId,
+    save: async (membershipId) => {
+      if (membershipId === ownerMembershipId) {
+        return { data: { value: membershipId } };
+      }
+      const result = await transferOwnership({ projectId, membershipId });
+      if ('error' in result) return result;
+      return { data: { value: result.data.membershipId } };
+    },
+    onSuccess: (membershipId) => {
+      setTransferConfirmId(null);
+      onOwnershipChange(membershipId);
+    },
+    onRevert: () => {
+      setTransferConfirmId(null);
+    },
+  });
+
+  const displayedMembers = membershipsAfterOwnershipTransfer(members, ownership.value);
+  const viewer = displayedMembers.find((member) => member.id === currentUserId);
+  const viewerRole: MembershipRole = viewer?.role ?? 'MEMBER';
+  const viewerIsOwner = viewerRole === 'OWNER';
+  const transferPending = ownership.value !== ownerMembershipId;
 
   const publicLink = useProfileAutosave({
     initial: publicLinkEnabled,
@@ -76,6 +129,21 @@ export default function ShareModalBody({
     } catch {
       onCopied();
     }
+  }
+
+  function onLeave() {
+    setLeaveError(null);
+    startLeave(async () => {
+      const result = await leaveProject({ projectId });
+      if ('error' in result) {
+        setLeaveError(
+          result.error === OWNER_MUST_TRANSFER_MESSAGE ? result.error : GENERIC_ERROR_MESSAGE,
+        );
+        return;
+      }
+      router.push(PROJECTS_PATH);
+      router.refresh();
+    });
   }
 
   return (
@@ -123,14 +191,22 @@ export default function ShareModalBody({
           With access
         </span>
         <div className="flex flex-col">
-          {members.map((member) => (
+          {displayedMembers.map((member) => (
             <ShareMemberRow
               key={member.membershipId}
               projectId={projectId}
               member={member}
+              currentUserId={currentUserId}
+              viewerRole={viewerRole}
               canAdminister={canAdminister}
+              confirmingTransfer={transferConfirmId === member.membershipId}
+              transferPending={transferPending}
+              transferError={ownership.error}
               onAccessChange={onAccessChange}
               onRemoved={onRemoved}
+              onRequestTransfer={setTransferConfirmId}
+              onCancelTransfer={() => setTransferConfirmId(null)}
+              onConfirmTransfer={(membershipId) => ownership.setValue(membershipId)}
             />
           ))}
         </div>
@@ -172,6 +248,51 @@ export default function ShareModalBody({
             {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5 border-t border-border pt-4">
+        {viewerIsOwner ? (
+          <>
+            <button
+              type="button"
+              disabled
+              aria-describedby="share-leave-hint"
+              className={cn(
+                shellFocusClassName,
+                'inline-flex h-[34px] items-center rounded-md px-2.5 text-left text-[13px] text-danger opacity-45',
+              )}
+            >
+              {LEAVE_PROJECT_LABEL}
+            </button>
+            <p id="share-leave-hint" className="px-2.5 text-[12.5px] text-muted-foreground">
+              {OWNER_MUST_TRANSFER_MESSAGE}
+            </p>
+          </>
+        ) : leaveConfirm ? (
+          <ShareConfirm
+            description={LEAVE_PROJECT_DESCRIPTION}
+            confirmLabel={LEAVE_PROJECT_LABEL}
+            pendingLabel="Leaving..."
+            pending={leavePending}
+            error={leaveError}
+            onCancel={() => {
+              setLeaveConfirm(false);
+              setLeaveError(null);
+            }}
+            onConfirm={onLeave}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLeaveConfirm(true)}
+            className={cn(
+              shellFocusClassName,
+              'inline-flex h-[34px] items-center rounded-md px-2.5 text-left text-[13px] text-danger hover:bg-danger-soft',
+            )}
+          >
+            {LEAVE_PROJECT_LABEL}
+          </button>
+        )}
       </div>
     </div>
   );

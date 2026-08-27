@@ -346,6 +346,8 @@ export function createPrismaFake() {
         return (models.label?.rows ?? []).filter((label) => label.projectId === row.id);
       case 'label':
         return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
+      case 'card':
+        return (models.card?.rows ?? []).filter((card) => card.id === row.cardId);
       case 'column':
         return (models.column?.rows ?? []).filter((column) => column.id === row.columnId);
       case 'assignees':

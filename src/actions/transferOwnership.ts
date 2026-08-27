@@ -5,17 +5,11 @@ import { revalidatePath } from 'next/cache';
 
 import { activityActorFromSession, recordActivityEvent } from '@/lib/activity';
 import { auth } from '@/lib/auth';
-import {
-  administeredByUser,
-  assertNotLastOwner,
-  LastOwnerError,
-  remainingOwnerOnProject,
-  unassignUserFromProject,
-} from '@/lib/membership';
-import { GENERIC_ERROR_MESSAGE, LAST_OWNER_MESSAGE } from '@/lib/messages';
+import { lockProjectRow } from '@/lib/labels';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
-import { MY_TASKS_PATH, PROJECTS_PATH, projectPath } from '@/lib/routes';
-import { removeMemberSchema } from '@/lib/validation/membership';
+import { projectPath } from '@/lib/routes';
+import { transferOwnershipSchema } from '@/lib/validation/membership';
 
 class UnauthorizedWriteError extends Error {
   constructor() {
@@ -24,18 +18,18 @@ class UnauthorizedWriteError extends Error {
   }
 }
 
-type RemoveMemberResult = { data: { id: string } } | { error: string };
+type TransferOwnershipResult = { data: { membershipId: string } } | { error: string };
 
-export async function removeMember(input: {
+export async function transferOwnership(input: {
   projectId: string;
   membershipId: string;
-}): Promise<RemoveMemberResult> {
+}): Promise<TransferOwnershipResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     return { error: 'Unauthorized' };
   }
 
-  const parsed = removeMemberSchema.safeParse(input);
+  const parsed = transferOwnershipSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Unauthorized' };
   }
@@ -44,14 +38,28 @@ export async function removeMember(input: {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const project = await tx.project.findFirst({
-        where: { id: projectId, ...administeredByUser(session.user.id) },
+      await lockProjectRow(tx, projectId);
+
+      const demoted = await tx.membership.updateMany({
+        where: { projectId, userId: session.user.id, role: 'OWNER' },
+        data: { role: 'ADMIN', access: 'EDIT' },
       });
-      if (!project) {
+      if (demoted.count !== 1) {
         throw new UnauthorizedWriteError();
       }
 
-      await assertNotLastOwner(tx, { projectId, membershipId });
+      const promoted = await tx.membership.updateMany({
+        where: {
+          id: membershipId,
+          projectId,
+          userId: { not: session.user.id },
+          role: { not: 'OWNER' },
+        },
+        data: { role: 'OWNER', access: 'EDIT' },
+      });
+      if (promoted.count !== 1) {
+        throw new UnauthorizedWriteError();
+      }
 
       const membership = await tx.membership.findFirst({
         where: { id: membershipId, projectId },
@@ -64,26 +72,10 @@ export async function removeMember(input: {
         throw new UnauthorizedWriteError();
       }
 
-      const deleted = await tx.membership.deleteMany({
-        where: {
-          id: membershipId,
-          projectId,
-          userId: { not: session.user.id },
-          project: {
-            AND: [administeredByUser(session.user.id), remainingOwnerOnProject(membershipId)],
-          },
-        },
-      });
-      if (deleted.count !== 1) {
-        throw new UnauthorizedWriteError();
-      }
-
-      await unassignUserFromProject(tx, { userId: String(membership.userId), projectId });
-
       await recordActivityEvent(tx, {
         projectId,
         actorId: session.user.id,
-        type: 'MEMBER_REMOVED',
+        type: 'OWNERSHIP_TRANSFERRED',
         payload: {
           ...activityActorFromSession(session.user),
           memberId: String(member.id),
@@ -94,13 +86,8 @@ export async function removeMember(input: {
     });
 
     revalidatePath(projectPath(projectId));
-    revalidatePath(PROJECTS_PATH);
-    revalidatePath(MY_TASKS_PATH);
-    return { data: { id: membershipId } };
+    return { data: { membershipId } };
   } catch (error) {
-    if (error instanceof LastOwnerError) {
-      return { error: LAST_OWNER_MESSAGE };
-    }
     if (error instanceof UnauthorizedWriteError) {
       return { error: 'Unauthorized' };
     }

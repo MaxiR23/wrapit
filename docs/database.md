@@ -98,7 +98,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 - `ActivityEvent` belongs to a `Project` and optionally a `User` as actor.
   `type` is `ActivityEventType` (`CARD_CREATED`, `CARD_MOVED`, `CARD_ARCHIVED`,
   `CARD_RESTORED`, `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
-  `COMMENT_ADDED`, `PROJECT_CREATED`, `MEMBER_ADDED`, `MEMBER_REMOVED`).
+  `COMMENT_ADDED`, `PROJECT_CREATED`, `MEMBER_ADDED`, `MEMBER_REMOVED`,
+  `OWNERSHIP_TRANSFERRED`, `MEMBER_LEFT`).
   `payload` is JSON; the
   app parses it with a per-type Zod map before write and again on read. Every
   payload snapshots `actorName` / `actorUsername` plus type-specific ids and
@@ -109,7 +110,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   inserted in the same transaction as the change they describe. Creating a
   card with a label, assignees, or due date is one `CARD_CREATED`.
   `createProject` writes `PROJECT_CREATED` next to the owner membership.
-  Title and
+  Transferring ownership writes `OWNERSHIP_TRANSFERRED`; leaving writes
+  `MEMBER_LEFT`. Title and
   description edits, subtasks, column/label CRUD, and invitations are not
   logged. Indexed on `(projectId, createdAt)` for the board log and
   `(actorId, createdAt)` for the account timeline.

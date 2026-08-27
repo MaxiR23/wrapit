@@ -180,6 +180,14 @@ function sentenceFor(
       const data = payload as ActivityPayloadFor<'MEMBER_REMOVED'>;
       return copy.memberRemoved({ actorName: data.actorName, memberName: data.memberName });
     }
+    case 'OWNERSHIP_TRANSFERRED': {
+      const data = payload as ActivityPayloadFor<'OWNERSHIP_TRANSFERRED'>;
+      return copy.ownershipTransferred({ actorName: data.actorName, memberName: data.memberName });
+    }
+    case 'MEMBER_LEFT': {
+      const data = payload as ActivityPayloadFor<'MEMBER_LEFT'>;
+      return copy.memberLeft({ actorName: data.actorName });
+    }
   }
 }
 

@@ -15,7 +15,7 @@
 // - backfill inserts a missing OWNER row for Project.ownerId
 // - backfill is idempotent
 // - backfill promotes a creator MEMBER row to OWNER without duplicating
-// - backfill leaves an extra OWNER on another user untouched
+// - backfill does not promote ownerId when an OWNER already exists
 //
 // What is covered:
 // - Access where clause, last-OWNER guard, backfill promote-then-insert
@@ -206,7 +206,7 @@ describe('backfillOwnerMemberships', () => {
     );
   });
 
-  it('leaves an extra OWNER on another user untouched', async () => {
+  it('does not insert a second OWNER when the project already has one', async () => {
     const project = await db.project.create({
       data: { title: 'Sprint board', ownerId: 'user-ada' },
     });
@@ -217,15 +217,18 @@ describe('backfillOwnerMemberships', () => {
         role: 'OWNER',
       },
     });
+    await db.membership.create({
+      data: {
+        userId: 'user-ada',
+        projectId: project.id,
+        role: 'ADMIN',
+      },
+    });
 
     await backfillOwnerMemberships(db);
 
-    expect(db.membership.rows).toHaveLength(2);
-    expect(db.membership.rows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userId: 'user-max', role: 'OWNER' }),
-        expect.objectContaining({ userId: 'user-ada', role: 'OWNER' }),
-      ]),
-    );
+    expect(db.membership.rows.filter((row) => row.role === 'OWNER')).toHaveLength(1);
+    expect(db.membership.rows.find((row) => row.userId === 'user-max')?.role).toBe('OWNER');
+    expect(db.membership.rows.find((row) => row.userId === 'user-ada')?.role).toBe('ADMIN');
   });
 });

@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "ActivityEventType" ADD VALUE 'OWNERSHIP_TRANSFERRED';
+ALTER TYPE "ActivityEventType" ADD VALUE 'MEMBER_LEFT';

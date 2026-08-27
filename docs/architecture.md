@@ -205,6 +205,22 @@ throws `LastOwnerError` (`Cannot remove the last OWNER`) and does not write.
 the guard, then `deleteMany` with a remaining-OWNER condition so two concurrent
 last-owner deletes cannot land on zero owners. A caller who does not administer
 the project gets Unauthorized even when the target is the last OWNER.
+`removeMember` and `leaveProject` both unassign that user from the project's
+cards (`unassignUserFromProject`); the cards stay.
+
+Ownership moves only through `transferOwnership`. The actor must be OWNER.
+The action demotes them to ADMIN (`EDIT`) then promotes the target to OWNER
+(`EDIT`) in one transaction, each write a `updateMany` with `count === 1`. A
+failed promote rolls the demote back, so a committed project never has zero
+or two owners. Concurrent transfers serialize on the project row; the second
+demote sees `count === 0`. `Project.ownerId` stays creator metadata.
+`backfillOwnerMemberships` skips a project that already has an OWNER.
+
+`leaveProject` deletes the session user's membership when `role` is not OWNER.
+The owner check is that conditional delete, not a prior read; if it matches
+zero rows, a follow-up read only chooses `OWNER_MUST_TRANSFER_MESSAGE` vs
+Unauthorized. Admins and members leave freely. Recents for that user+project
+are deleted. Rejoin needs a new invitation.
 
 OWNER and ADMIN can invite by username (`createInvitation`). A MEMBER cannot.
 Non-invitable targets
@@ -248,8 +264,8 @@ in `docs/kanban.md`.
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-    src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, owner backfill
-    src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, public board URL
+    src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, unassign, owner backfill
+    src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
     src/lib/invitations.ts              invite-by-username checks, notification copy
     src/lib/notifications.ts            list/mark-read for the session user's notifications
     src/lib/relativeTime.ts             relative English time without a leading verb
@@ -308,11 +324,13 @@ in `docs/kanban.md`.
     src/actions/createUserStatus.ts     append a custom status (cap 20)
     src/actions/deleteUserStatus.ts     delete an owned status; lock the user; refuse the last remaining
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
-    src/lib/validation/membership.ts    update access, remove member, public-link flag
+    src/lib/validation/membership.ts    update access, remove member, transfer, leave, public-link flag
     src/actions/createInvitation.ts     invite a user by username (OWNER/ADMIN only; generic deny)
     src/actions/acceptInvitation.ts     invitee accepts: MEMBER + COMMENT access + notify inviter
     src/actions/updateMembershipAccess.ts  OWNER/ADMIN set a MEMBER's board access
-    src/actions/removeMember.ts         OWNER/ADMIN remove a person; last-OWNER guarded
+    src/actions/removeMember.ts         OWNER/ADMIN remove a person; last-OWNER guarded; unassign
+    src/actions/transferOwnership.ts    OWNER hands the project to another member; demote then promote
+    src/actions/leaveProject.ts         non-OWNER deletes own membership; unassign; drop recents
     src/actions/updatePublicLink.ts     OWNER/ADMIN persist Project.publicLinkEnabled
     src/actions/rejectInvitation.ts     invitee declines and notifies the inviter
     src/actions/listNotifications.ts    session user's notifications (newest first) + unread count

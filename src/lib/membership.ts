@@ -29,6 +29,12 @@ type MembershipDb = {
   };
 };
 
+type CardAssigneeTx = {
+  cardAssignee: {
+    deleteMany: (args: { where: Record<string, unknown> }) => Promise<unknown>;
+  };
+};
+
 /** Prisma Project where: the user has any Membership on the project. */
 export function accessibleByUser(userId: string): {
   memberships: { some: { userId: string } };
@@ -105,25 +111,47 @@ export async function assertNotLastOwner(
 }
 
 /**
- * Ensure every Project has an OWNER Membership for its current ownerId.
- * Promotes a creator non-OWNER row, then inserts where none exists.
+ * Drop CardAssignee rows for this user on this project's cards. Cards stay.
+ * Shared by leave and remove so both departures unassign the same way.
+ */
+export async function unassignUserFromProject(
+  tx: CardAssigneeTx,
+  input: { userId: string; projectId: string },
+): Promise<void> {
+  await tx.cardAssignee.deleteMany({
+    where: {
+      userId: input.userId,
+      card: { column: { projectId: input.projectId } },
+    },
+  });
+}
+
+/**
+ * Ensure every Project has an OWNER Membership.
+ * Skips a project that already has an OWNER so a transfer cannot be undone.
+ * Otherwise promotes the creator row, then inserts where none exists.
  * Keep in sync with prisma/migrations/*_backfill_owner_memberships.
  */
 export async function backfillOwnerMemberships(db: MembershipDb): Promise<void> {
   const projects = await db.project.findMany();
   for (const project of projects) {
     const projectId = String(project.id);
+    const existingOwner = await db.membership.findFirst({
+      where: { projectId, role: 'OWNER' },
+    });
+    if (existingOwner) {
+      continue;
+    }
+
     const ownerId = String(project.ownerId);
     const existing = await db.membership.findFirst({
       where: { projectId, userId: ownerId },
     });
     if (existing) {
-      if (existing.role !== 'OWNER') {
-        await db.membership.update({
-          where: { id: String(existing.id) },
-          data: { role: 'OWNER' },
-        });
-      }
+      await db.membership.update({
+        where: { id: String(existing.id) },
+        data: { role: 'OWNER' },
+      });
       continue;
     }
 
