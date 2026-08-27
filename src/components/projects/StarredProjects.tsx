@@ -5,9 +5,11 @@ import type { ProjectSummary } from '@/lib/projectGrid';
 export default function StarredProjects({
   projects,
   onToggle,
+  onArchive,
 }: {
   projects: ProjectSummary[];
   onToggle?: OnToggleStar;
+  onArchive?: (project: ProjectSummary) => void;
 }) {
   if (projects.length === 0) {
     return null;
@@ -23,7 +25,7 @@ export default function StarredProjects({
           {projects.length}
         </span>
       </div>
-      <ProjectGrid projects={projects} onToggle={onToggle} />
+      <ProjectGrid projects={projects} onToggle={onToggle} onArchive={onArchive} />
     </section>
   );
 }

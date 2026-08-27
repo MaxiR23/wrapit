@@ -9,6 +9,7 @@ import { MAX_ID_LENGTH } from '@/lib/validation/id';
 export const HOME_PATH = '/';
 export const PROJECTS_PATH = '/projects';
 export const MY_TASKS_PATH = '/tasks';
+export const ARCHIVED_PATH = '/archived';
 export const ACCOUNT_PATH = '/account';
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';

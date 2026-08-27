@@ -54,6 +54,7 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/projects/1')).toBe(false);
     expect(isPublicPath('/tasks')).toBe(false);
     expect(isPublicPath('/account')).toBe(false);
+    expect(isPublicPath('/archived')).toBe(false);
     expect(isPublicPath('/api/projects')).toBe(false);
   });
 

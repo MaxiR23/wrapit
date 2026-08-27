@@ -1,4 +1,5 @@
-import { accessibleByUser } from '@/lib/membership';
+import { canAdministerProject } from '@/lib/boardAccess';
+import { accessibleByUser, archivedAccessibleByUser } from '@/lib/membership';
 import {
   formatUpdatedAt,
   latestActivityAt,
@@ -309,6 +310,11 @@ export async function listProjectSummariesForUser(userId: string): Promise<Proje
       percent: progress.percent,
       updatedLabel: formatUpdatedAt(updatedAt),
       starred: Boolean(myMembership?.starred),
+      canAdminister: canAdministerProject(
+        myMembership?.role === 'OWNER' || myMembership?.role === 'ADMIN'
+          ? myMembership.role
+          : 'MEMBER',
+      ),
       members: projectMembers({
         owner,
         memberships: projectMemberships.map((membership) => ({
@@ -328,5 +334,17 @@ export function listRecentProjectsForUser(userId: string) {
     },
     orderBy: { openedAt: 'desc' },
     take: 4,
+  });
+}
+
+/**
+ * An archived project the user is a member of. Null when the project is live,
+ * missing, or the user has no membership. Used to send a bookmark to /archived
+ * instead of 404.
+ */
+export async function getArchivedProjectForUser(projectId: string, userId: string) {
+  return prisma.project.findFirst({
+    where: { id: projectId, ...archivedAccessibleByUser(userId) },
+    select: { id: true },
   });
 }

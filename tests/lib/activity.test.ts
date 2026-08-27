@@ -108,6 +108,18 @@ const validPayloads = {
     ...actor,
     projectTitle: 'Sprint board',
   },
+  PROJECT_ARCHIVED: {
+    ...actor,
+    projectTitle: 'Sprint board',
+  },
+  PROJECT_RESTORED: {
+    ...actor,
+    projectTitle: 'Sprint board',
+  },
+  PROJECT_DELETED: {
+    ...actor,
+    projectTitle: 'Sprint board',
+  },
 } as const;
 
 describe('parseActivityPayload', () => {

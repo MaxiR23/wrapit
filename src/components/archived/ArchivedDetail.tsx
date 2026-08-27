@@ -6,8 +6,10 @@ import { Check, Download, Trash2, X } from 'lucide-react';
 import { archivedCopy } from '@/lib/archivedCopy';
 import {
   archivedByLine,
+  archivedProjectDetailLine,
   archivedTaskDetailLine,
   formatArchivedDate,
+  type ArchivedProject,
   type ArchivedTask,
 } from '@/lib/archived';
 import { commentCount, subtaskProgress } from '@/lib/cardCounters';
@@ -17,13 +19,15 @@ import { shellFocusClassName } from '@/components/projects/shell';
 
 export default function ArchivedDetail({
   card,
+  project,
   canAdminister,
   onClose,
   onRestore,
   onExport,
   onDelete,
 }: {
-  card: ArchivedTask;
+  card?: ArchivedTask;
+  project?: ArchivedProject;
   canAdminister: boolean;
   onClose: () => void;
   onRestore: () => void;
@@ -38,11 +42,20 @@ export default function ArchivedDetail({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  const progress = subtaskProgress(card.subtasks);
-  const by = archivedByLine(card);
+  const item = project ?? card;
+  if (!item) return null;
+
+  const by = archivedByLine(item);
   const archivedValue = by
-    ? `${formatArchivedDate(card.archivedAt)} ${by}`
-    : formatArchivedDate(card.archivedAt);
+    ? `${formatArchivedDate(item.archivedAt)} ${by}`
+    : formatArchivedDate(item.archivedAt);
+  const isProject = project != null;
+  const copy = isProject ? archivedCopy.projects : archivedCopy;
+  const title = isProject ? project.title : (card?.title ?? '');
+  const context = isProject
+    ? archivedProjectDetailLine(project)
+    : `${card?.label ? `${card.label.name} · ` : ''}${card ? archivedTaskDetailLine(card) : ''}`;
+  const progress = card ? subtaskProgress(card.subtasks) : null;
 
   return (
     <div className="contents">
@@ -68,18 +81,15 @@ export default function ArchivedDetail({
         <header className="flex items-start gap-2 border-b border-border px-4 py-4 tablet:px-5 lg:px-[22px]">
           <div className="mr-auto min-w-0">
             <p className="text-[11px] font-semibold tracking-[0.05em] text-subtle uppercase">
-              {archivedCopy.kicker}
+              {copy.kicker}
             </p>
             <h2
               id="archived-detail-title"
               className="mt-1 text-[17px] font-semibold tracking-[-0.02em] text-pretty"
             >
-              {card.title}
+              {title}
             </h2>
-            <p className="mt-1 truncate text-[12.5px] text-subtle">
-              {card.label ? `${card.label.name} · ` : ''}
-              {archivedTaskDetailLine(card)}
-            </p>
+            <p className="mt-1 truncate text-[12.5px] text-subtle">{context}</p>
           </div>
           <button
             type="button"
@@ -95,31 +105,95 @@ export default function ArchivedDetail({
         </header>
         <div className="min-h-0 flex-1 overflow-auto px-4 py-4 tablet:px-5 lg:px-[22px]">
           <p className="rounded-md bg-background px-3 py-2.5 text-[12.5px] text-muted-foreground">
-            {archivedCopy.readOnly}
+            {copy.readOnly}
           </p>
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-            <div>
-              <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                {archivedCopy.columnWhenArchived}
-              </dt>
-              <dd className="mt-1 text-[13px]">{card.column.title}</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                {archivedCopy.subtasks}
-              </dt>
-              <dd className="mt-1 text-[13px] tabular-nums">
-                {progress.done}/{progress.total}
-              </dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                {archivedCopy.archived}
-              </dt>
-              <dd className="mt-1 text-[13px]">{archivedValue}</dd>
-            </div>
-          </dl>
-          {card.subtasks.length > 0 ? (
+          {project ? (
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.projects.finalStatus}
+                </dt>
+                <dd className="mt-1 text-[13px]">{project.statusLabel}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.projects.progress}
+                </dt>
+                <dd className="mt-1 text-[13px] tabular-nums">{project.percent}%</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.projects.team}
+                </dt>
+                <dd className="mt-1 flex flex-wrap gap-1">
+                  {project.members.map((member) => (
+                    <span
+                      key={member.id}
+                      title={member.name || member.username}
+                      className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[9px] font-semibold"
+                    >
+                      {initials(member.name, member.username)}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.archived}
+                </dt>
+                <dd className="mt-1 text-[13px]">{archivedValue}</dd>
+              </div>
+            </dl>
+          ) : card && progress ? (
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.columnWhenArchived}
+                </dt>
+                <dd className="mt-1 text-[13px]">{card.column.title}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.subtasks}
+                </dt>
+                <dd className="mt-1 text-[13px] tabular-nums">
+                  {progress.done}/{progress.total}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                  {archivedCopy.archived}
+                </dt>
+                <dd className="mt-1 text-[13px]">{archivedValue}</dd>
+              </div>
+            </dl>
+          ) : null}
+          {project && project.description ? (
+            <section className="mt-5">
+              <ul className="mt-2 flex flex-col gap-2">
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
+                  <span className="text-[13px] text-pretty">{project.description}</span>
+                </li>
+              </ul>
+            </section>
+          ) : null}
+          {project && project.columns.length > 0 ? (
+            <ul className="mt-5 flex flex-col gap-2">
+              {project.columns.map((column) => (
+                <li key={column.id} className="flex items-start gap-2.5">
+                  <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
+                  <span className="text-[13px]">
+                    {column.title}
+                    {column.cardCount > 0
+                      ? ` · ${column.cardCount === 1 ? '1 card' : `${column.cardCount} cards`}`
+                      : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {card && card.subtasks.length > 0 ? (
             <section className="mt-5">
               <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
                 {archivedCopy.subtasks}
@@ -150,7 +224,7 @@ export default function ArchivedDetail({
               </ul>
             </section>
           ) : null}
-          {card.comments.length > 0 ? (
+          {card && card.comments.length > 0 ? (
             <section className="mt-5">
               <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
                 {archivedCopy.comments(commentCount(card.comments))}
@@ -172,7 +246,7 @@ export default function ArchivedDetail({
           <button
             type="button"
             disabled={!canAdminister}
-            title={canAdminister ? undefined : archivedCopy.adminOnly}
+            title={canAdminister ? undefined : copy.adminOnly}
             onClick={onRestore}
             className={cn(
               shellFocusClassName,
@@ -182,21 +256,23 @@ export default function ArchivedDetail({
           >
             {archivedCopy.restore}
           </button>
-          <button
-            type="button"
-            aria-label={archivedCopy.export}
-            onClick={onExport}
-            className={cn(
-              shellFocusClassName,
-              'inline-flex size-11 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-card-hover tablet:size-10',
-            )}
-          >
-            <Download className="size-4" strokeWidth={1.8} />
-          </button>
+          {isProject ? null : (
+            <button
+              type="button"
+              aria-label={archivedCopy.export}
+              onClick={onExport}
+              className={cn(
+                shellFocusClassName,
+                'inline-flex size-11 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-card-hover tablet:size-10',
+              )}
+            >
+              <Download className="size-4" strokeWidth={1.8} />
+            </button>
+          )}
           <button
             type="button"
             disabled={!canAdminister}
-            title={canAdminister ? undefined : archivedCopy.adminOnly}
+            title={canAdminister ? undefined : copy.adminOnly}
             aria-label={archivedCopy.delete}
             onClick={onDelete}
             className={cn(

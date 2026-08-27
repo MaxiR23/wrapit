@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Download, RotateCcw, Trash2 } from 'lucide-react';
 
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -14,14 +14,18 @@ import {
   ARCHIVED_SWIPE_REVEAL_PX,
   ARCHIVED_SWIPE_TAP_PX,
   archivedByLine,
+  archivedProjectDetailLine,
   archivedTaskDetailLine,
   formatArchivedDate,
+  type ArchivedPerson,
+  type ArchivedProject,
   type ArchivedTask,
 } from '@/lib/archived';
 import { archivedCopy } from '@/lib/archivedCopy';
 import { subtaskProgress } from '@/lib/cardCounters';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
+import { projectStatusBarClass } from '@/lib/projectGrid';
 import { cn } from '@/lib/utils';
 
 function ArchivedCheckbox({
@@ -50,28 +54,29 @@ function ArchivedCheckbox({
   );
 }
 
-export default function ArchivedRow({
-  card,
-  selected,
-  selectionMode,
-  swipeEnabled,
-  canAdminister,
-  dx,
-  tween,
-  onOpen,
-  onToggleSelect,
-  onRestore,
-  onExport,
-  onDelete,
-  onLongPress,
-  onSwipeChange,
-  onSwipeEnd,
-}: {
-  card: ArchivedTask;
+function TeamAvatars({ people }: { people: ArchivedPerson[] }) {
+  return (
+    <div className="hidden items-center lg:flex">
+      {people.slice(0, 3).map((person) => (
+        <span
+          key={person.id}
+          title={person.name || person.username}
+          className="-ml-1 inline-flex size-6 first:ml-0 items-center justify-center rounded-full border border-card bg-muted text-[9px] font-semibold"
+        >
+          {initials(person.name, person.username)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+type RowChrome = {
   selected: boolean;
   selectionMode: boolean;
   swipeEnabled: boolean;
   canAdminister: boolean;
+  canExport: boolean;
+  adminOnly: string;
   dx: number;
   tween: boolean;
   onOpen: () => void;
@@ -82,12 +87,48 @@ export default function ArchivedRow({
   onLongPress: () => void;
   onSwipeChange: (dx: number) => void;
   onSwipeEnd: (dx: number) => void;
+};
+
+function ArchivedRowChrome({
+  name,
+  subtitle,
+  label,
+  mobileMeta,
+  col2,
+  col3,
+  col4,
+  archivedAt,
+  archivedBy,
+  selected,
+  selectionMode,
+  swipeEnabled,
+  canAdminister,
+  canExport,
+  adminOnly,
+  dx,
+  tween,
+  onOpen,
+  onToggleSelect,
+  onRestore,
+  onExport,
+  onDelete,
+  onLongPress,
+  onSwipeChange,
+  onSwipeEnd,
+}: RowChrome & {
+  name: string;
+  subtitle: string;
+  label: ReactNode;
+  mobileMeta: ReactNode;
+  col2: ReactNode;
+  col3: ReactNode;
+  col4: ReactNode;
+  archivedAt: Date;
+  archivedBy: ArchivedPerson | null;
 }) {
   const ignoreClickRef = useRef(false);
-  const progress = subtaskProgress(card.subtasks);
-  const tone = card.label ? labelToneClasses(card.label.tone) : null;
-  const by = archivedByLine(card);
-  const adminTitle = canAdminister ? undefined : archivedCopy.adminOnly;
+  const by = archivedByLine({ archivedBy });
+  const adminTitle = canAdminister ? undefined : adminOnly;
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
@@ -229,49 +270,25 @@ export default function ArchivedRow({
       >
         <ArchivedCheckbox
           checked={selected}
-          label={`Select ${card.title}`}
+          label={`Select ${name}`}
           onToggle={onToggleSelect}
           className={cn(selectionMode ? 'block' : 'hidden lg:block')}
         />
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            {tone && card.label ? (
-              <span
-                className={cn(
-                  'shrink-0 rounded-full border px-2 py-px text-[11px] font-medium',
-                  tone.pill,
-                )}
-              >
-                {card.label.name}
-              </span>
-            ) : null}
-            <span className="truncate text-[14px] font-medium">{card.title}</span>
+            {label}
+            <span className="truncate text-[14px] font-medium">{name}</span>
           </div>
-          <p className="truncate text-[12px] text-subtle">{archivedTaskDetailLine(card)}</p>
+          <p className="truncate text-[12px] text-subtle">{subtitle}</p>
           <div className="mt-1 flex items-center gap-2 text-[12px] text-subtle tablet:hidden">
-            <span>{card.column.title}</span>
-            <span>
-              {progress.done}/{progress.total}
-            </span>
+            {mobileMeta}
           </div>
         </div>
-        <span className="hidden truncate text-[12.5px] lg:block">{card.column.title}</span>
-        <span className="hidden text-[12.5px] tabular-nums lg:block">
-          {progress.done}/{progress.total}
-        </span>
-        <div className="hidden items-center lg:flex">
-          {card.assignees.slice(0, 3).map((person) => (
-            <span
-              key={person.id}
-              title={person.name || person.username}
-              className="-ml-1 inline-flex size-6 first:ml-0 items-center justify-center rounded-full border border-card bg-muted text-[9px] font-semibold"
-            >
-              {initials(person.name, person.username)}
-            </span>
-          ))}
-        </div>
+        {col2}
+        {col3}
+        {col4}
         <div className="hidden min-w-0 lg:block">
-          <p className="text-[12.5px]">{formatArchivedDate(card.archivedAt)}</p>
+          <p className="text-[12.5px]">{formatArchivedDate(archivedAt)}</p>
           {by ? <p className="text-[11.5px] text-subtle">{by}</p> : null}
         </div>
         <div
@@ -309,17 +326,19 @@ export default function ArchivedRow({
           >
             <RotateCcw className="size-4" strokeWidth={1.8} />
           </button>
-          <button
-            type="button"
-            aria-label={archivedCopy.export}
-            onClick={onExport}
-            className={cn(
-              shellFocusClassName,
-              'hidden size-[30px] items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:inline-flex',
-            )}
-          >
-            <Download className="size-3.5" strokeWidth={1.8} />
-          </button>
+          {canExport ? (
+            <button
+              type="button"
+              aria-label={archivedCopy.export}
+              onClick={onExport}
+              className={cn(
+                shellFocusClassName,
+                'hidden size-[30px] items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:inline-flex',
+              )}
+            >
+              <Download className="size-3.5" strokeWidth={1.8} />
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={!canAdminister}
@@ -337,5 +356,136 @@ export default function ArchivedRow({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ArchivedRow({
+  card,
+  project,
+  selected,
+  selectionMode,
+  swipeEnabled,
+  canAdminister,
+  dx,
+  tween,
+  onOpen,
+  onToggleSelect,
+  onRestore,
+  onExport,
+  onDelete,
+  onLongPress,
+  onSwipeChange,
+  onSwipeEnd,
+}: {
+  card?: ArchivedTask;
+  project?: ArchivedProject;
+  selected: boolean;
+  selectionMode: boolean;
+  swipeEnabled: boolean;
+  canAdminister: boolean;
+  dx: number;
+  tween: boolean;
+  onOpen: () => void;
+  onToggleSelect: () => void;
+  onRestore: () => void;
+  onExport: () => void;
+  onDelete: () => void;
+  onLongPress: () => void;
+  onSwipeChange: (dx: number) => void;
+  onSwipeEnd: (dx: number) => void;
+}) {
+  const chrome = {
+    selected,
+    selectionMode,
+    swipeEnabled,
+    canAdminister,
+    dx,
+    tween,
+    onOpen,
+    onToggleSelect,
+    onRestore,
+    onExport,
+    onDelete,
+    onLongPress,
+    onSwipeChange,
+    onSwipeEnd,
+  };
+
+  if (project) {
+    return (
+      <ArchivedRowChrome
+        {...chrome}
+        name={project.title}
+        subtitle={archivedProjectDetailLine(project)}
+        label={null}
+        mobileMeta={
+          <>
+            <span>{project.statusLabel}</span>
+            <span>{project.percent}%</span>
+          </>
+        }
+        col2={<span className="hidden truncate text-[12.5px] lg:block">{project.statusLabel}</span>}
+        col3={
+          <div className="hidden items-center gap-1.5 lg:flex">
+            <span className="block h-[5px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+              <span
+                className={cn('block h-full rounded-full', projectStatusBarClass(project.status))}
+                style={{ width: `${project.percent}%` }}
+              />
+            </span>
+            <span className="text-[12.5px] tabular-nums">{project.percent}%</span>
+          </div>
+        }
+        col4={<TeamAvatars people={project.members} />}
+        archivedAt={project.archivedAt}
+        archivedBy={project.archivedBy}
+        canExport={false}
+        adminOnly={archivedCopy.projects.adminOnly}
+      />
+    );
+  }
+
+  if (!card) return null;
+
+  const progress = subtaskProgress(card.subtasks);
+  const tone = card.label ? labelToneClasses(card.label.tone) : null;
+
+  return (
+    <ArchivedRowChrome
+      {...chrome}
+      name={card.title}
+      subtitle={archivedTaskDetailLine(card)}
+      label={
+        tone && card.label ? (
+          <span
+            className={cn(
+              'shrink-0 rounded-full border px-2 py-px text-[11px] font-medium',
+              tone.pill,
+            )}
+          >
+            {card.label.name}
+          </span>
+        ) : null
+      }
+      mobileMeta={
+        <>
+          <span>{card.column.title}</span>
+          <span>
+            {progress.done}/{progress.total}
+          </span>
+        </>
+      }
+      col2={<span className="hidden truncate text-[12.5px] lg:block">{card.column.title}</span>}
+      col3={
+        <span className="hidden text-[12.5px] tabular-nums lg:block">
+          {progress.done}/{progress.total}
+        </span>
+      }
+      col4={<TeamAvatars people={card.assignees} />}
+      archivedAt={card.archivedAt}
+      archivedBy={card.archivedBy}
+      canExport
+      adminOnly={archivedCopy.adminOnly}
+    />
   );
 }

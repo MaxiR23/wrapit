@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import ProjectsBrand from '@/components/projects/ProjectsBrand';
 import { shellFocusClassName } from '@/components/projects/shell';
-import { MY_TASKS_PATH, PROJECTS_PATH } from '@/lib/routes';
+import { MY_TASKS_PATH, PROJECTS_PATH, ARCHIVED_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const navItemClassName =
@@ -16,7 +16,7 @@ export default function ProjectsSidebar({
   activeNav = 'projects',
   openTaskCount = 0,
 }: {
-  activeNav?: 'projects' | 'tasks' | null;
+  activeNav?: 'projects' | 'tasks' | 'archived' | null;
   openTaskCount?: number;
 }) {
   return (
@@ -48,7 +48,12 @@ export default function ProjectsSidebar({
           Icon={ListChecks}
           count={openTaskCount}
         />
-        <InactiveNav label="Archived" CollapsedIcon={Archive} />
+        <NavLink
+          href={ARCHIVED_PATH}
+          label="Archived"
+          active={activeNav === 'archived'}
+          Icon={Archive}
+        />
       </nav>
 
       <button
@@ -126,33 +131,6 @@ function NavLink({
           </span>
         ) : null}
       </Link>
-    </>
-  );
-}
-
-function InactiveNav({
-  label,
-  CollapsedIcon,
-}: {
-  label: string;
-  CollapsedIcon: typeof ListChecks;
-}) {
-  return (
-    <>
-      <span
-        aria-disabled="true"
-        className={cn(collapsedItemClassName, 'text-muted-foreground lg:hidden')}
-      >
-        <CollapsedIcon className="size-[19px]" strokeWidth={1.5} />
-        {label}
-      </span>
-      <span
-        aria-disabled="true"
-        className={cn(navItemClassName, 'hidden text-muted-foreground lg:flex')}
-      >
-        <CollapsedIcon className="size-[19px]" strokeWidth={1.5} />
-        {label}
-      </span>
     </>
   );
 }

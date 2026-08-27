@@ -25,16 +25,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import type { ArchivedTask } from '@/lib/archived';
+import type { ArchivedProject, ArchivedTask } from '@/lib/archived';
 
 const restoreArchivedCards = vi.fn();
 const rearchiveArchivedCards = vi.fn();
 const deleteArchivedCards = vi.fn();
+const restoreArchivedProjects = vi.fn();
+const rearchiveArchivedProjects = vi.fn();
+const deleteArchivedProject = vi.fn();
 const refresh = vi.fn();
 
 vi.mock('@/actions/restoreArchivedCards', () => ({ restoreArchivedCards }));
 vi.mock('@/actions/rearchiveArchivedCards', () => ({ rearchiveArchivedCards }));
 vi.mock('@/actions/deleteArchivedCards', () => ({ deleteArchivedCards }));
+vi.mock('@/actions/restoreArchivedProjects', () => ({ restoreArchivedProjects }));
+vi.mock('@/actions/rearchiveArchivedProjects', () => ({ rearchiveArchivedProjects }));
+vi.mock('@/actions/deleteArchivedProject', () => ({ deleteArchivedProject }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh }),
 }));
@@ -300,5 +306,86 @@ describe('ArchivedView', () => {
     });
     expect(screen.queryByText('Ship the grid')).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Unauthorized');
+  });
+});
+
+const archivedProject: ArchivedProject = {
+  id: 'project-1',
+  title: 'Sprint board',
+  description: 'Ship the board',
+  status: 'IN_PROGRESS',
+  statusLabel: 'In progress',
+  taskCount: 2,
+  doneCount: 1,
+  percent: 50,
+  ownerName: 'Ada Lovelace',
+  members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
+  columns: [{ id: 'col-todo', title: 'To do', cardCount: 2 }],
+  archivedAt: now,
+  archivedBy: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+  canAdminister: true,
+};
+
+describe('ArchivedView projects scope', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    restoreArchivedProjects.mockResolvedValue({
+      data: { ids: ['project-1'], undoToken: 'undo-project' },
+    });
+    rearchiveArchivedProjects.mockResolvedValue({ data: { ids: ['project-1'] } });
+    deleteArchivedProject.mockResolvedValue({ data: { id: 'project-1' } });
+  });
+
+  it('shows archived-projects empty copy', () => {
+    renderView(<ArchivedView initialProjects={[]} />);
+
+    expect(screen.getByText('No archived projects')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'When you archive a project from its board it will show up here, with its history intact.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('hides export and batch delete', () => {
+    renderView(<ArchivedView initialProjects={[archivedProject]} />);
+
+    expect(screen.queryAllByRole('button', { name: 'Export' })).toHaveLength(0);
+    expect(screen.getAllByRole('button', { name: 'Delete permanently' }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps restore and delete disabled for a member of that project', () => {
+    renderView(<ArchivedView initialProjects={[{ ...archivedProject, canAdminister: false }]} />);
+
+    for (const button of screen.getAllByRole('button', { name: 'Restore' })) {
+      expect(button).toBeDisabled();
+    }
+    for (const button of screen.getAllByRole('button', { name: 'Delete permanently' })) {
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it('requires typing the project title before permanent delete', async () => {
+    const user = userEvent.setup();
+    renderView(<ArchivedView initialProjects={[archivedProject]} />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete permanently' })[0]!);
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByRole('heading', { name: 'Delete this project?' }),
+    ).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: /Delete/ });
+    expect(confirm).toBeDisabled();
+
+    await user.type(within(dialog).getByPlaceholderText('Project title'), 'Sprint board');
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => {
+      expect(deleteArchivedProject).toHaveBeenCalledWith({
+        projectId: 'project-1',
+        title: 'Sprint board',
+      });
+    });
   });
 });

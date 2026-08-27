@@ -54,4 +54,12 @@ describe('ProjectsSidebar', () => {
       expect(link).not.toHaveAttribute('aria-current');
     }
   });
+
+  it('links Archived to /archived and marks it current when active', () => {
+    render(<ProjectsSidebar activeNav="archived" />);
+
+    const links = screen.getAllByRole('link', { name: 'Archived' });
+    expect(links[0]).toHaveAttribute('href', '/archived');
+    expect(links[0]).toHaveAttribute('aria-current', 'page');
+  });
 });

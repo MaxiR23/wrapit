@@ -12,7 +12,7 @@ import type { ProjectsShellUser } from '@/components/projects/shell';
 import type { NotificationListItem } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 
-export type ProjectsShellActiveNav = 'projects' | 'tasks' | null;
+export type ProjectsShellActiveNav = 'projects' | 'tasks' | 'archived' | null;
 
 const defaultContentClassName =
   'projects-content-wash flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 pb-6 md:gap-[22px] md:px-5 md:pt-[22px] md:pb-[30px] lg:gap-[26px] lg:px-7 lg:pt-[26px] lg:pb-9';
@@ -50,7 +50,14 @@ export default function ProjectsShell({
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <ProjectsMobileHeader
                   user={user}
-                  title={mobileTitle ?? (activeNav === 'tasks' ? 'My tasks' : 'Projects')}
+                  title={
+                    mobileTitle ??
+                    (activeNav === 'tasks'
+                      ? 'My tasks'
+                      : activeNav === 'archived'
+                        ? 'Archived'
+                        : 'Projects')
+                  }
                 />
                 <ProjectsTopbar
                   user={user}

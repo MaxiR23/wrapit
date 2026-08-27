@@ -46,3 +46,27 @@ export const restoreUndoCardsSchema = z
   .array(restoreUndoCardSnapshotSchema)
   .min(1)
   .max(MAX_ARCHIVED_BATCH);
+
+const projectIdsSchema = z
+  .array(idSchema)
+  .min(1)
+  .max(MAX_ARCHIVED_BATCH)
+  .transform(uniqueIds)
+  .refine((ids) => ids.length >= 1 && ids.length <= MAX_ARCHIVED_BATCH);
+
+export const archiveProjectSchema = z.object({
+  projectId: idSchema,
+});
+
+export const restoreArchivedProjectsSchema = z.object({
+  projectIds: projectIdsSchema,
+});
+
+export const rearchiveArchivedProjectsSchema = z.object({
+  token: idSchema,
+});
+
+export const deleteArchivedProjectSchema = z.object({
+  projectId: idSchema,
+  title: z.string().min(1),
+});

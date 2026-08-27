@@ -105,6 +105,11 @@ vi.mock('@/actions/transferOwnership', () => ({
 vi.mock('@/actions/leaveProject', () => ({
   leaveProject: vi.fn(),
 }));
+vi.mock('@/actions/archiveProject', () => ({
+  archiveProject: vi.fn(async ({ projectId }: { projectId: string }) => ({
+    data: { id: projectId },
+  })),
+}));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));

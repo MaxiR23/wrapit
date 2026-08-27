@@ -37,7 +37,14 @@ export async function listMyActivityEvents(
   const memberships = await prisma.membership.findMany({
     where: { userId: session.user.id },
   });
-  const projectIds = memberships.map((membership) => String(membership.projectId));
+  const membershipProjectIds = memberships.map((membership) => String(membership.projectId));
+  const liveProjects =
+    membershipProjectIds.length === 0
+      ? []
+      : await prisma.project.findMany({
+          where: { id: { in: membershipProjectIds }, archivedAt: null },
+        });
+  const projectIds = liveProjects.map((project) => String(project.id));
 
   const data = await listActivityForActor(prisma as unknown as ActorActivityListDb, {
     actorId: session.user.id,

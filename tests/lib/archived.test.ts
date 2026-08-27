@@ -125,6 +125,19 @@ describe('getArchivedCardsForUser', () => {
     expect(loaded?.comments[0]?.author.username).toBe('grace');
   });
 
+  it('returns null when the project itself is archived', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.project.update({
+      where: { id: project.id },
+      data: { archivedAt: new Date('2026-08-09T10:00:00.000Z') },
+    });
+
+    expect(await getArchivedCardsForUser(project.id, 'user-ada')).toBeNull();
+  });
+
   it('returns null for a non-member', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',

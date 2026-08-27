@@ -14,8 +14,12 @@ import { countOpenMyTasksForUser } from '@/lib/myTasks';
 import { getNotificationsForUser } from '@/lib/notifications';
 import { prisma } from '@/lib/prisma';
 import { getProjectLabelsForUser } from '@/lib/projectLabels';
-import { getProjectForUser, listProjectMembersForUser } from '@/lib/projects';
-import { parseProjectCardId, SIGN_IN_PATH } from '@/lib/routes';
+import {
+  getArchivedProjectForUser,
+  getProjectForUser,
+  listProjectMembersForUser,
+} from '@/lib/projects';
+import { ARCHIVED_PATH, parseProjectCardId, SIGN_IN_PATH } from '@/lib/routes';
 import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
@@ -70,6 +74,10 @@ export default async function ProjectDetailPage({
   const initialOpenCardId = parseProjectCardId(query.card);
   const project = await getProjectForUser(projectId, session.user.id);
   if (!project) {
+    const archived = await getArchivedProjectForUser(projectId, session.user.id);
+    if (archived) {
+      redirect(ARCHIVED_PATH);
+    }
     notFound();
   }
 

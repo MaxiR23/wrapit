@@ -171,4 +171,15 @@ describe('BoardHeader', () => {
     expect(onToggleLog).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
   });
+
+  it('disables Archive for a member', () => {
+    renderHeader({ canAdminister: false });
+
+    const button = screen.getByRole('button', { name: 'Archive project' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      'title',
+      'Only owners and admins can restore or delete archived projects.',
+    );
+  });
 });

@@ -28,6 +28,12 @@ export const TRANSFER_OWNERSHIP_DESCRIPTION =
 export const LEAVE_PROJECT_DESCRIPTION =
   'You will lose access. Your cards stay, unassigned from you.';
 
+/** Confirm copy before archiving a live project. */
+export const ARCHIVE_PROJECT_DESCRIPTION =
+  "This project leaves everyone's list. Restore it from Archived. Permanent delete is only available there.";
+
+export const ARCHIVE_PROJECT_LABEL = 'Archive project';
+
 /** Completing a card when the project has no columns to resolve as Done. */
 export const NO_DONE_COLUMN_MESSAGE = 'This project has no Done column.';
 

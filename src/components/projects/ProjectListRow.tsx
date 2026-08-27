@@ -1,9 +1,12 @@
+import { Archive } from 'lucide-react';
 import Link from 'next/link';
 
 import { projectListGridClassName } from '@/components/projects/projectListGrid';
 import ProjectStarButton, { type OnToggleStar } from '@/components/projects/ProjectStarButton';
 import { shellFocusClassName } from '@/components/projects/shell';
+import { archivedCopy } from '@/lib/archivedCopy';
 import { initials } from '@/lib/initials';
+import { ARCHIVE_PROJECT_LABEL } from '@/lib/messages';
 import { projectStatusBarClass, taskCountLabel, type ProjectSummary } from '@/lib/projectGrid';
 import { projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -11,9 +14,11 @@ import { cn } from '@/lib/utils';
 export default function ProjectListRow({
   project,
   onToggle,
+  onArchive,
 }: {
   project: ProjectSummary;
   onToggle?: OnToggleStar;
+  onArchive?: (project: ProjectSummary) => void;
 }) {
   return (
     <div className="relative border-b border-border transition-[background] duration-[160ms] ease-in-out hover:bg-card-hover">
@@ -28,12 +33,27 @@ export default function ProjectListRow({
           'pointer-events-none relative z-[1] px-3.5 py-[13px] tabular-nums lg:px-4',
         )}
       >
-        <ProjectStarButton
-          projectId={project.id}
-          starred={project.starred}
-          onToggle={onToggle}
-          className="pointer-events-auto justify-self-start"
-        />
+        <div className="pointer-events-auto flex items-center gap-1 justify-self-start">
+          <ProjectStarButton projectId={project.id} starred={project.starred} onToggle={onToggle} />
+          <button
+            type="button"
+            aria-label={ARCHIVE_PROJECT_LABEL}
+            disabled={!project.canAdminister}
+            title={project.canAdminister ? undefined : archivedCopy.projects.adminOnly}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!project.canAdminister) return;
+              onArchive?.(project);
+            }}
+            className={cn(
+              shellFocusClassName,
+              'inline-flex rounded-sm text-subtle disabled:cursor-not-allowed disabled:opacity-50',
+            )}
+          >
+            <Archive className="size-3.5" strokeWidth={1.75} />
+          </button>
+        </div>
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-sm font-medium">{project.title}</span>
           <span className="text-xs text-muted-foreground">

@@ -9,12 +9,14 @@ export default function ArchivedEmptyState({
   projectTitle,
   filtered,
   onClear,
+  empty,
 }: {
-  projectTitle: string;
+  projectTitle?: string;
   filtered: boolean;
   onClear: () => void;
+  empty?: { title: string; body: string };
 }) {
-  const copy = filtered ? ARCHIVED_FILTER_EMPTY : archivedEmptyCopy(projectTitle);
+  const copy = filtered ? ARCHIVED_FILTER_EMPTY : (empty ?? archivedEmptyCopy(projectTitle ?? ''));
   return (
     <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-16 text-center">
       <Archive className="size-[26px] text-muted" strokeWidth={1.5} aria-hidden />

@@ -59,6 +59,7 @@ const sprintBoard: ProjectSummary = {
   percent: 46,
   updatedLabel: 'Updated 2 hours ago',
   starred: false,
+  canAdminister: true,
   members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 

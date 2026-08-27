@@ -188,6 +188,18 @@ function sentenceFor(
       const data = payload as ActivityPayloadFor<'MEMBER_LEFT'>;
       return copy.memberLeft({ actorName: data.actorName });
     }
+    case 'PROJECT_ARCHIVED': {
+      const data = payload as ActivityPayloadFor<'PROJECT_ARCHIVED'>;
+      return copy.projectArchived({ actorName: data.actorName, projectTitle: data.projectTitle });
+    }
+    case 'PROJECT_RESTORED': {
+      const data = payload as ActivityPayloadFor<'PROJECT_RESTORED'>;
+      return copy.projectRestored({ actorName: data.actorName, projectTitle: data.projectTitle });
+    }
+    case 'PROJECT_DELETED': {
+      const data = payload as ActivityPayloadFor<'PROJECT_DELETED'>;
+      return copy.projectDeleted({ actorName: data.actorName, projectTitle: data.projectTitle });
+    }
   }
 }
 

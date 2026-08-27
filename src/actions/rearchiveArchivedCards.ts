@@ -55,6 +55,9 @@ export async function rearchiveArchivedCards(input: {
       if (!row) {
         throw new UndoTokenError();
       }
+      if (row.kind === 'PROJECT') {
+        throw new UndoTokenError();
+      }
 
       const snapshots = restoreUndoCardsSchema.safeParse(row.cards);
       if (!snapshots.success) {

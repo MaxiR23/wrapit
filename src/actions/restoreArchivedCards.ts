@@ -123,6 +123,7 @@ export async function restoreArchivedCards(input: {
           id: undoToken,
           userId: session.user.id,
           projectId: project.id,
+          kind: 'CARDS',
           expiresAt: restoreUndoExpiresAt(),
           cards: snapshots,
         },

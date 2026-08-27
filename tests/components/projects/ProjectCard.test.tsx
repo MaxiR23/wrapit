@@ -33,6 +33,7 @@ const project: ProjectSummary = {
   percent: 46,
   updatedLabel: 'Updated 2 hours ago',
   starred: false,
+  canAdminister: true,
   members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
 
@@ -93,5 +94,31 @@ describe('ProjectCard', () => {
 
     expect(onLinkClick).not.toHaveBeenCalled();
     expect(onToggle).toHaveBeenCalledWith('project-1', true);
+  });
+
+  it('calls onArchive without navigating', async () => {
+    const onArchive = vi.fn();
+    const user = userEvent.setup();
+    render(<ProjectCard project={project} onArchive={onArchive} />);
+
+    const link = screen.getByRole('link', { name: /Sprint board/ });
+    const onLinkClick = vi.fn();
+    link.addEventListener('click', onLinkClick);
+
+    await user.click(screen.getByRole('button', { name: 'Archive project' }));
+
+    expect(onArchive).toHaveBeenCalledWith(project);
+    expect(onLinkClick).not.toHaveBeenCalled();
+  });
+
+  it('disables archive for a member', () => {
+    render(<ProjectCard project={{ ...project, canAdminister: false }} />);
+
+    const button = screen.getByRole('button', { name: 'Archive project' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      'title',
+      'Only owners and admins can restore or delete archived projects.',
+    );
   });
 });

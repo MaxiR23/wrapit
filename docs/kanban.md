@@ -93,6 +93,21 @@ user id. Expired, already-used, or someone else's token is refused as
 Unauthorized with no write. Permanent delete from this
 screen is a confirmed batch with no undo.
 
+OWNER and ADMIN can archive a live project from the board header or the
+projects grid. That writes `Project.archivedAt` / `archivedById` with a count
+guard (`archivedAt: null`). Live list helpers (`accessibleByUser`,
+`withBoardAccess`, `administeredByUser`) include `archivedAt: null`, so an
+archived project disappears from Projects, recents, stars, My tasks, account
+activity, and the board. A member who still has a board bookmark is redirected
+to `/archived`; anyone else gets `notFound()`. Accepting an invite to an
+archived project is refused. Permanent delete is only on `/archived`, requires
+typing the project title exactly, and cascades columns, cards, comments,
+history, memberships, invitations, recents, and undo tokens. Restore is batched
+and mints a `RestoreUndoToken` with `kind: PROJECT` using the same snapshot
+shape as cards; undo calls `rearchiveArchivedProjects({ token })`. The card
+rearchive path refuses a `PROJECT` token. A MEMBER's archive, restore, and
+delete controls are disabled; the server refuses regardless.
+
 The new-task dialog opens from a
 column plus with that column preselected. Its pencil opens the same `LabelEditor`
 used for project labels: renaming a label updates every card that points at it;
@@ -328,7 +343,7 @@ src/lib/validation/boardVisibility.ts  six board-face visibility flags
 src/actions/updateBoardVisibility.ts persist board field visibility on UserPreferences
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, unassign, owner backfill
+src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, archived counterparts, last-OWNER guard, unassign, owner backfill
 src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress; doneColumnFrom / inboxColumnFrom
@@ -371,20 +386,24 @@ src/components/tasks/MyTasksView.tsx    assigned-task list, filters, groups, emp
 src/components/tasks/MyTaskRow.tsx      complete circle vs open-detail split
 src/components/tasks/MyTasksDetail.tsx  right panel from tablet; bottom sheet on phone
 src/components/tasks/NewTaskPopover.tsx two-step create (project, then title + due)
-src/components/archived/ArchivedView.tsx  archived tasks: filters, selection, restore, export, delete
+src/components/archived/ArchivedView.tsx  archived tasks or projects: filters, selection, restore, export, delete
 src/components/archived/ArchivedRow.tsx   phone swipe/long-press and wide-table row
-src/components/archived/ArchivedDetail.tsx  read-only archived task panel
+src/components/archived/ArchivedDetail.tsx  read-only archived task or project panel
 src/components/archived/ArchivedEmptyState.tsx  none-archived and no-results empty states
-src/components/archived/ArchivedDeleteDialog.tsx  permanent-delete confirm
+src/components/archived/ArchivedDeleteDialog.tsx  permanent-delete confirm for tasks
+src/components/archived/ArchivedDeleteProjectDialog.tsx  typed-title permanent-delete confirm
 src/components/archived/ArchivedExportDialog.tsx  CSV or JSON at export time
 src/lib/archived.ts                     filter, sort, slice, copy helpers
 src/lib/archivedQuery.ts                load archived cards for a member
+src/lib/archivedProjectsQuery.ts        load archived projects for a member
 src/lib/archivedCopy.ts                 English archived-screen copy
 src/lib/archivedExport.ts               client-side CSV/JSON from loaded rows
-src/lib/archivedScope.ts                tasks-scope adapter stub
+src/lib/archivedScope.ts                tasks and projects scope adapters
 src/lib/restoreUndo.ts                  undo-token id, ttl, expired-row cleanup
-src/lib/validation/archived.ts          restore, rearchive, delete schemas
+src/lib/validation/archived.ts          restore, rearchive, delete, archive-project schemas
 src/app/projects/[projectId]/archived/page.tsx  archived tasks route (member only)
+src/app/archived/page.tsx               archived projects route
+src/components/projects/ArchiveProjectDialog.tsx  confirm before archiving a live project
 src/components/projects/ViewerTimeZoneProvider.tsx  the viewer's IANA zone
 src/actions/updateCardField.ts          persist one card title, description, or due date
 src/actions/updateCardAssignees.ts      replace card assignees (members only)
@@ -393,6 +412,10 @@ src/actions/archiveCard.ts              set archivedAt and archivedById (occupan
 src/actions/restoreArchivedCards.ts     restore to stored column; mint undo token; CARD_RESTORED
 src/actions/rearchiveArchivedCards.ts   redeem restore undo token; original archive metadata
 src/actions/deleteArchivedCards.ts      permanently delete archived cards
+src/actions/archiveProject.ts           occupancy on live + OWNER/ADMIN membership
+src/actions/restoreArchivedProjects.ts  occupancy on archived + OWNER/ADMIN; mint PROJECT undo
+src/actions/rearchiveArchivedProjects.ts redeem project restore undo; OWNER/ADMIN on the write
+src/actions/deleteArchivedProject.ts    occupancy on archived + typed title + OWNER/ADMIN
 src/actions/createSubtask.ts            append a subtask (max order + 1)
 src/actions/updateSubtaskField.ts       persist subtask text or done
 src/actions/deleteSubtask.ts            delete a subtask

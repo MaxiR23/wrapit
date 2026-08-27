@@ -35,28 +35,56 @@ type CardAssigneeTx = {
   };
 };
 
-/** Prisma Project where: the user has any Membership on the project. */
+/** Prisma Project where: the user has any Membership on a live project. */
 export function accessibleByUser(userId: string): {
+  archivedAt: null;
   memberships: { some: { userId: string } };
 } {
-  return { memberships: { some: { userId } } };
+  return { archivedAt: null, memberships: { some: { userId } } };
 }
 
-/** Prisma Project where: the user has board access at least `min`. */
+/** Prisma Project where: the user has board access at least `min` on a live project. */
 export function withBoardAccess(
   userId: string,
   min: BoardAccess,
 ): {
+  archivedAt: null;
   memberships: { some: { userId: string; access: { in: BoardAccess[] } } };
 } {
-  return { memberships: { some: { userId, access: { in: accessesAtLeast(min) } } } };
+  return {
+    archivedAt: null,
+    memberships: { some: { userId, access: { in: accessesAtLeast(min) } } },
+  };
 }
 
-/** Prisma Project where: the user is OWNER or ADMIN (team administration). */
+/** Prisma Project where: the user is OWNER or ADMIN of a live project. */
 export function administeredByUser(userId: string): {
+  archivedAt: null;
   memberships: { some: { userId: string; role: { in: MembershipRole[] } } };
 } {
-  return { memberships: { some: { userId, role: { in: ['OWNER', 'ADMIN'] } } } };
+  return {
+    archivedAt: null,
+    memberships: { some: { userId, role: { in: ['OWNER', 'ADMIN'] } } },
+  };
+}
+
+/** Prisma Project where: the user has any Membership on an archived project. */
+export function archivedAccessibleByUser(userId: string): {
+  archivedAt: { not: null };
+  memberships: { some: { userId: string } };
+} {
+  return { archivedAt: { not: null }, memberships: { some: { userId } } };
+}
+
+/** Prisma Project where: the user is OWNER or ADMIN of an archived project. */
+export function archivedAdministeredByUser(userId: string): {
+  archivedAt: { not: null };
+  memberships: { some: { userId: string; role: { in: MembershipRole[] } } };
+} {
+  return {
+    archivedAt: { not: null },
+    memberships: { some: { userId, role: { in: ['OWNER', 'ADMIN'] } } },
+  };
 }
 
 /**

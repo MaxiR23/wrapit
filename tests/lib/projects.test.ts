@@ -40,6 +40,7 @@ const {
   listProjectSummariesForUser,
   listRecentProjectsForUser,
   listProjectMembersForUser,
+  getArchivedProjectForUser,
 } = await import('@/lib/projects');
 
 describe('listProjectsForUser', () => {
@@ -367,6 +368,7 @@ describe('listProjectSummariesForUser', () => {
         doneCount: 1,
         percent: 50,
         starred: false,
+        canAdminister: true,
       }),
     );
     expect(summaries[0]?.members.map((member) => member.username)).toEqual(['ada', 'maxi']);
@@ -568,5 +570,44 @@ describe('listProjectMembersForUser', () => {
     });
 
     expect(await listProjectMembersForUser(project.id, 'user-ada')).toBeNull();
+  });
+});
+
+describe('archived project leak', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  async function seedArchivedMembership() {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.project.update({
+      where: { id: project.id },
+      data: { archivedAt: new Date('2026-08-09T10:00:00.000Z'), archivedById: 'user-ada' },
+    });
+    await db.recentProject.create({
+      data: { userId: 'user-ada', projectId: project.id, openedAt: new Date() },
+    });
+    return project;
+  }
+
+  it('omits archived projects from live lists and board reads', async () => {
+    const project = await seedArchivedMembership();
+
+    expect(await listProjectsForUser('user-ada')).toEqual([]);
+    expect(await listProjectSummariesForUser('user-ada')).toEqual([]);
+    expect(await listRecentProjectsForUser('user-ada')).toEqual([]);
+    expect(await getProjectForUser(project.id, 'user-ada')).toBeNull();
+  });
+
+  it('returns the archived project for a member bookmark redirect', async () => {
+    const project = await seedArchivedMembership();
+
+    expect(await getArchivedProjectForUser(project.id, 'user-ada')).toEqual(
+      expect.objectContaining({ id: project.id }),
+    );
+    expect(await getArchivedProjectForUser(project.id, 'user-other')).toBeNull();
   });
 });

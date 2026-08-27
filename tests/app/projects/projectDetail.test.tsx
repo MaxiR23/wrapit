@@ -24,6 +24,7 @@ import userEvent from '@testing-library/user-event';
 
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
+const getArchivedProjectForUser = vi.fn();
 const listProjectMembersForUser = vi.fn();
 const getProjectLabelsForUser = vi.fn();
 const getUserPreferences = vi.fn();
@@ -41,6 +42,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/projects', () => ({
   getProjectForUser,
+  getArchivedProjectForUser,
   listProjectMembersForUser,
 }));
 
@@ -106,6 +108,7 @@ vi.mock('@/actions/removeMember', () => ({ removeMember: vi.fn() }));
 vi.mock('@/actions/updatePublicLink', () => ({ updatePublicLink: vi.fn() }));
 vi.mock('@/actions/transferOwnership', () => ({ transferOwnership: vi.fn() }));
 vi.mock('@/actions/leaveProject', () => ({ leaveProject: vi.fn() }));
+vi.mock('@/actions/archiveProject', () => ({ archiveProject: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -212,13 +215,27 @@ describe('Project detail page', () => {
 
   it('calls notFound when the project belongs to someone else', async () => {
     getProjectForUser.mockResolvedValue(null);
+    getArchivedProjectForUser.mockResolvedValue(null);
 
     await expect(ProjectDetailPage(pageProps('project-1'))).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();
+    expect(getArchivedProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
+  });
+
+  it('redirects a member of an archived project to /archived', async () => {
+    getProjectForUser.mockResolvedValue(null);
+    getArchivedProjectForUser.mockResolvedValue({ id: 'project-1' });
+
+    await expect(ProjectDetailPage(pageProps('project-1'))).rejects.toThrow(
+      'NEXT_REDIRECT:/archived',
+    );
+    expect(redirect).toHaveBeenCalledWith('/archived');
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('calls notFound when the project id is unknown', async () => {
     getProjectForUser.mockResolvedValue(null);
+    getArchivedProjectForUser.mockResolvedValue(null);
 
     await expect(ProjectDetailPage(pageProps('missing'))).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFound).toHaveBeenCalled();

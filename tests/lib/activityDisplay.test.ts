@@ -230,6 +230,36 @@ describe('activitySentence', () => {
         }),
       ),
     ).toBe('Ada Lovelace left the project.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-archived',
+          type: 'PROJECT_ARCHIVED',
+          payload: { ...actor, projectTitle: 'Sprint board' },
+        }),
+      ),
+    ).toBe('Ada Lovelace archived "Sprint board".');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-restored',
+          type: 'PROJECT_RESTORED',
+          payload: { ...actor, projectTitle: 'Sprint board' },
+        }),
+      ),
+    ).toBe('Ada Lovelace restored "Sprint board".');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-deleted',
+          type: 'PROJECT_DELETED',
+          payload: { ...actor, projectTitle: 'Sprint board' },
+        }),
+      ),
+    ).toBe('Ada Lovelace permanently deleted "Sprint board".');
   });
 
   it('keeps a snapshotted column name after a rename', () => {

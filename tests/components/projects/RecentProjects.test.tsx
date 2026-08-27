@@ -30,6 +30,7 @@ function summary(id: string, title: string, percent: number): ProjectSummary {
     percent,
     updatedLabel: 'Updated just now',
     starred: false,
+    canAdminister: true,
     members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
   };
 }
