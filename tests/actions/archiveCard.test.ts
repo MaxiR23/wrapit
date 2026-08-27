@@ -74,6 +74,7 @@ describe('archiveCard', () => {
 
     expect(result).toEqual({ data: { id: card.id } });
     expect(db.card.rows[0]?.archivedAt).toBeInstanceOf(Date);
+    expect(db.card.rows[0]?.archivedById).toBe(sessionUser.id);
     expect(db.activityEvent.rows).toEqual([
       expect.objectContaining({
         type: 'CARD_ARCHIVED',
@@ -82,6 +83,7 @@ describe('archiveCard', () => {
       }),
     ]);
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
+    expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}/archived`);
     expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 

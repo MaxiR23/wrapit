@@ -10,6 +10,7 @@
 // - accountPath builds /account?tab= hrefs
 // - parseAccountTab defaults to profile and falls back for unknown values
 // - projectCardPath builds /projects/:id?card= hrefs
+// - projectArchivedPath builds /projects/:id/archived
 // - parseProjectCardId returns a bounded id or null
 //
 // What is covered:
@@ -29,6 +30,7 @@ import {
   isPublicPath,
   parseAccountTab,
   parseProjectCardId,
+  projectArchivedPath,
   projectCardPath,
 } from '@/lib/routes';
 
@@ -105,6 +107,12 @@ describe('isAccountTab', () => {
 describe('projectCardPath', () => {
   it('builds a project href with a card query', () => {
     expect(projectCardPath('proj-1', 'card-9')).toBe('/projects/proj-1?card=card-9');
+  });
+});
+
+describe('projectArchivedPath', () => {
+  it('builds the archived tasks href for a project', () => {
+    expect(projectArchivedPath('proj-1')).toBe('/projects/proj-1/archived');
   });
 });
 

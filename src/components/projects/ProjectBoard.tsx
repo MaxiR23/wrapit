@@ -53,6 +53,7 @@ import type { BoardAccess } from '@/lib/membership';
 import type { ActivityCursor, ActivityEventListItem } from '@/lib/activity';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
+import { projectArchivedPath } from '@/lib/routes';
 
 export type ProjectBoardHandle = {
   commitMove: (cardId: string, targetColumnId: string) => Promise<void>;
@@ -417,7 +418,11 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     }
     setOpenCardId(null);
     removeCardFromBoard(cardId);
-    setToast({ message: 'Task archived', role: 'status' });
+    setToast({
+      message: 'Task archived',
+      role: 'status',
+      action: { href: projectArchivedPath(projectId), label: 'View archived' },
+    });
   }
 
   async function handleDelete() {
@@ -485,6 +490,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
       <div className="flex min-h-0 flex-1 flex-col">
         <BoardHeader
           title={title}
+          projectId={projectId}
           doneCount={progress.doneCount}
           taskCount={progress.taskCount}
           percent={progress.percent}

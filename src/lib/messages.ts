@@ -22,3 +22,11 @@ export const NO_DONE_COLUMN_MESSAGE = 'This project has no Done column.';
 
 /** Returning a card to pending when every column is the Done column. */
 export const NO_OPEN_COLUMN_MESSAGE = 'This project has no open column.';
+
+/** Restoring an archived card whose stored column is gone. */
+export const MISSING_COLUMN_MESSAGE =
+  'The original column no longer exists, so this task cannot be restored.';
+
+/** Batch restore when any selected card's stored column is gone. Nothing is written. */
+export const MISSING_COLUMN_BATCH_MESSAGE =
+  "A selected task's original column no longer exists, so nothing was restored.";

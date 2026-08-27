@@ -346,6 +346,8 @@ export function createPrismaFake() {
         return (models.label?.rows ?? []).filter((label) => label.projectId === row.id);
       case 'label':
         return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
+      case 'column':
+        return (models.column?.rows ?? []).filter((column) => column.id === row.columnId);
       case 'assignees':
         return (models.cardAssignee?.rows ?? []).filter((assignee) => assignee.cardId === row.id);
       case 'subtasks':
@@ -356,6 +358,10 @@ export function createPrismaFake() {
         return (models.activityEvent?.rows ?? []).filter((event) => event.projectId === row.id);
       case 'actor':
         return (models.user?.rows ?? []).filter((user) => user.id === row.actorId);
+      case 'restoreUndoTokens':
+        return (models.restoreUndoToken?.rows ?? []).filter(
+          (token) => token.projectId === row.id || token.userId === row.id,
+        );
       default:
         return [];
     }
@@ -395,6 +401,7 @@ export function createPrismaFake() {
     comment: createModel(getRelated),
     recentProject: createModel(getRelated),
     activityEvent: createModel(getRelated),
+    restoreUndoToken: createModel(getRelated),
   };
   Object.assign(models, fake);
 
@@ -465,6 +472,11 @@ export function createPrismaFake() {
       fake.activityEvent.rows.length,
       ...fake.activityEvent.rows.filter((row) => !ids.has(row.projectId)),
     );
+    fake.restoreUndoToken.rows.splice(
+      0,
+      fake.restoreUndoToken.rows.length,
+      ...fake.restoreUndoToken.rows.filter((row) => !ids.has(row.projectId)),
+    );
   }
 
   const originalProjectDelete = fake.project.delete;
@@ -490,6 +502,11 @@ export function createPrismaFake() {
         event.actorId = null;
       }
     }
+    fake.restoreUndoToken.rows.splice(
+      0,
+      fake.restoreUndoToken.rows.length,
+      ...fake.restoreUndoToken.rows.filter((row) => !ids.has(row.userId)),
+    );
   }
 
   const originalUserDelete = fake.user.delete;

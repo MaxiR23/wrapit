@@ -96,6 +96,16 @@ describe('activitySentence', () => {
     expect(
       activitySentence(
         view({
+          id: 'e3b',
+          type: 'CARD_RESTORED',
+          payload: { ...actor, cardId: 'c1', cardTitle: 'Old task' },
+        }),
+      ),
+    ).toBe('Ada Lovelace restored "Old task".');
+
+    expect(
+      activitySentence(
+        view({
           id: 'e4',
           type: 'CARD_DELETED',
           payload: { ...actor, cardId: 'c1', cardTitle: 'Old task' },

@@ -25,6 +25,7 @@ export default function ProjectsShell({
   showSearch = true,
   searchPlaceholder = 'Search projects',
   searchAriaLabel = 'Search projects',
+  mobileTitle,
   contentClassName,
   children,
 }: {
@@ -35,6 +36,7 @@ export default function ProjectsShell({
   showSearch?: boolean;
   searchPlaceholder?: string;
   searchAriaLabel?: string;
+  mobileTitle?: string;
   contentClassName?: string;
   children: ReactNode;
 }) {
@@ -48,7 +50,7 @@ export default function ProjectsShell({
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <ProjectsMobileHeader
                   user={user}
-                  title={activeNav === 'tasks' ? 'My tasks' : 'Projects'}
+                  title={mobileTitle ?? (activeNav === 'tasks' ? 'My tasks' : 'Projects')}
                 />
                 <ProjectsTopbar
                   user={user}
