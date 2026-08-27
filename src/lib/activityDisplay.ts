@@ -120,6 +120,10 @@ function sentenceFor(
       const data = payload as ActivityPayloadFor<'CARD_ARCHIVED'>;
       return copy.cardArchived({ actorName: data.actorName, cardTitle: data.cardTitle });
     }
+    case 'CARD_RESTORED': {
+      const data = payload as ActivityPayloadFor<'CARD_RESTORED'>;
+      return copy.cardRestored({ actorName: data.actorName, cardTitle: data.cardTitle });
+    }
     case 'CARD_DELETED': {
       const data = payload as ActivityPayloadFor<'CARD_DELETED'>;
       return copy.cardDeleted({ actorName: data.actorName, cardTitle: data.cardTitle });

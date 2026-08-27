@@ -39,9 +39,11 @@ User presence tones are a separate catalog: `--user-status-green`,
 `--user-status-blue`, `--user-status-violet`. Board cards add `--late` for
 overdue due dates and eight label tones (`--label-blue`, `--label-green`,
 `--label-amber`, `--label-red`, `--label-violet`, `--label-cyan`, `--label-pink`,
-`--label-gray`). They are defined next to the other variables in `globals.css`
+`--label-gray`). Archive swipe uses `--ok`, `--ok-soft`, and `--ok-edge`. All of
+these extra roles are defined next to the other variables in `globals.css`
 and mapped in `@theme inline`, so components use `bg-surface`, `text-subtle`,
 `bg-status-in-progress`, `text-user-status-green`, `text-late`, `text-label-violet`,
+`bg-ok-soft`, `text-ok`,
 and so on. The six presence keys live in `src/lib/userStatus.ts`; the eight label
 keys live in `src/lib/labelTones.ts`. JSX never inlines their oklch values.
 

@@ -52,6 +52,7 @@ const validPayloads = {
     toColumnTitle: 'In progress',
   },
   CARD_ARCHIVED: { ...actor, cardId: 'card-1', cardTitle: 'Write tests' },
+  CARD_RESTORED: { ...actor, cardId: 'card-1', cardTitle: 'Write tests' },
   CARD_DELETED: { ...actor, cardId: 'card-1', cardTitle: 'Write tests' },
   ASSIGNEES_CHANGED: {
     ...actor,

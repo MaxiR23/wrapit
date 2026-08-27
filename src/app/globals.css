@@ -56,6 +56,9 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-edge: var(--danger-edge);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-edge: var(--ok-edge);
   --color-label-blue: var(--label-blue);
   --color-label-green: var(--label-green);
   --color-label-amber: var(--label-amber);
@@ -297,6 +300,9 @@
   --danger: oklch(0.7 0.15 25);
   --danger-soft: oklch(0.7 0.15 25 / 14%);
   --danger-edge: oklch(0.7 0.15 25 / 40%);
+  --ok: oklch(0.78 0.11 160);
+  --ok-soft: oklch(0.78 0.11 160 / 14%);
+  --ok-edge: oklch(0.78 0.11 160 / 38%);
   --label-blue: oklch(0.72 0.085 245);
   --label-green: oklch(0.74 0.085 155);
   --label-amber: oklch(0.78 0.075 75);
@@ -376,6 +382,9 @@
   --danger: oklch(0.7 0.15 25);
   --danger-soft: oklch(0.7 0.15 25 / 14%);
   --danger-edge: oklch(0.7 0.15 25 / 40%);
+  --ok: oklch(0.78 0.11 160);
+  --ok-soft: oklch(0.78 0.11 160 / 14%);
+  --ok-edge: oklch(0.78 0.11 160 / 38%);
   --label-blue: oklch(0.72 0.085 245);
   --label-green: oklch(0.74 0.085 155);
   --label-amber: oklch(0.78 0.075 75);

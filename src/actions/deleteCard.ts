@@ -38,7 +38,9 @@ export async function deleteCard(input: { cardId: string }): Promise<DeleteCardR
 
   try {
     await prisma.$transaction(async (tx) => {
-      const deleted = await tx.card.deleteMany({ where: { id: owned.card.id } });
+      const deleted = await tx.card.deleteMany({
+        where: { id: owned.card.id, archivedAt: null },
+      });
       if (deleted.count !== 1) {
         throw new OccupancyError();
       }

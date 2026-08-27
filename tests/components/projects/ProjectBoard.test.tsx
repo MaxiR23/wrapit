@@ -693,6 +693,10 @@ describe('ProjectBoard', () => {
 
     expect(within(desktopColumn('To do')).queryByText('Card A')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Task archived');
+    expect(screen.getByRole('link', { name: 'View archived' })).toHaveAttribute(
+      'href',
+      '/projects/project-1/archived',
+    );
   });
 
   it('narrows the board by selected labels and search text together', async () => {

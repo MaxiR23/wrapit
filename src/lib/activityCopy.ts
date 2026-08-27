@@ -14,6 +14,7 @@ export type ActivityCopy = {
     toColumnTitle: string;
   }) => string;
   cardArchived: (input: { actorName: string; cardTitle: string }) => string;
+  cardRestored: (input: { actorName: string; cardTitle: string }) => string;
   cardDeleted: (input: { actorName: string; cardTitle: string }) => string;
   assigneesChanged: (input: {
     actorName: string;
@@ -63,6 +64,7 @@ export const activityCopy: ActivityCopy = {
   cardMoved: ({ actorName, cardTitle, fromColumnTitle, toColumnTitle }) =>
     `${actorName} moved "${cardTitle}" from ${fromColumnTitle} to ${toColumnTitle}.`,
   cardArchived: ({ actorName, cardTitle }) => `${actorName} archived "${cardTitle}".`,
+  cardRestored: ({ actorName, cardTitle }) => `${actorName} restored "${cardTitle}".`,
   cardDeleted: ({ actorName, cardTitle }) => `${actorName} deleted "${cardTitle}".`,
   assigneesChanged: ({ actorName, cardTitle, assigneeNames }) => {
     if (assigneeNames.length === 0) {

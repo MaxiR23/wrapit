@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { X } from 'lucide-react';
 
 import { shellFocusClassName } from '@/components/projects/shell';
+import { archivedCopy } from '@/lib/archivedCopy';
 import { cn } from '@/lib/utils';
 
 const TOAST_MS = 5000;
@@ -11,6 +13,8 @@ const TOAST_MS = 5000;
 export type BoardToastMessage = {
   message: string;
   role: 'status' | 'alert';
+  action?: { href: string; label: string };
+  onUndo?: () => void;
 };
 
 export default function BoardToast({
@@ -38,6 +42,32 @@ export default function BoardToast({
       )}
     >
       <span>{toast.message}</span>
+      {toast.action ? (
+        <Link
+          href={toast.action.href}
+          className={cn(
+            shellFocusClassName,
+            'rounded-sm text-[13px] font-medium text-foreground underline-offset-2 hover:underline',
+          )}
+        >
+          {toast.action.label}
+        </Link>
+      ) : null}
+      {toast.onUndo ? (
+        <button
+          type="button"
+          onClick={() => {
+            toast.onUndo?.();
+            onDismiss();
+          }}
+          className={cn(
+            shellFocusClassName,
+            'rounded-sm text-[13px] font-medium text-foreground underline-offset-2 hover:underline',
+          )}
+        >
+          {archivedCopy.undo}
+        </button>
+      ) : null}
       <button
         type="button"
         aria-label="Dismiss"

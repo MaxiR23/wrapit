@@ -5,6 +5,7 @@
 // Tested:
 // - Deletes a card that belongs to the signed-in user's project
 // - Deletes comments and subtasks that belong to the card
+// - Rejects deleting an archived card (occupancy on archivedAt null)
 // - Rejects deleting a card on another user's project
 // - Rejects the call when there is no session
 // - Returns a generic error when Prisma fails unexpectedly
@@ -104,6 +105,31 @@ describe('deleteCard', () => {
     expect(db.card.rows).toHaveLength(0);
     expect(db.subtask.rows).toHaveLength(0);
     expect(db.comment.rows).toHaveLength(0);
+  });
+
+  it('rejects deleting an archived card without removing it', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: {
+        title: 'Write tests',
+        order: 1,
+        columnId: column.id,
+        archivedAt: new Date('2026-08-01'),
+      },
+    });
+
+    const result = await deleteCard({ cardId: card.id });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.card.rows).toHaveLength(1);
+    expect(db.activityEvent.rows).toHaveLength(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it('rejects deleting a card on another user project', async () => {

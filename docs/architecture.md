@@ -13,7 +13,7 @@ import from `components/`, `actions/` and `lib/`; `components/` may import from
 - `src/app/` — **routes only**. A page composes; it does not implement domain
   logic. Keep it thin so a second route can reuse the same pieces.
 - `src/components/` — React UI grouped by domain (`auth/`, `projects/`, `cards/`,
-  `notifications/`, `account/`).
+  `notifications/`, `account/`, `labels/`, `tasks/`, `archived/`).
   `ui/` is the exception: shadcn/ui primitives. Feature UI never lands in `ui/`.
 - `src/actions/` — server actions, one file each, each starting with
   `'use server'`. Mutations that need the real session and Prisma live here.
@@ -99,6 +99,7 @@ user. Label and assignee ids must belong to the target column's project
 (count guards); a mismatch rolls back. After that occupancy write the same
 transaction inserts one `ActivityEvent` (`CARD_CREATED`) so a logging failure
 rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
+`restoreArchivedCards`, `rearchiveArchivedCards`, `deleteArchivedCards`,
 `updateCardAssignees`, `updateCardLabel`, due-date `updateCardField`,
 `createComment`, `acceptInvitation`, and `removeMember` do the same for their
 types. Title and description writes, subtasks, column/label CRUD, and
@@ -120,9 +121,19 @@ those fields with membership/label count guards and go through the same
 hook (debounce 0, one in-flight write per card) so overlapping replacements
 cannot commit out of order; subtask done uses one in-flight write per
 subtask and reverts that row only. `archiveCard` claims
-`archivedAt: null`; `createSubtask` appends `(max order)+1`; subtask and
-comment mutations walk the card ownership chain. `deleteCard` is
-`deleteMany` with a count guard; comments and subtasks cascade.
+`archivedAt: null` and writes `archivedById`. `createSubtask` appends
+`(max order)+1`; subtask and comment mutations walk the card ownership chain.
+`deleteCard` is `deleteMany` with a count guard on live cards (`archivedAt: null`);
+comments and subtasks cascade. `restoreArchivedCards` clears archive fields in
+one OWNER/ADMIN transaction and logs `CARD_RESTORED`; it refuses the batch when
+a stored column is gone. In the same transaction it reads the pre-restore
+`archivedAt` / `archivedById` itself and inserts a `RestoreUndoToken` (random id,
+the session user, the project, five-minute expiry, JSON snapshot of those
+values). Undo calls `rearchiveArchivedCards` with only that token; the action
+claims the row (`userId` + unexpired), writes the stored metadata back, and
+deletes the token. Expired rows are deleted on restore and on redeem
+(`expiresAt <= now`); user and project deletes cascade the rest. A stale,
+foreign, or cross-project token is Unauthorized and writes nothing.
 `createProject` creates a project for the session user (optional description,
 status `NEW` | `IN_PROGRESS` | `PAUSED`, default `NEW`) and seeds columns plus an
 OWNER `Membership` in one transaction: an optional `columns` list (1–8 titles; client `order` is sorted
@@ -318,14 +329,24 @@ in `docs/kanban.md`.
     src/actions/updateCardField.ts      persist one card title, description, or due date
     src/actions/updateCardAssignees.ts  replace assignees; membership count guard
     src/actions/updateCardLabel.ts      set or clear the card label
-    src/actions/archiveCard.ts          set archivedAt when it is currently null
+    src/actions/archiveCard.ts          set archivedAt and archivedById when archivedAt is null
+    src/actions/restoreArchivedCards.ts restore archived cards to their stored column; mint undo token
+    src/actions/rearchiveArchivedCards.ts redeem restore undo token; original archive metadata
+    src/actions/deleteArchivedCards.ts  permanently delete archived cards
+    src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks
+    src/lib/archivedQuery.ts            load archived cards for a member (server-only)
+    src/lib/archivedCopy.ts             English archived-screen copy
+    src/lib/archivedExport.ts           CSV/JSON export of loaded rows
+    src/lib/archivedScope.ts            tasks-scope adapter stub
+    src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
+    src/lib/validation/archived.ts      restore, rearchive, and delete schemas
     src/actions/createSubtask.ts        append a subtask on an accessible card
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
     src/actions/createComment.ts        append a comment as the session user
     src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
     src/actions/listMyActivityEvents.ts  session user's events across current memberships
-    src/actions/deleteCard.ts           delete an accessible card (cascades comments and subtasks)
+    src/actions/deleteCard.ts           delete a live card (occupancy on archivedAt null)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
     src/actions/setCardCompleted.ts     move a card to Done or inbox (EDIT, occupancy)
     src/actions/updateLabelField.ts     persist one label name or tone for a member
@@ -337,6 +358,7 @@ in `docs/kanban.md`.
     src/app/tasks/page.tsx              My tasks shell: assigned cards across projects
     src/app/account/page.tsx            account shell, tab routing, profile, visibility, activity
     src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; else 404; records recent; ?card= opens detail)
+    src/app/projects/[projectId]/archived/page.tsx  archived tasks in ProjectsShell (member only)
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -352,6 +374,7 @@ in `docs/kanban.md`.
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail, due date+time control
     src/components/tasks/               My tasks list, rows, detail panel/sheet, two-step create
+    src/components/archived/            archived list, row, detail, empty state, delete/export dialogs
     src/components/ui/                  shadcn/ui primitives
 
 ## SEE

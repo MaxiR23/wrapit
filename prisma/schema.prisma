@@ -53,6 +53,7 @@ enum ActivityEventType {
   CARD_CREATED
   CARD_MOVED
   CARD_ARCHIVED
+  CARD_RESTORED
   CARD_DELETED
   ASSIGNEES_CHANGED
   LABEL_CHANGED
@@ -86,6 +87,8 @@ model User {
   statuses             UserStatus[]
   cardAssignments      CardAssignee[]
   cardComments         Comment[]
+  archivedCards        Card[]             @relation("CardArchivedBy")
+  restoreUndoTokens    RestoreUndoToken[]
   activityEvents       ActivityEvent[]
   activeStatusId       String?     @unique
   activeStatus         UserStatus? @relation("UserActiveStatus", fields: [activeStatusId], references: [id], onDelete: SetNull)
@@ -150,12 +153,13 @@ model Project {
 
   publicLinkEnabled Boolean @default(false)
 
-  columns         Column[]
-  memberships     Membership[]
-  invitations     Invitation[]
-  recentProjects  RecentProject[]
-  labels          Label[]
-  activityEvents  ActivityEvent[]
+  columns           Column[]
+  memberships       Membership[]
+  invitations       Invitation[]
+  recentProjects    RecentProject[]
+  labels            Label[]
+  activityEvents    ActivityEvent[]
+  restoreUndoTokens RestoreUndoToken[]
 }
 
 model Column {
@@ -187,11 +191,15 @@ model Card {
   labelId String?
   label   Label?  @relation(fields: [labelId], references: [id], onDelete: Restrict)
 
+  archivedById String?
+  archivedBy   User?   @relation("CardArchivedBy", fields: [archivedById], references: [id], onDelete: SetNull)
+
   assignees CardAssignee[]
   subtasks  Subtask[]
   comments  Comment[]
 
   @@index([labelId])
+  @@index([archivedById])
 }
 
 model Subtask {
@@ -373,4 +381,19 @@ model RecentProject {
 
   @@unique([userId, projectId])
   @@index([userId, openedAt])
+}
+
+model RestoreUndoToken {
+  id        String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  cards     Json
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([userId])
 }

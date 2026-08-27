@@ -31,6 +31,11 @@ export function projectCardPath(projectId: string, cardId: string) {
   return `${projectPath(projectId)}?card=${encodeURIComponent(cardId)}`;
 }
 
+/** Archived tasks for a project. */
+export function projectArchivedPath(projectId: string) {
+  return `${projectPath(projectId)}/archived`;
+}
+
 /** Resolves ?card= to a bounded id, or null when missing or unusable. */
 export function parseProjectCardId(value: unknown): string | null {
   const raw = Array.isArray(value) ? value[0] : value;

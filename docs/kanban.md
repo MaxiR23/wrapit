@@ -38,9 +38,11 @@ example `RS-14`), using the same `initials()` helper as avatars (first and last
 word). Empty titles fall back to `PR`. `Project.cardCounter` increments atomically
 inside the create transaction (`increment: 1`); renaming the project or the card
 does not rewrite stored codes. `Card.archivedAt` hides a card from board reads
-when it is set. Archive from the card detail writes `archivedAt` with a
-count guard (`archivedAt: null`); delete hard-removes the card and cascades
-comments and subtasks.
+when it is set. Archive from the card detail writes `archivedAt` and
+`archivedById` with a count guard (`archivedAt: null`). The board toast then
+links to `/projects/{id}/archived`. Delete from the board hard-removes a live
+card (`archivedAt: null`) and cascades comments and subtasks; an EDIT member
+cannot hard-delete an archived card by id.
 
 `createProject` also accepts optional `invitees` (usernames). The list is
 validated with the project (strings only, username length bounds, at most 20
@@ -67,7 +69,22 @@ the board without a remount. Subtasks (add, rename, check, remove)
 and comments (create) live on the card; footer counters on the board face
 are derived from those lists (`commentCount` / `subtaskProgress` in
 `src/lib/cardCounters.ts`), including `0` and `0/0`. Archive and delete
-close the dialog, drop the card from the board, and show a board toast.
+close the dialog, drop the card from the board, and show a board toast with a
+**View archived** link.
+
+Any member can open `/projects/{id}/archived`. The page lists archived tasks
+(search on name and label, date range, sort). Restore and permanent delete are
+OWNER/ADMIN only; export is available to every member. Restore returns the card
+to its stored `columnId` and logs `CARD_RESTORED`. If that column is gone, the
+write fails and nothing in the batch is restored. Undo on the restore toast
+redeems a server-issued token (`rearchiveArchivedCards` takes only that token).
+Restore itself reads `archivedAt` and `archivedById` inside its transaction and
+stores them on a `RestoreUndoToken` row keyed by the token, owned by the actor
+and the project, single-use, and expiring after five minutes (toast lifetime).
+Redeem writes those stored values back; the client never chooses a timestamp or
+user id. Expired, already-used, or someone else's token is refused as
+Unauthorized with no write. Permanent delete from this
+screen is a confirmed batch with no undo.
 
 The new-task dialog opens from a
 column plus with that column preselected. Its pencil opens the same `LabelEditor`
@@ -316,7 +333,7 @@ src/components/projects/NewProjectDialog.tsx  create-project modal (name, descri
 src/components/projects/ProjectList.tsx   projects table
 src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards, filters, activity log surface
 src/components/projects/ColumnsEmptyState.tsx  empty column area when the project has no columns
-src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, activity clock, summary
+src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, Archived, activity clock, summary
 src/components/projects/BoardActivityLog.tsx  day-grouped activity rows, empty copy, load earlier
 src/components/account/AccountActivity.tsx    account Activity tab: project cards + personal timeline
 src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
@@ -339,18 +356,35 @@ src/components/cards/CardDetailDialog.tsx  card detail (900px two-column tablet+
 src/components/cards/CardDetailBody.tsx    shared detail body (CSS breakpoints only)
 src/components/cards/CardSubtaskList.tsx   subtask add/rename/check/remove and progress
 src/components/cards/CardCommentThread.tsx comments list and pinned/in-column composer
-src/components/projects/BoardToast.tsx     archive/delete toast on the board
+src/components/projects/BoardToast.tsx     archive/delete toast; View archived link; restore undo
 src/lib/cardCounters.ts                 comment count and subtask done/total
 src/components/cards/DueDateField.tsx      shared date + optional time control
 src/components/tasks/MyTasksView.tsx    assigned-task list, filters, groups, empty states
 src/components/tasks/MyTaskRow.tsx      complete circle vs open-detail split
 src/components/tasks/MyTasksDetail.tsx  right panel from tablet; bottom sheet on phone
 src/components/tasks/NewTaskPopover.tsx two-step create (project, then title + due)
+src/components/archived/ArchivedView.tsx  archived tasks: filters, selection, restore, export, delete
+src/components/archived/ArchivedRow.tsx   phone swipe/long-press and wide-table row
+src/components/archived/ArchivedDetail.tsx  read-only archived task panel
+src/components/archived/ArchivedEmptyState.tsx  none-archived and no-results empty states
+src/components/archived/ArchivedDeleteDialog.tsx  permanent-delete confirm
+src/components/archived/ArchivedExportDialog.tsx  CSV or JSON at export time
+src/lib/archived.ts                     filter, sort, slice, copy helpers
+src/lib/archivedQuery.ts                load archived cards for a member
+src/lib/archivedCopy.ts                 English archived-screen copy
+src/lib/archivedExport.ts               client-side CSV/JSON from loaded rows
+src/lib/archivedScope.ts                tasks-scope adapter stub
+src/lib/restoreUndo.ts                  undo-token id, ttl, expired-row cleanup
+src/lib/validation/archived.ts          restore, rearchive, delete schemas
+src/app/projects/[projectId]/archived/page.tsx  archived tasks route (member only)
 src/components/projects/ViewerTimeZoneProvider.tsx  the viewer's IANA zone
 src/actions/updateCardField.ts          persist one card title, description, or due date
 src/actions/updateCardAssignees.ts      replace card assignees (members only)
 src/actions/updateCardLabel.ts          set or clear the card label
-src/actions/archiveCard.ts              set archivedAt (occupancy on unset)
+src/actions/archiveCard.ts              set archivedAt and archivedById (occupancy on unset)
+src/actions/restoreArchivedCards.ts     restore to stored column; mint undo token; CARD_RESTORED
+src/actions/rearchiveArchivedCards.ts   redeem restore undo token; original archive metadata
+src/actions/deleteArchivedCards.ts      permanently delete archived cards
 src/actions/createSubtask.ts            append a subtask (max order + 1)
 src/actions/updateSubtaskField.ts       persist subtask text or done
 src/actions/deleteSubtask.ts            delete a subtask

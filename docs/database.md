@@ -31,11 +31,12 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 
 - `User` has many `Project`, many `Membership`, many `RecentProject`, many
   `UserStatus`, many `CardAssignee`, many `Comment` (as card-comment author), many
-  `ActivityEvent` (as actor), at most one `UserPreferences`, and at most
-  one `UserProfile`.
+  `ActivityEvent` (as actor), many `RestoreUndoToken`, at most one
+  `UserPreferences`, and at most one `UserProfile`.
   `activeStatusId` points at one of that user's statuses.
 - `Project` belongs to a `User` as creator (`ownerId`) and has many `Column`,
-  `Membership`, `Invitation`, `RecentProject`, `Label`, and `ActivityEvent`. It
+  `Membership`, `Invitation`, `RecentProject`, `Label`, `ActivityEvent`, and
+  `RestoreUndoToken`. It
   has an optional `description`, a `status` (`ProjectStatus`: `NEW`,
   `IN_PROGRESS`, `PAUSED`, `DONE`, default `NEW`), and `cardCounter` (integer,
   default 0) used to issue stored card codes. Access is through
@@ -75,7 +76,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `createCard` may set `labelId`; it stays nullable for unlabeled cards.
 - `Card` belongs to a `Column`. It stores a `code` assigned at create time and
   an optional `archivedAt`; archived cards are omitted from board reads. An
-  optional `labelId` points at one project label. An optional `dueDate` pairs
+  optional `archivedById` points at the user who archived it (`onDelete: SetNull`).
+  An optional `labelId` points at one project label. An optional `dueDate` pairs
   with an optional `dueTimeZone`, which is what says whether the card is due on
   a day or at a moment. With no zone, `dueDate` is a calendar day stored as UTC
   midnight, and relative labels and overdue compare that stored day to the
@@ -95,7 +97,7 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   members, or the session user when nobody was picked.
 - `ActivityEvent` belongs to a `Project` and optionally a `User` as actor.
   `type` is `ActivityEventType` (`CARD_CREATED`, `CARD_MOVED`, `CARD_ARCHIVED`,
-  `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
+  `CARD_RESTORED`, `CARD_DELETED`, `ASSIGNEES_CHANGED`, `LABEL_CHANGED`, `DUE_DATE_CHANGED`,
   `COMMENT_ADDED`, `PROJECT_CREATED`, `MEMBER_ADDED`, `MEMBER_REMOVED`).
   `payload` is JSON; the
   app parses it with a per-type Zod map before write and again on read. Every
@@ -111,6 +113,11 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   description edits, subtasks, column/label CRUD, and invitations are not
   logged. Indexed on `(projectId, createdAt)` for the board log and
   `(actorId, createdAt)` for the account timeline.
+- `RestoreUndoToken` belongs to a `User` and a `Project`. Its `id` is the
+  secret the restore toast redeems. `cards` is JSON: the `archivedAt` /
+  `archivedById` restore read itself, per card. Rows last five minutes, are
+  single-use, and cascade when the user or project is deleted. Expired rows are
+  removed lazily on the next restore or redeem (`expiresAt <= now`).
 - `RecentProject` belongs to a `User` and a `Project`. It records when that
   user last opened the project (`openedAt`). One row per `(userId, projectId)`.
 - `UserPreferences` belongs to a `User`. It holds per-user UI settings:

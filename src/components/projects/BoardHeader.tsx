@@ -25,11 +25,12 @@ import {
   boardProgressLabel,
   boardProgressShortLabel,
 } from '@/lib/projectGrid';
-import { PROJECTS_PATH } from '@/lib/routes';
+import { PROJECTS_PATH, projectArchivedPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 export default function BoardHeader({
   title,
+  projectId,
   doneCount,
   taskCount,
   percent,
@@ -44,6 +45,7 @@ export default function BoardHeader({
   onToggleLog,
 }: {
   title: string;
+  projectId: string;
   doneCount: number;
   taskCount: number;
   percent: number;
@@ -140,6 +142,17 @@ export default function BoardHeader({
         <div className="mx-0.5 hidden h-6 w-px bg-border tablet:block" />
         <BoardFiltersPopover labels={labels} filters={filters} onChange={onFiltersChange} />
         <BoardVisibilityPopover visibility={visibility} onChange={onVisibilityChange} />
+        <Link
+          href={projectArchivedPath(projectId)}
+          className={cn(
+            shellFocusClassName,
+            'inline-flex h-10 items-center rounded-md border border-border bg-surface px-3',
+            'text-[12.5px] font-medium text-muted-foreground hover:border-border-strong hover:text-foreground',
+            'tablet:h-[38px] lg:h-9',
+          )}
+        >
+          Archived
+        </Link>
         <button
           type="button"
           aria-label={activityCopy.logLabel}

@@ -6,6 +6,7 @@ export const ACTIVITY_EVENT_TYPES = [
   'CARD_CREATED',
   'CARD_MOVED',
   'CARD_ARCHIVED',
+  'CARD_RESTORED',
   'CARD_DELETED',
   'ASSIGNEES_CHANGED',
   'LABEL_CHANGED',
@@ -49,6 +50,11 @@ export const activityPayloadSchemas = {
     toColumnTitle: z.string(),
   }),
   CARD_ARCHIVED: z.object({
+    ...actorFields,
+    cardId: idSchema,
+    cardTitle: z.string(),
+  }),
+  CARD_RESTORED: z.object({
     ...actorFields,
     cardId: idSchema,
     cardTitle: z.string(),

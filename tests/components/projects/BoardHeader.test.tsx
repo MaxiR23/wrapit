@@ -12,9 +12,10 @@
 // - Clear on the summary resets filters
 // - Shows a clock control after visibility that toggles the activity log
 // - Lights the clock when the log is open and closes open popovers on toggle
+// - Links to the project's archived tasks
 //
 // What is covered:
-// - Back link, progress labels, empty copy, member avatars, filters chrome, activity clock
+// - Back link, progress labels, empty copy, member avatars, filters chrome, activity clock, Archived link
 //
 // Run with: pnpm test:run tests/components/projects/BoardHeader.test.tsx
 //
@@ -47,6 +48,7 @@ function renderHeader(
   return render(
     <BoardHeader
       title="Sprint board"
+      projectId="project-1"
       doneCount={0}
       taskCount={0}
       percent={0}
@@ -70,6 +72,10 @@ describe('BoardHeader', () => {
     expect(screen.getByRole('link', { name: 'Projects / Board' })).toHaveAttribute(
       'href',
       '/projects',
+    );
+    expect(screen.getByRole('link', { name: 'Archived' })).toHaveAttribute(
+      'href',
+      '/projects/project-1/archived',
     );
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(screen.getByText('1 of 4 cards done')).toBeInTheDocument();
@@ -132,6 +138,7 @@ describe('BoardHeader', () => {
     rerender(
       <BoardHeader
         title="Sprint board"
+        projectId="project-1"
         doneCount={0}
         taskCount={0}
         percent={0}
