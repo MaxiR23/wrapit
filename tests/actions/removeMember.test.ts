@@ -5,6 +5,7 @@
 // Tested:
 // - An OWNER or ADMIN can remove a MEMBER
 // - An ADMIN can remove a non-last OWNER
+// - Removing a member unassigns them from cards on the project
 // - Removing the last OWNER returns the last-owner message and does not write
 // - The actor cannot remove themselves
 // - A MEMBER cannot remove anyone
@@ -68,11 +69,24 @@ describe('removeMember', () => {
     const member = await db.membership.create({
       data: { userId: 'user-max', projectId: project.id, role: 'MEMBER' },
     });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 0, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Write tests', order: 0, columnId: column.id },
+    });
+    await db.cardAssignee.create({
+      data: { cardId: card.id, userId: 'user-max' },
+    });
 
     const result = await removeMember({ projectId: project.id, membershipId: member.id });
 
     expect(result).toEqual({ data: { id: member.id } });
     expect(db.membership.rows.some((row) => row.id === member.id)).toBe(false);
+    expect(db.card.rows.some((row) => row.id === card.id)).toBe(true);
+    expect(
+      db.cardAssignee.rows.some((row) => row.cardId === card.id && row.userId === 'user-max'),
+    ).toBe(false);
     expect(db.activityEvent.rows).toEqual([
       expect.objectContaining({
         type: 'MEMBER_REMOVED',

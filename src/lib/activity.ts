@@ -15,6 +15,8 @@ export const ACTIVITY_EVENT_TYPES = [
   'PROJECT_CREATED',
   'MEMBER_ADDED',
   'MEMBER_REMOVED',
+  'OWNERSHIP_TRANSFERRED',
+  'MEMBER_LEFT',
 ] as const;
 
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number];
@@ -119,6 +121,15 @@ export const activityPayloadSchemas = {
     memberId: idSchema,
     memberName: z.string().min(1),
     memberUsername: z.string(),
+  }),
+  OWNERSHIP_TRANSFERRED: z.object({
+    ...actorFields,
+    memberId: idSchema,
+    memberName: z.string().min(1),
+    memberUsername: z.string(),
+  }),
+  MEMBER_LEFT: z.object({
+    ...actorFields,
   }),
 } as const;
 

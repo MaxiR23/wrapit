@@ -36,6 +36,8 @@ export type ActivityCopy = {
   projectCreated: (input: { actorName: string; projectTitle: string }) => string;
   memberAdded: (input: { actorName: string }) => string;
   memberRemoved: (input: { actorName: string; memberName: string }) => string;
+  ownershipTransferred: (input: { actorName: string; memberName: string }) => string;
+  memberLeft: (input: { actorName: string }) => string;
   yourProjects: string;
   yourActivity: string;
   emptyProjects: string;
@@ -90,6 +92,9 @@ export const activityCopy: ActivityCopy = {
   memberAdded: ({ actorName }) => `${actorName} joined the project.`,
   memberRemoved: ({ actorName, memberName }) =>
     `${actorName} removed ${memberName} from the project.`,
+  ownershipTransferred: ({ actorName, memberName }) =>
+    `${actorName} transferred ownership to ${memberName}.`,
+  memberLeft: ({ actorName }) => `${actorName} left the project.`,
   yourProjects: 'Your projects',
   yourActivity: 'Your activity',
   emptyProjects: "You're not on any projects yet.",

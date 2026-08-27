@@ -95,6 +95,15 @@ const validPayloads = {
     memberName: 'Ada Lovelace',
     memberUsername: 'ada',
   },
+  OWNERSHIP_TRANSFERRED: {
+    ...actor,
+    memberId: 'user-max',
+    memberName: 'Maxi',
+    memberUsername: 'maxi',
+  },
+  MEMBER_LEFT: {
+    ...actor,
+  },
   PROJECT_CREATED: {
     ...actor,
     projectTitle: 'Sprint board',

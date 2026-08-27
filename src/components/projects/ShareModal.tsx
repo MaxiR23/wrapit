@@ -22,10 +22,12 @@ export default function ShareModal({
   projectId,
   projectTitle,
   members,
+  currentUserId,
   canAdminister,
   publicLinkEnabled,
   onAccessChange,
   onRemoved,
+  onOwnershipChange,
   onPublicLinkChange,
 }: {
   open: boolean;
@@ -33,10 +35,12 @@ export default function ShareModal({
   projectId: string;
   projectTitle: string;
   members: ShareMember[];
+  currentUserId: string;
   canAdminister: boolean;
   publicLinkEnabled: boolean;
   onAccessChange: (membershipId: string, access: BoardAccess) => void;
   onRemoved: (membershipId: string) => void;
+  onOwnershipChange: (ownerMembershipId: string) => void;
   onPublicLinkChange: (enabled: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -90,6 +94,7 @@ export default function ShareModal({
         <ShareModalBody
           projectId={projectId}
           members={members}
+          currentUserId={currentUserId}
           canAdminister={canAdminister}
           publicLinkEnabled={publicLinkEnabled}
           shareUrl={shareUrl}
@@ -97,6 +102,7 @@ export default function ShareModal({
           onCopied={() => setCopied(true)}
           onAccessChange={onAccessChange}
           onRemoved={onRemoved}
+          onOwnershipChange={onOwnershipChange}
           onPublicLinkChange={onPublicLinkChange}
         />
       </DialogContent>

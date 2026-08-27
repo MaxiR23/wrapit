@@ -99,6 +99,15 @@ vi.mock('@/actions/removeMember', () => ({
 vi.mock('@/actions/updatePublicLink', () => ({
   updatePublicLink: vi.fn(),
 }));
+vi.mock('@/actions/transferOwnership', () => ({
+  transferOwnership: vi.fn(),
+}));
+vi.mock('@/actions/leaveProject', () => ({
+  leaveProject: vi.fn(),
+}));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 const listActivityEvents = vi.fn(
   async (): Promise<{ data: { items: unknown[]; nextCursor: null } } | { error: string }> => ({
     data: { items: [], nextCursor: null },

@@ -18,7 +18,9 @@ import { describe, it, expect } from 'vitest';
 
 import { MAX_ID_LENGTH } from '@/lib/validation/id';
 import {
+  leaveProjectSchema,
   removeMemberSchema,
+  transferOwnershipSchema,
   updateMembershipAccessSchema,
   updatePublicLinkSchema,
 } from '@/lib/validation/membership';
@@ -69,6 +71,32 @@ describe('updateMembershipAccessSchema', () => {
 describe('removeMemberSchema', () => {
   it('accepts bounded project and membership ids', () => {
     expect(removeMemberSchema.parse({ projectId: 'project-1', membershipId: 'mem-1' })).toEqual({
+      projectId: 'project-1',
+      membershipId: 'mem-1',
+    });
+  });
+});
+
+describe('leaveProjectSchema', () => {
+  it('accepts a bounded project id', () => {
+    expect(leaveProjectSchema.parse({ projectId: 'project-1' })).toEqual({
+      projectId: 'project-1',
+    });
+  });
+
+  it('rejects an empty or oversized id', () => {
+    expect(leaveProjectSchema.safeParse({ projectId: '' }).success).toBe(false);
+    expect(leaveProjectSchema.safeParse({ projectId: 'p'.repeat(MAX_ID_LENGTH + 1) }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('transferOwnershipSchema', () => {
+  it('accepts bounded project and membership ids', () => {
+    expect(
+      transferOwnershipSchema.parse({ projectId: 'project-1', membershipId: 'mem-1' }),
+    ).toEqual({
       projectId: 'project-1',
       membershipId: 'mem-1',
     });

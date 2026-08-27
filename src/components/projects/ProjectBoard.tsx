@@ -47,6 +47,7 @@ import {
   canAdministerProject,
   canCommentOnBoard,
   canEditBoard,
+  membershipsAfterOwnershipTransfer,
   type MembershipRole,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
@@ -624,6 +625,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           projectId={projectId}
           projectTitle={title}
           members={shareMembers}
+          currentUserId={currentUser.id}
           canAdminister={canAdminister}
           publicLinkEnabled={publicLinkEnabled}
           onAccessChange={(membershipId, access) => {
@@ -636,6 +638,11 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
           onRemoved={(membershipId) => {
             setShareMembers((current) =>
               current.filter((member) => member.membershipId !== membershipId),
+            );
+          }}
+          onOwnershipChange={(ownerMembershipId) => {
+            setShareMembers((current) =>
+              membershipsAfterOwnershipTransfer(current, ownerMembershipId),
             );
           }}
           onPublicLinkChange={setPublicLinkEnabled}

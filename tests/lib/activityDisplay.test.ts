@@ -205,6 +205,31 @@ describe('activitySentence', () => {
         }),
       ),
     ).toBe('Ada Lovelace removed Alan Turing from the project.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-transfer',
+          type: 'OWNERSHIP_TRANSFERRED',
+          payload: {
+            ...actor,
+            memberId: 'user-max',
+            memberName: 'Maxi',
+            memberUsername: 'maxi',
+          },
+        }),
+      ),
+    ).toBe('Ada Lovelace transferred ownership to Maxi.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-left',
+          type: 'MEMBER_LEFT',
+          payload: { ...actor },
+        }),
+      ),
+    ).toBe('Ada Lovelace left the project.');
   });
 
   it('keeps a snapshotted column name after a rename', () => {

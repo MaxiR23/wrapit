@@ -28,6 +28,13 @@ reject or a second accept cannot leave a membership on a non-PENDING row. A
 mid-flight failure rolls back. Invite, accept, and reject are
 membership-based, never `ownerId`. A MEMBER cannot invite.
 
+The owner can transfer the project from Share: that member becomes OWNER
+with EDIT access and the previous owner becomes ADMIN, in one transaction
+(demote then promote, each `updateMany` count-guarded). Non-owners can leave
+from the bottom of Share; the owner’s Leave control is disabled and explains
+that a transfer comes first. Leaving and removing both unassign that person
+on the project’s cards.
+
 `Column` and `Card` both carry a `Float` `order`. Creates still append with
 `(max order in parent) + 1`. The board UI moves cards **between columns only**
 and always appends to the target; intra-column reorder is stored for later and
@@ -321,8 +328,8 @@ src/lib/validation/boardVisibility.ts  six board-face visibility flags
 src/actions/updateBoardVisibility.ts persist board field visibility on UserPreferences
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
-src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, owner backfill
-src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, public board URL
+src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, last-OWNER guard, unassign, owner backfill
+src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress; doneColumnFrom / inboxColumnFrom
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state
@@ -337,8 +344,9 @@ src/components/projects/BoardHeader.tsx   title, progress, members, Share, filte
 src/components/projects/BoardActivityLog.tsx  day-grouped activity rows, empty copy, load earlier
 src/components/account/AccountActivity.tsx    account Activity tab: project cards + personal timeline
 src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
-src/components/projects/ShareModalBody.tsx  invite, with-access list, public-link row
-src/components/projects/ShareMemberRow.tsx  permission menu + coalesced access/remove
+src/components/projects/ShareModalBody.tsx  invite, with-access list, public-link row, leave
+src/components/projects/ShareMemberRow.tsx  permission menu, transfer, coalesced access/remove
+src/components/projects/ShareConfirm.tsx  inline confirm (transfer and leave)
 src/components/projects/BoardFiltersPopover.tsx  label / only-mine / only-overdue popover and sheet
 src/components/projects/BoardVisibilityPopover.tsx  six field toggles, persisted per user
 src/components/projects/BoardFilterSummary.tsx  active-filter copy and Clear
