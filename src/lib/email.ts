@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 
+import { renderTransactionalEmail } from '@/lib/emailLayout';
 import { logInfo } from '@/lib/log';
 
 const FROM = 'onboarding@resend.dev';
@@ -7,15 +8,25 @@ const FROM = 'onboarding@resend.dev';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Sends the password-reset email. The body is a plain HTML message that
- * includes the reset URL Better Auth (or the caller) built for this request.
+ * Sends the password-reset email. The body is the shared transactional layout
+ * with a reset button and a plain-text alternative.
  */
 export async function sendResetPasswordEmail(to: string, resetUrl: string): Promise<void> {
+  const { html, text } = renderTransactionalEmail({
+    preheader: 'Choose a new password for your wrapit account.',
+    heading: 'Reset your password',
+    body: 'Choose a new password for your wrapit account.',
+    buttonLabel: 'Reset password',
+    url: resetUrl,
+    footer: 'If you did not request a password reset, you can ignore this email.',
+  });
+
   const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: 'Reset your password',
-    html: `<p>Click the link to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+    html,
+    text,
   });
 
   // Resend resolves with { error } instead of throwing. Surface that so Better
@@ -29,8 +40,8 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string): Prom
 }
 
 /**
- * Sends the email-verification message. The body is a plain HTML message that
- * includes the verification URL Better Auth built for this request.
+ * Sends the email-verification message. The body is the shared transactional
+ * layout with a verify button and a plain-text alternative.
  *
  * Resend `{ error }` is logged without the address or URL, then thrown so the
  * auth callback can swallow it. Swallowing keeps unknown and known addresses
@@ -38,11 +49,22 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string): Prom
  * includes the URL (the token lives only in that URL).
  */
 export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
+  const { html, text } = renderTransactionalEmail({
+    preheader: 'Confirm this address to finish creating your wrapit account.',
+    heading: 'Verify your email',
+    body: 'Confirm this address to finish creating your wrapit account.',
+    buttonLabel: 'Verify email',
+    url: verifyUrl,
+    footer:
+      'This link expires in 24 hours. If you did not create an account, you can ignore this email.',
+  });
+
   const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: 'Verify your email',
-    html: `<p>Click the link to verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    html,
+    text,
   });
 
   if (error) {
