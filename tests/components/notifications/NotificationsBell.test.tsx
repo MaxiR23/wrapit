@@ -5,7 +5,7 @@
 // Tested:
 // - Badge reflects unread count
 // - Opening the panel fetches notifications again
-// - Desktop popover uses hidden md:block; mobile sheet uses md:hidden
+// - Desktop popover uses hidden tablet:block; mobile sheet uses tablet:hidden
 //
 // What is covered:
 // - Badge, refetch on open, CSS split
@@ -108,7 +108,7 @@ describe('NotificationsBell', () => {
 
     const dialogs = screen.getAllByRole('dialog', { name: 'Notifications' });
     expect(dialogs).toHaveLength(2);
-    expect(dialogs.some((dialog) => dialog.className.includes('hidden md:block'))).toBe(true);
-    expect(dialogs.some((dialog) => dialog.className.includes('md:hidden'))).toBe(true);
+    expect(dialogs.some((dialog) => dialog.className.includes('hidden tablet:block'))).toBe(true);
+    expect(dialogs.some((dialog) => dialog.className.includes('tablet:hidden'))).toBe(true);
   });
 });

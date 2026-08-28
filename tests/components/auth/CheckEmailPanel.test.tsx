@@ -3,8 +3,8 @@
 // Tests for the check-email waiting panel.
 //
 // Tested:
-// - Renders the waiting copy and the email field
-// - Requests a new link for the typed email and shows the confirmation
+// - Renders the waiting copy, the email field, and a sign-in link
+// - Requests a new link for the typed email and shows the confirmation with a sign-in link
 // - Shows the same confirmation for any successful response
 // - Rejects an invalid email format without calling Better Auth
 // - Shows the rate-limit message on 429
@@ -43,6 +43,7 @@ describe('CheckEmailPanel', () => {
     expect(screen.getByRole('heading', { name: 'Check your email' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send a new link' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('prefills the email when one is provided', () => {
@@ -67,6 +68,7 @@ describe('CheckEmailPanel', () => {
         'If that email is registered and still needs verifying, a new link is on its way.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('shows the same confirmation for any successful response', async () => {

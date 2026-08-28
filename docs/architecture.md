@@ -396,7 +396,7 @@ in `docs/kanban.md`.
     src/app/(auth)/forgot-password/page.tsx  /forgot-password
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
-    src/components/auth/                sign up, sign in, check-email, verify-email, password reset, sign-in hero, AuthNav
+    src/components/auth/                sign up, sign in, check-email, verify-email, password reset, sign-in hero
     src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
     src/components/projects/ProjectsSearch.tsx  client search query for the projects list
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, archive confirm, viewer time zone, OpenPanel exclusion, shellPanelClassName

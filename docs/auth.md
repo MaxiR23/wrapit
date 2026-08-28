@@ -47,7 +47,6 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/VerifyEmailResult.tsx  expired / already-verified result
     src/components/auth/ForgotPasswordForm.tsx  the forgot-password form
     src/components/auth/ResetPasswordForm.tsx   the reset-password form
-    src/components/auth/AuthNav.tsx     the nav that hosts the sign out action
     src/components/auth/LandingHero.tsx mobile hero on /sign-in
     src/components/auth/AuthFormIsland.tsx  light form column shared by auth layouts
     src/components/account/useSignOut.ts  shared sign-out for the account menu
@@ -255,38 +254,30 @@ The thrown message is for server logs. The form never renders it.
 
 `/reset-password` reads `token` and `error` from the query string and passes
 them to `ResetPasswordForm`. A missing token or `error=INVALID_TOKEN` shows
-"This reset link is invalid or has expired." and does not render the form.
-Otherwise the form takes password and confirmPassword (`resetPasswordSchema`,
-same minimum as sign up, confirm must match), then calls
-`authClient.resetPassword({ newPassword, token })`. Success redirects to
-`/sign-in`. An `INVALID_TOKEN` from the API uses the same expired-link message;
-anything else uses the generic message.
+"This reset link is invalid or has expired." with a Sign in link, and does
+not render the form. Otherwise the form takes password and confirmPassword
+(`resetPasswordSchema`, same minimum as sign up, confirm must match), then
+calls `authClient.resetPassword({ newPassword, token })`. Success stays on the
+page with "Your password has been updated." and a Sign in link; it does not
+redirect. An `INVALID_TOKEN` from the API uses the same expired-link message;
+anything else uses the generic message. The forgot-password form keeps its
+fields after a successful request so a resend does not need a refresh, and
+every auth waiting/result screen (forgot-password, reset success, reset
+invalid token, check-email confirmation) has a Sign in link.
 
 ## Sign out
 
-`AuthNav` is a client component mounted in `src/app/layout.tsx`. It reads
-`authClient.useSession()` and shows either a **Sign out** button or links to
-`/sign-in` and `/sign-up`. On `/` and on auth paths (`isAuthPath`: sign-in,
-sign-up, forgot-password, reset-password, check-email, verify-email) it
-returns null so the redirect home
-and the auth layouts are not topped by nav links. It also returns null on
-`/projects`, `/tasks`, and `/account`, where the projects shell hosts sign out instead. While the
-session is still loading on other routes it renders an empty nav, so a signed
-in user never sees the signed out links flash.
+Sign out lives only in the account menu, opened from `ProjectsTopbar` (tablet
+and desktop popover) and `ProjectsMobileHeader` (phone sheet). The menu calls
+`useSignOut`, which runs `authClient.signOut()` → `router.push('/sign-in')` →
+`router.refresh()`. A failed sign out shows a fixed message and does not
+navigate; as everywhere else, the server message is not rendered.
 
-Sign out calls `authClient.signOut()`, which deletes the `Session` row and
-clears the cookie, then redirects to `/sign-in` and calls `router.refresh()`.
-A failed sign out shows a fixed message and does not navigate; as everywhere
-else, the server message is not rendered.
-
-On `/projects`, `/tasks`, and `/account`, `AuthNav` is hidden, so sign out lives in the account menu
-opened from `ProjectsTopbar` (desktop popover) and `ProjectsMobileHeader`
-(mobile sheet). The menu calls `useSignOut`, which runs the same
-`authClient.signOut()` → `router.push('/sign-in')` → `router.refresh()`
-sequence, including the generic failure message. The three tab links point at
-`/account?tab=profile|visibility|activity`.
-
-Protection lives in `src/proxy.ts`.
+Identity (name, username) and Sign out show at every size. The three tab links
+(`/account?tab=profile|visibility|activity`) show from the tablet breakpoint up.
+On the phone, those destinations live on `/account`, opened from the Account
+tab in the bottom bar. Popover and sheet chrome use the `tablet` breakpoint so
+they match the shell's header/topbar split at 600px.
 
 ## Route protection
 
@@ -400,7 +391,7 @@ stand-in for the Prisma delegates the adapter uses; any method or `where`
 operator it does not implement throws, so a test cannot silently fall through to
 a real connection.
 
-The forms and the nav are tested against a mocked `authClient`, so their tests
+The forms are tested against a mocked `authClient`, so their tests
 cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/auth/SignUpForm.test.tsx`,
 `tests/components/auth/SignInForm.test.tsx`,
@@ -408,7 +399,6 @@ cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/auth/VerifyEmailResult.test.tsx`,
 `tests/components/auth/ForgotPasswordForm.test.tsx`,
 `tests/components/auth/ResetPasswordForm.test.tsx`,
-`tests/components/auth/AuthNav.test.tsx`,
 `tests/components/projects/ProjectsTopbar.test.tsx` and
 `tests/components/projects/ProjectsMobileHeader.test.tsx`.
 `tests/home.test.tsx` covers the redirect-only `/`;

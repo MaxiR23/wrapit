@@ -89,7 +89,7 @@ export function NotificationsPopover() {
   return (
     <>
       <div
-        className="fixed inset-0 z-40 hidden md:block"
+        className="fixed inset-0 z-40 hidden tablet:block"
         aria-hidden="true"
         onClick={() => setOpenPanel(null)}
       />

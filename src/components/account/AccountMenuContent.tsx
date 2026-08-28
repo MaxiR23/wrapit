@@ -47,7 +47,7 @@ export function AccountMenuContent({
           <button
             type="button"
             aria-label="Close"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground tablet:hidden"
             onClick={onClose}
           >
             <X className="size-4" strokeWidth={1.8} />
@@ -68,7 +68,10 @@ export function AccountMenuContent({
         </span>
       </div>
 
-      <nav className="flex flex-col gap-px border-t border-border pt-1.5" aria-label="Account">
+      <nav
+        className="hidden tablet:flex flex-col gap-px border-t border-border pt-1.5"
+        aria-label="Account"
+      >
         {ACCOUNT_LINKS.map((item) => (
           <Link
             key={item.tab}

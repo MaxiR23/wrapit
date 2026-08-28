@@ -123,6 +123,8 @@ describe('Account page', () => {
     render(await AccountPage({ searchParams: Promise.resolve({}) } as never));
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account');
+    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Full name')).toBeInTheDocument();
     expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();

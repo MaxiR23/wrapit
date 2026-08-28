@@ -1,7 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import AuthFormSpinner from '@/components/auth/AuthFormSpinner';
@@ -11,10 +12,13 @@ import {
   authFieldErrorClassName,
   authFieldGroupClassName,
   authFieldLabelClassName,
+  authFooterClassName,
+  authFooterLinkClassName,
   authFormClassName,
   authFormErrorBandClassName,
   authFormHeaderClassName,
   authFormSubtitleClassName,
+  authFormSuccessBandClassName,
   authFormTitleClassName,
   authInputClassName,
 } from '@/components/auth/formClasses';
@@ -27,6 +31,7 @@ import { SIGN_IN_PATH } from '@/lib/routes';
 import { resetPasswordSchema, type ResetPasswordInput } from '@/lib/validation/resetPassword';
 
 const INVALID_LINK_MESSAGE = 'This reset link is invalid or has expired.';
+const SUCCESS_MESSAGE = 'Your password has been updated.';
 
 type ResetPasswordFormProps = {
   token?: string;
@@ -34,7 +39,7 @@ type ResetPasswordFormProps = {
 };
 
 export default function ResetPasswordForm({ token, error }: ResetPasswordFormProps) {
-  const router = useRouter();
+  const [submitted, setSubmitted] = useState(false);
   const hasValidToken = Boolean(token) && error !== 'INVALID_TOKEN';
 
   const form = useForm<ResetPasswordInput>({
@@ -61,14 +66,36 @@ export default function ResetPasswordForm({ token, error }: ResetPasswordFormPro
       return;
     }
 
-    router.push(SIGN_IN_PATH);
+    setSubmitted(true);
+  }
+
+  if (submitted) {
+    return (
+      <div className={authFormClassName}>
+        <p role="status" className={authFormSuccessBandClassName}>
+          {SUCCESS_MESSAGE}
+        </p>
+        <p className={authFooterClassName}>
+          <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
+            Sign in
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   if (!hasValidToken) {
     return (
-      <p role="alert" className={authFormErrorBandClassName}>
-        {INVALID_LINK_MESSAGE}
-      </p>
+      <div className={authFormClassName}>
+        <p role="alert" className={authFormErrorBandClassName}>
+          {INVALID_LINK_MESSAGE}
+        </p>
+        <p className={authFooterClassName}>
+          <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
+            Sign in
+          </Link>
+        </p>
+      </div>
     );
   }
 
@@ -160,6 +187,12 @@ export default function ResetPasswordForm({ token, error }: ResetPasswordFormPro
           'Reset password'
         )}
       </Button>
+
+      <p className={authFooterClassName}>
+        <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
+          Sign in
+        </Link>
+      </p>
     </form>
   );
 }

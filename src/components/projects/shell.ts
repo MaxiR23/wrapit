@@ -8,6 +8,8 @@ export type ProjectsShellUser = {
   username: string;
 };
 
+export type ProjectsShellActiveNav = 'projects' | 'tasks' | 'archived' | 'account' | null;
+
 export type ShellPanelWidth = '236px' | '352px';
 
 const PANEL_WIDTH_CLASS: Record<ShellPanelWidth, string> = {
@@ -19,7 +21,7 @@ const PANEL_WIDTH_CLASS: Record<ShellPanelWidth, string> = {
 export function shellPanelClassName(kind: 'popover' | 'sheet', width: ShellPanelWidth = '352px') {
   if (kind === 'popover') {
     return cn(
-      'hidden md:block',
+      'hidden tablet:block',
       'absolute top-[calc(100%+8px)] right-0 z-50',
       PANEL_WIDTH_CLASS[width],
       'overflow-hidden rounded-[12px] border border-border-strong bg-surface',
@@ -27,5 +29,5 @@ export function shellPanelClassName(kind: 'popover' | 'sheet', width: ShellPanel
     );
   }
 
-  return cn('md:hidden', 'fixed inset-0 z-50 flex flex-col bg-surface');
+  return cn('tablet:hidden', 'fixed inset-0 z-50 flex flex-col bg-surface');
 }
