@@ -12,8 +12,8 @@ Tests live in `tests/` at the project root, mirroring the source structure:
     src/components/projects/Project.tsx -> tests/components/projects/Project.test.tsx
 
 Components are grouped by domain (`AGENTS.md`), and the test tree mirrors that
-grouping: `src/components/auth/AuthNav.tsx` is tested by
-`tests/components/auth/AuthNav.test.tsx`.
+grouping: `src/components/auth/SignInForm.tsx` is tested by
+`tests/components/auth/SignInForm.test.tsx`.
 
 Cross-cutting tests that do not map to a single module live at the root of
 `tests/`.

@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
@@ -11,6 +12,8 @@ import {
   authFieldErrorClassName,
   authFieldGroupClassName,
   authFieldLabelClassName,
+  authFooterClassName,
+  authFooterLinkClassName,
   authFormClassName,
   authFormErrorBandClassName,
   authFormHeaderClassName,
@@ -28,7 +31,7 @@ import {
   VERIFICATION_RATE_LIMIT_MESSAGE,
   VERIFICATION_RESEND_CONFIRMATION,
 } from '@/lib/messages';
-import { VERIFY_EMAIL_PATH } from '@/lib/routes';
+import { SIGN_IN_PATH, VERIFY_EMAIL_PATH } from '@/lib/routes';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@/lib/validation/forgotPassword';
 
 type CheckEmailPanelProps = {
@@ -62,9 +65,16 @@ export default function CheckEmailPanel({ email = '' }: CheckEmailPanelProps) {
 
   if (submitted) {
     return (
-      <p role="status" className={authFormSuccessBandClassName}>
-        {VERIFICATION_RESEND_CONFIRMATION}
-      </p>
+      <div className={authFormClassName}>
+        <p role="status" className={authFormSuccessBandClassName}>
+          {VERIFICATION_RESEND_CONFIRMATION}
+        </p>
+        <p className={authFooterClassName}>
+          <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
+            Sign in
+          </Link>
+        </p>
+      </div>
     );
   }
 
@@ -130,6 +140,12 @@ export default function CheckEmailPanel({ email = '' }: CheckEmailPanelProps) {
           'Send a new link'
         )}
       </Button>
+
+      <p className={authFooterClassName}>
+        <Link href={SIGN_IN_PATH} className={authFooterLinkClassName}>
+          Sign in
+        </Link>
+      </p>
     </form>
   );
 }

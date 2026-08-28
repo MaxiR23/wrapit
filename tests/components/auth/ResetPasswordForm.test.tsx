@@ -3,9 +3,9 @@
 // Tests for the reset-password form.
 //
 // Tested:
-// - Shows a clear message when the token is missing
-// - Shows a clear message when the token is marked invalid
-// - Resets the password with the typed value and the token, then redirects to sign in
+// - Shows a clear message when the token is missing, with a sign-in link
+// - Shows a clear message when the token is marked invalid, with a sign-in link
+// - Resets the password with the typed value and the token, then shows a sign-in link
 // - Rejects a confirmPassword that does not match without calling Better Auth
 // - Shows a clear message when Better Auth rejects the token
 // - Shows a generic message, not the server message, when the server fails
@@ -59,6 +59,7 @@ describe('ResetPasswordForm', () => {
       'This reset link is invalid or has expired.',
     );
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('shows a clear message when the token is marked invalid', () => {
@@ -68,15 +69,18 @@ describe('ResetPasswordForm', () => {
       'This reset link is invalid or has expired.',
     );
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
-  it('resets the password with the typed value and the token, then redirects to sign in', async () => {
+  it('resets the password with the typed value and the token, then shows a sign-in link', async () => {
     render(<ResetPasswordForm token={token} />);
 
     await fillAndSubmit();
 
     expect(resetPassword).toHaveBeenCalledWith({ newPassword: password, token });
-    expect(push).toHaveBeenCalledWith('/sign-in');
+    expect(push).not.toHaveBeenCalled();
+    expect(await screen.findByText('Your password has been updated.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('rejects a confirmPassword that does not match without calling Better Auth', async () => {

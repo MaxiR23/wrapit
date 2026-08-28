@@ -5,6 +5,8 @@
 // Tested:
 // - Renders the email field
 // - Requests a reset for the typed email and shows the confirmation message
+// - Keeps the form after submit so a resend does not need a refresh
+// - Links to sign-in before and after submit
 // - Shows the same confirmation whether or not the email is registered
 // - Rejects an invalid email format without calling Better Auth
 // - Shows a generic message, not the server message, when the server fails
@@ -36,11 +38,12 @@ describe('ForgotPasswordForm', () => {
     requestPasswordReset.mockResolvedValue({ data: { status: true }, error: null });
   });
 
-  it('renders the email field', () => {
+  it('renders the email field and a sign-in link', () => {
     render(<ForgotPasswordForm />);
 
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send reset link' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('requests a reset for the typed email and shows the confirmation message', async () => {
@@ -57,6 +60,21 @@ describe('ForgotPasswordForm', () => {
     expect(
       await screen.findByText('If that email is registered, a reset link is on its way.'),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send reset link' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+  });
+
+  it('keeps the form so a second submit requests another reset', async () => {
+    render(<ForgotPasswordForm />);
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Email'), email);
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }));
+    await screen.findByText('If that email is registered, a reset link is on its way.');
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }));
+
+    expect(requestPasswordReset).toHaveBeenCalledTimes(2);
   });
 
   it('shows the same confirmation for any successful response', async () => {

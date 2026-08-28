@@ -57,7 +57,7 @@ export default async function AccountPage({ searchParams }: PageProps<'/account'
         username,
       }}
       initialNotifications={notifications.items}
-      activeNav={null}
+      activeNav="account"
       openTaskCount={openTaskCount}
       showSearch={false}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"

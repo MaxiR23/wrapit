@@ -36,7 +36,7 @@ export function NotificationsPanelContent({
           <button
             type="button"
             aria-label="Close"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground md:hidden"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground tablet:hidden"
             onClick={onClose}
           >
             <X className="size-4" strokeWidth={1.8} />

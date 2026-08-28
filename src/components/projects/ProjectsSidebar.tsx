@@ -2,7 +2,7 @@ import { Archive, CircleHelp, LayoutGrid, ListChecks } from 'lucide-react';
 import Link from 'next/link';
 
 import ProjectsBrand from '@/components/projects/ProjectsBrand';
-import { shellFocusClassName } from '@/components/projects/shell';
+import { shellFocusClassName, type ProjectsShellActiveNav } from '@/components/projects/shell';
 import { MY_TASKS_PATH, PROJECTS_PATH, ARCHIVED_PATH } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export default function ProjectsSidebar({
   activeNav = 'projects',
   openTaskCount = 0,
 }: {
-  activeNav?: 'projects' | 'tasks' | 'archived' | null;
+  activeNav?: ProjectsShellActiveNav;
   openTaskCount?: number;
 }) {
   return (

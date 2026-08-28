@@ -5,8 +5,8 @@
 //
 // Tested:
 // - Renders the session name and @username
-// - Wires the three /account?tab= links
-// - Desktop popover uses hidden md:block and w-[236px]; sheet uses md:hidden
+// - Wires the three /account?tab= links, hidden below the tablet breakpoint
+// - Desktop popover uses hidden tablet:block and w-[236px]; sheet uses tablet:hidden
 // - Sign out ends the session and goes to sign-in
 // - Failed sign out shows a generic message and stays put
 // - Escape and overlay click close the menu and return focus to Account
@@ -103,6 +103,9 @@ describe('AccountMenu', () => {
       '/account?tab=activity',
     );
     expect(screen.queryByRole('link', { name: 'Cards' })).not.toBeInTheDocument();
+    const accountNavs = screen.getAllByRole('navigation', { name: 'Account' });
+    expect(accountNavs.length).toBeGreaterThan(0);
+    expect(accountNavs.every((nav) => nav.className.includes('hidden tablet:flex'))).toBe(true);
   });
 
   it('uses CSS-only popover and sheet chrome', async () => {
@@ -111,9 +114,9 @@ describe('AccountMenu', () => {
 
     const dialogs = screen.getAllByRole('dialog', { name: 'Account' });
     expect(dialogs).toHaveLength(2);
-    expect(dialogs.some((dialog) => dialog.className.includes('hidden md:block'))).toBe(true);
+    expect(dialogs.some((dialog) => dialog.className.includes('hidden tablet:block'))).toBe(true);
     expect(dialogs.some((dialog) => dialog.className.includes('w-[236px]'))).toBe(true);
-    expect(dialogs.some((dialog) => dialog.className.includes('md:hidden'))).toBe(true);
+    expect(dialogs.some((dialog) => dialog.className.includes('tablet:hidden'))).toBe(true);
   });
 
   it('signs the user out, redirects to the sign in page and refreshes the route', async () => {
