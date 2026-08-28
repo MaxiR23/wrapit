@@ -23,11 +23,11 @@ export default function ProjectList({
           'border-b border-border bg-surface px-3.5 py-[11px] text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase lg:px-4',
         )}
       >
-        <span className="hidden md:block" />
+        <span className="hidden tablet:block" />
         <span>Project</span>
-        <span className="hidden md:block">Status</span>
-        <span className="hidden md:block">Progress</span>
-        <span className="hidden md:block">Team</span>
+        <span className="hidden tablet:block">Status</span>
+        <span className="hidden tablet:block">Progress</span>
+        <span className="hidden tablet:block">Team</span>
         <span className="hidden lg:block">Updated</span>
       </div>
       {projects.map((project) => (

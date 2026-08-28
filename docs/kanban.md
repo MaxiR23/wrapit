@@ -182,10 +182,10 @@ uses the same Done identity via `doneColumnFrom`.
 
 The projects page presents those summaries as a card grid or a list table. Both
 views share the same payload; only the layout of the unstarred list changes.
-Below `md`, list rows collapse to the title; star and archive are a swipe
+Below `tablet`, list rows collapse to the title; star and archive are a swipe
 (right to star, left to archive), reusing the archived-row gesture. Only
 `pointerup` can commit; `pointercancel` resets the row without starring or
-archiving. Status, Progress, and Team return from `md` up, with the icon pair
+archiving. Status, Progress, and Team return from `tablet` up, with the icon pair
 in the leading column. Starred projects sit in a Starred section of cards above that list
 (hidden when none are starred). The Starred/rest split lives in `ProjectsView`, which applies
 `useOptimistic` to the server starred map so a toggle moves the project between

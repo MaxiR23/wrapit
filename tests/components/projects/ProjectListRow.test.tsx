@@ -80,7 +80,7 @@ describe('ProjectListRow', () => {
 
   it('stars the project when a phone list row is swiped right', () => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 767px)',
+      matches: query === '(max-width: 599px)',
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -110,7 +110,7 @@ describe('ProjectListRow', () => {
 
   it('archives the project when a phone list row is swiped left', () => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 767px)',
+      matches: query === '(max-width: 599px)',
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -140,7 +140,7 @@ describe('ProjectListRow', () => {
 
   it('resets the row and commits nothing when a swipe past the threshold is cancelled', () => {
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 767px)',
+      matches: query === '(max-width: 599px)',
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
