@@ -66,7 +66,7 @@ export default function DueDateField({
 
   return (
     <div className="flex flex-col gap-2 tablet:gap-[7px]">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 tablet:flex-row tablet:items-center">
         <input
           id={`${idPrefix}-date`}
           type="date"
@@ -77,39 +77,41 @@ export default function DueDateField({
           aria-invalid={Boolean(error)}
           onChange={(event) => handleDayChange(event.target.value)}
           onBlur={onBlur}
-          className={cn(shellFocusClassName, inputClass, toneClass, 'flex-1 min-w-0')}
+          className={cn(shellFocusClassName, inputClass, toneClass, 'w-full min-w-0 tablet:flex-1')}
         />
-        <input
-          id={`${idPrefix}-time`}
-          type="time"
-          aria-label="Due time"
-          value={time}
-          readOnly={!canEdit}
-          disabled={!canEdit || day === ''}
-          aria-invalid={Boolean(error)}
-          onChange={(event) => handleTimeChange(event.target.value)}
-          onBlur={onBlur}
-          className={cn(
-            shellFocusClassName,
-            inputClass,
-            toneClass,
-            'w-[104px] shrink-0 disabled:opacity-50',
-          )}
-        />
-        {canEdit && time !== '' ? (
-          <button
-            type="button"
-            aria-label="Clear time"
-            onClick={() => handleTimeChange('')}
+        <div className="flex items-center gap-2">
+          <input
+            id={`${idPrefix}-time`}
+            type="time"
+            aria-label="Due time"
+            value={time}
+            readOnly={!canEdit}
+            disabled={!canEdit || day === ''}
+            aria-invalid={Boolean(error)}
+            onChange={(event) => handleTimeChange(event.target.value)}
             onBlur={onBlur}
             className={cn(
               shellFocusClassName,
-              'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground',
+              inputClass,
+              toneClass,
+              'min-w-0 flex-1 disabled:opacity-50 tablet:w-[104px] tablet:flex-none tablet:shrink-0',
             )}
-          >
-            <X className="size-3.5" strokeWidth={2} />
-          </button>
-        ) : null}
+          />
+          {canEdit && time !== '' ? (
+            <button
+              type="button"
+              aria-label="Clear time"
+              onClick={() => handleTimeChange('')}
+              onBlur={onBlur}
+              className={cn(
+                shellFocusClassName,
+                'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground',
+              )}
+            >
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+          ) : null}
+        </div>
       </div>
       {time !== '' && hintTimeZone ? (
         <p className="text-[11.5px] text-muted-foreground">

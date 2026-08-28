@@ -298,7 +298,7 @@ in `docs/kanban.md`.
     src/lib/activityCopy.ts             English activity sentences and chrome copy
     src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
-    src/lib/board.ts                    mobile carousel and long-press constants
+    src/lib/board.ts                    mobile carousel, long-press, and drag-edge constants
     src/lib/validation/fieldErrors.ts   first error per field
     src/lib/validation/signUp.ts        sign up rules
     src/lib/validation/signIn.ts        sign in rules
@@ -360,6 +360,7 @@ in `docs/kanban.md`.
     src/actions/rearchiveArchivedProjects.ts redeem project restore undo token
     src/actions/deleteArchivedProject.ts permanently delete one archived project (typed title)
     src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks and projects
+    src/lib/swipe.ts                    shared row-swipe thresholds and pointer gesture
     src/lib/archivedQuery.ts            load archived cards for a member (server-only)
     src/lib/archivedProjectsQuery.ts    load archived projects for a member (server-only)
     src/lib/archivedCopy.ts             English archived-screen copy

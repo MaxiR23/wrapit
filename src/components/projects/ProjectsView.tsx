@@ -170,21 +170,11 @@ export default function ProjectsView({
               />
               {rest.length > 0 ? (
                 view === 'list' ? (
-                  <>
-                    <div className="md:hidden">
-                      <ProjectGrid
-                        projects={rest}
-                        onToggle={handleToggle}
-                        onArchive={setArchiveTarget}
-                      />
-                    </div>
-                    <ProjectList
-                      projects={rest}
-                      className="hidden md:block"
-                      onToggle={handleToggle}
-                      onArchive={setArchiveTarget}
-                    />
-                  </>
+                  <ProjectList
+                    projects={rest}
+                    onToggle={handleToggle}
+                    onArchive={setArchiveTarget}
+                  />
                 ) : (
                   <ProjectGrid
                     projects={rest}

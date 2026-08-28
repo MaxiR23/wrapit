@@ -1,6 +1,6 @@
 // tests/components/projects/ProjectsView.test.tsx
 //
-// Tests for the projects grid/list toggle, mobile list fallback, search, and empty state.
+// Tests for the projects grid/list toggle, search, and empty state.
 //
 // Tested:
 // - Zero projects render the empty state and hide Recents, Starred, and the
@@ -8,7 +8,7 @@
 // - One or more projects render the grid and not the empty state
 // - Defaults to the card grid
 // - Seeds the list from the initialView prop on first paint
-// - Switching to list shows the table on md+ and cards below md
+// - Switching to list shows the table at every width
 // - Switching back to grid hides the table
 // - Toggle persists the new viewMode through the server action
 // - Rapid toggles persist the last selection, not a slower earlier write
@@ -29,7 +29,7 @@
 //
 // What is covered:
 // - Client-side view toggle, initial seed, persistence, last-write-wins,
-//   mobile card fallback, in-memory title search, starred section, recents,
+//   in-memory title search, starred section, recents,
 //   per-project star write coalescing, optimistic star rollback, empty state
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsView.test.tsx
@@ -186,7 +186,7 @@ describe('ProjectsView', () => {
     expect(updateViewMode).not.toHaveBeenCalled();
   });
 
-  it('switches to the list table and keeps a card grid for mobile', async () => {
+  it('switches to the list table', async () => {
     const user = userEvent.setup();
     renderView(<ProjectsView projects={[project]} />);
 
@@ -195,13 +195,7 @@ describe('ProjectsView', () => {
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('24 tasks')).toBeInTheDocument();
     expect(screen.getByText('Project')).toBeInTheDocument();
-    expect(screen.getByText('11 of 24 tasks')).toBeInTheDocument();
-
-    const list = screen.getByText('Project').closest('.hidden');
-    expect(list).toHaveClass('hidden', 'md:block');
-
-    const mobileGrid = screen.getByText('11 of 24 tasks').closest('.md\\:hidden');
-    expect(mobileGrid).toHaveClass('md:hidden');
+    expect(screen.queryByText('11 of 24 tasks')).not.toBeInTheDocument();
   });
 
   it('returns to the grid when Grid is pressed', async () => {

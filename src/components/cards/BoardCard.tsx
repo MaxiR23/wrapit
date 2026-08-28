@@ -18,6 +18,7 @@ export default function BoardCard({
   dimmed = false,
   highlighted = false,
   draggable = false,
+  className,
   onDragStart,
   onDragEnd,
   onPointerDown,
@@ -33,6 +34,7 @@ export default function BoardCard({
   dimmed?: boolean;
   highlighted?: boolean;
   draggable?: boolean;
+  className?: string;
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
   onDragEnd?: (event: DragEvent<HTMLElement>) => void;
   onPointerDown?: (event: PointerEvent<HTMLElement>) => void;
@@ -95,6 +97,7 @@ export default function BoardCard({
         dimmed && 'opacity-[0.45]',
         draggable && 'cursor-grab',
         onClick && shellFocusClassName,
+        className,
       )}
     >
       {showTop ? (

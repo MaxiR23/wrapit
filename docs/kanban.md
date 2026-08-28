@@ -182,8 +182,12 @@ uses the same Done identity via `doneColumnFrom`.
 
 The projects page presents those summaries as a card grid or a list table. Both
 views share the same payload; only the layout of the unstarred list changes.
-Starred projects sit in a Starred section of cards above that list (hidden when
-none are starred). The Starred/rest split lives in `ProjectsView`, which applies
+Below `md`, list rows collapse to the title; star and archive are a swipe
+(right to star, left to archive), reusing the archived-row gesture. Only
+`pointerup` can commit; `pointercancel` resets the row without starring or
+archiving. Status, Progress, and Team return from `md` up, with the icon pair
+in the leading column. Starred projects sit in a Starred section of cards above that list
+(hidden when none are starred). The Starred/rest split lives in `ProjectsView`, which applies
 `useOptimistic` to the server starred map so a toggle moves the project between
 sections immediately. Star writes reuse the view-mode coalescing loop, keyed by
 `projectId`: the latest desired value is persisted sequentially so rapid toggles
@@ -257,10 +261,21 @@ target → `1`.
 ## Optimistic column moves
 
 Cards move on desktop with HTML5 drag-and-drop (pointer only) plus a keyboard
-**Move** menu, and on mobile with a 420ms long press, destination strip, and a
-330px snap carousel. `@dnd-kit` is not used. A drop or destination tap commits
-`{ cardId, targetColumnId }` and appends to that column. Pure list math lives in
-`kanbanItems.ts` / `kanbanPersist.ts` so it can be tested without the React tree.
+**Move** menu, and on mobile with a 420ms long press that lifts the card and
+follows the finger across a 330px carousel. Cards use `touch-pan-y` from
+pointer-down so a hold-then-drag is not claimed as a carousel pan (`touch-action`
+is fixed for the gesture at pointer-down; toggling `touch-none` after the lift
+is too late). The rail stays freely scrollable outside the cards: swipe the
+column header, empty column body, or padding, or tap the dots. A vertical
+swipe on a card still scrolls the list. While lifted, snap is off and the
+rail auto-scrolls only inside a 40px edge band at 0.22px/ms (about 1.5s per
+column). Pointerup always clears the lift. Only the column under the pointer
+at release counts: a drop there on another column commits
+`{ cardId, targetColumnId }` and appends; releasing outside every column
+moves nothing. Hover highlight follows the finger and does not decide the
+drop. `pointercancel` clears the lift and drops nothing. `@dnd-kit` is not
+used. Pure list math lives in `kanbanItems.ts` / `kanbanPersist.ts` so it can
+be tested without the React tree.
 
 Progress copy (`N of M cards done` / `N/M done`) uses the same
 `projectProgress()` helper as the projects grid.
@@ -367,7 +382,7 @@ src/components/projects/BoardVisibilityPopover.tsx  six field toggles, persisted
 src/components/projects/BoardFilterSummary.tsx  active-filter copy and Clear
 src/components/projects/BoardNoResults.tsx  empty combined filter+search state
 src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
-src/components/projects/BoardMobile.tsx   carousel, long press, destination strip
+src/components/projects/BoardMobile.tsx   carousel, long press, finger-following drag
 src/components/projects/BoardColumn.tsx   column chrome
 src/components/projects/MemberPopover.tsx  member avatars; popover clamped to the viewport
 src/components/projects/memberPopoverPosition.ts  left offset so the popover stays in bounds
@@ -394,6 +409,7 @@ src/components/archived/ArchivedDeleteDialog.tsx  permanent-delete confirm for t
 src/components/archived/ArchivedDeleteProjectDialog.tsx  typed-title permanent-delete confirm
 src/components/archived/ArchivedExportDialog.tsx  CSV or JSON at export time
 src/lib/archived.ts                     filter, sort, slice, copy helpers
+src/lib/swipe.ts                        shared row-swipe thresholds and pointer gesture
 src/lib/archivedQuery.ts                load archived cards for a member
 src/lib/archivedProjectsQuery.ts        load archived projects for a member
 src/lib/archivedCopy.ts                 English archived-screen copy
