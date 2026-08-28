@@ -113,7 +113,7 @@ export default function SignUpForm() {
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid} className={authFieldClassName}>
               <FieldLabel htmlFor={field.name} className={authFieldLabelClassName}>
-                Name
+                Full name
               </FieldLabel>
               <Input
                 {...field}

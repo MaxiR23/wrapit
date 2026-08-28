@@ -3,7 +3,7 @@
 // Tests for the sign up form.
 //
 // Tested:
-// - Renders the username, name, email and password fields
+// - Renders the username, full name, email and password fields
 // - Signs the user up with the typed values and redirects to check-email
 // - Shows a clear message when the username is already taken
 // - Shows the username-taken message when create fails with FAILED_TO_CREATE_USER
@@ -53,7 +53,7 @@ async function fillForm(fields: Partial<typeof credentials> = {}) {
   const user = userEvent.setup();
 
   if (values.username) await user.type(screen.getByLabelText('Username'), values.username);
-  if (values.name) await user.type(screen.getByLabelText('Name'), values.name);
+  if (values.name) await user.type(screen.getByLabelText('Full name'), values.name);
   if (values.email) await user.type(screen.getByLabelText('Email'), values.email);
   if (values.password) await user.type(screen.getByLabelText('Password'), values.password);
 
@@ -70,11 +70,11 @@ describe('SignUpForm', () => {
     signUpEmail.mockResolvedValue({ data: { user: { email: credentials.email } }, error: null });
   });
 
-  it('renders the username, name, email and password fields', () => {
+  it('renders the username, full name, email and password fields', () => {
     render(<SignUpForm />);
 
     expect(screen.getByLabelText('Username')).toBeInTheDocument();
-    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.getByLabelText('Full name')).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument();

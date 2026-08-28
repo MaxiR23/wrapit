@@ -20,7 +20,7 @@ import { projectPath } from '@/lib/routes';
 import { startRowPointer, SWIPE_REVEAL_PX } from '@/lib/swipe';
 import { cn } from '@/lib/utils';
 
-const PHONE_LIST = '(max-width: 767px)';
+const PHONE_LIST = '(max-width: 599px)';
 
 function subscribePhoneList(onChange: () => void) {
   const mql = window.matchMedia?.(PHONE_LIST);
@@ -65,9 +65,9 @@ export default function ProjectListRow({
   }
 
   return (
-    <div className="relative overflow-hidden md:overflow-visible">
+    <div className="relative overflow-hidden tablet:overflow-visible">
       {swipeEnabled ? (
-        <div className="absolute inset-0 flex md:hidden" aria-hidden>
+        <div className="absolute inset-0 flex tablet:hidden" aria-hidden>
           <div
             className={cn(
               'flex flex-1 items-center bg-ok-soft px-4 text-[13px] font-medium text-ok',
@@ -114,7 +114,7 @@ export default function ProjectListRow({
             'pointer-events-none relative z-[1] px-3.5 py-[13px] tabular-nums lg:px-4',
           )}
         >
-          <div className="pointer-events-auto hidden items-center gap-1 justify-self-start md:flex">
+          <div className="pointer-events-auto hidden items-center gap-1 justify-self-start tablet:flex">
             <ProjectStarButton
               projectId={project.id}
               starred={project.starred}
@@ -146,10 +146,10 @@ export default function ProjectListRow({
               <span className="lg:hidden"> · {project.updatedLabel}</span>
             </span>
           </div>
-          <span className="hidden text-xs text-muted-foreground md:block">
+          <span className="hidden text-xs text-muted-foreground tablet:block">
             {project.statusLabel}
           </span>
-          <div className="hidden items-center gap-2 md:flex lg:gap-[9px]">
+          <div className="hidden items-center gap-2 tablet:flex lg:gap-[9px]">
             <span className="block h-[5px] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
               <span
                 className={cn('block h-full rounded-full', projectStatusBarClass(project.status))}
@@ -160,7 +160,7 @@ export default function ProjectListRow({
               {project.percent}%
             </span>
           </div>
-          <div className="hidden gap-1 md:flex">
+          <div className="hidden gap-1 tablet:flex">
             {project.members.map((member) => (
               <span
                 key={member.id}
