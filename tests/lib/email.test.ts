@@ -3,14 +3,15 @@
 // Tests for the Resend password-reset and verification email helpers.
 //
 // Tested:
-// - Sends the reset email with the given address and URL
+// - Sends the reset email with the given address, URL, HTML layout, and plain text
 // - Resolves when Resend returns no error
 // - Throws with the Resend error details when Resend reports a failure
-// - Sends the verification email with the given address and URL
+// - Sends the verification email with the given address, URL, HTML layout, and plain text
 // - Throws without the URL and logs only Resend metadata when Resend fails
 //
 // What is covered:
-// - Happy path, Resend { error } failure (Resend does not throw), token not in logs
+// - Happy path, Resend { error } failure (Resend does not throw), token not in logs,
+//   shared layout, plain-text alternative
 //
 // Run with: pnpm test:run tests/lib/email.test.ts
 //
@@ -49,9 +50,16 @@ describe('sendResetPasswordEmail', () => {
       expect.objectContaining({
         from: 'onboarding@resend.dev',
         to,
+        subject: 'Reset your password',
         html: expect.stringContaining(resetUrl),
+        text: expect.stringContaining(resetUrl),
       }),
     );
+    const payload = send.mock.calls[0]?.[0] as { html: string; text: string };
+    expect(payload.html).toContain('width="600"');
+    expect(payload.html).toContain('v:roundrect');
+    expect(payload.html).toContain('Reset password');
+    expect(payload.text).toContain('Reset your password');
   });
 
   it('throws with the Resend error details when Resend reports a failure', async () => {
@@ -90,9 +98,16 @@ describe('sendVerificationEmail', () => {
       expect.objectContaining({
         from: 'onboarding@resend.dev',
         to,
+        subject: 'Verify your email',
         html: expect.stringContaining(verifyUrl),
+        text: expect.stringContaining(verifyUrl),
       }),
     );
+    const payload = send.mock.calls[0]?.[0] as { html: string; text: string };
+    expect(payload.html).toContain('width="600"');
+    expect(payload.html).toContain('v:roundrect');
+    expect(payload.html).toContain('Verify email');
+    expect(payload.text).toContain('Verify your email');
   });
 
   it('throws without the URL and logs only Resend metadata when Resend fails', async () => {

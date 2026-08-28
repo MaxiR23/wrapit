@@ -35,6 +35,7 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/lib/auth.ts                     the Better Auth instance (server)
     src/lib/authClient.ts               the Better Auth client (browser)
     src/lib/email.ts                    Resend helpers for password-reset and verification emails
+    src/lib/emailLayout.ts              shared HTML + plain-text layout both helpers fill in
     src/lib/validation/fieldErrors.ts   first error per field (shared with domain validators)
     src/lib/validation/signUp.ts        sign up field rules
     src/lib/validation/signIn.ts        sign in field rules
@@ -196,9 +197,20 @@ way." Resend `{ error }` is swallowed after a server log so a send failure
 cannot distinguish a real unverified address from an unknown one.
 
 The emailed link is `{BETTER_AUTH_URL}/api/auth/verify-email?token=…&callbackURL=/verify-email`.
-The token appears only in that URL. It is never logged, never rendered, and
-never put on `/check-email` or `/verify-email`. `/verify-email` reads the
-`error` query only.
+Both this message and the password-reset message use `renderTransactionalEmail`
+in `src/lib/emailLayout.ts`: a 600px table, a padded table-cell button with a
+VML fallback for classic Outlook, the full URL in small text under the button,
+and a plain-text alternative built from the same fields. Dark-mode colors live
+in a `prefers-color-scheme` block and Outlook `[data-ogsc]` selectors; Gmail
+ignores that media query and inverts on its own. The token appears only in
+that URL (button href, fallback line, and plain-text part). It is never
+logged, never rendered on the site, and never put on `/check-email` or
+`/verify-email`. `/verify-email` reads the `error` query only.
+
+Resend generates a plain-text part when none is supplied. We still send our
+own `text`: the generated one is a mechanical conversion of the HTML, and
+the layout's version is written to be read. Do not drop `text` thinking
+Resend makes it redundant.
 
 A valid link sets `emailVerified`, opens a session
 (`autoSignInAfterVerification`), redirects to `/verify-email`, and the proxy
@@ -247,7 +259,10 @@ whether the address exists. Any client `{ error }` uses `GENERIC_ERROR_MESSAGE`.
 receives `{ user, url, token }` from Better Auth 1.6. It builds
 `{BETTER_AUTH_URL}/reset-password?token=` from `token` (the custom-route option
 the types document) and sends that URL through `sendResetPasswordEmail`. The
-email is plain HTML from `onboarding@resend.dev`. Resend resolves with an
+email uses the same shared layout as verification, from
+`onboarding@resend.dev`. The reset footer does not state an expiry: this repo
+does not set one, so Better Auth's default applies and inventing a number in
+the copy would be worse than saying nothing. Resend resolves with an
 `{ error }` field instead of throwing; the helper throws when that field is
 set so Better Auth does not report success for a send that never happened.
 The thrown message is for server logs. The form never renders it.
@@ -409,9 +424,11 @@ unverified sign in, duplicate email, taken username, verify) and
 `tests/api/auth/route.test.ts`, which drives
 the real route handler with raw `Request` objects and replays the session cookie
 to prove that sign out actually removes the `Session` row. Those tests mock
-`src/lib/email.ts` so they never call Resend. `tests/lib/email.test.ts` mocks
-the Resend client and asserts that a `{ error }` result is thrown without the
-URL. `tests/api/auth/send-verification-rate-limit.test.ts` stubs production
+`src/lib/email.ts` so they never call Resend. `tests/lib/emailLayout.test.ts`
+asserts the shared layout (table, VML button, dark-mode hooks, escaped URL,
+plain text, size). `tests/lib/email.test.ts` mocks the Resend client and
+asserts that both helpers send that layout plus a `text` part, and that a
+`{ error }` result is thrown without the URL. `tests/api/auth/send-verification-rate-limit.test.ts` stubs production
 `NODE_ENV` and asserts 429 on the fourth send.
 
 Route protection is covered in `tests/lib/routes.test.ts` (which paths are

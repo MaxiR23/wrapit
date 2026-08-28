@@ -264,7 +264,8 @@ in `docs/kanban.md`.
     src/lib/routes.ts                   public routes; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/authClient.ts               Better Auth client (browser)
-    src/lib/email.ts                    Resend helper (password-reset email)
+    src/lib/email.ts                    Resend helpers (password-reset and verification emails)
+    src/lib/emailLayout.ts              shared HTML + plain-text layout for those emails
     src/lib/prisma.ts                   shared Prisma client
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
