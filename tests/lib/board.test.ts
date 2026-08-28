@@ -1,14 +1,15 @@
 // tests/lib/board.test.ts
 //
-// Tests for board carousel scroll math.
+// Tests for board carousel scroll math and drag edge bands.
 //
 // Tested:
 // - Index follows scrollLeft in 342px steps
 // - Index is clamped to the column range
 // - Programmatic jumps use index * 342
+// - Auto-scroll starts only inside the 40px edge bands
 //
 // What is covered:
-// - Snap step, clamp, jump offset
+// - Snap step, clamp, jump offset, conservative drag edge
 //
 // Run with: pnpm test:run tests/lib/board.test.ts
 //
@@ -18,8 +19,10 @@ import { describe, it, expect } from 'vitest';
 
 import {
   BOARD_CAROUSEL_STEP_PX,
+  BOARD_DRAG_EDGE_PX,
   carouselIndexFromScroll,
   carouselScrollLeftForIndex,
+  dragEdgeScrollDirection,
 } from '@/lib/board';
 
 describe('carouselIndexFromScroll', () => {
@@ -43,5 +46,16 @@ describe('carouselScrollLeftForIndex', () => {
   it('returns index times the step', () => {
     expect(carouselScrollLeftForIndex(0)).toBe(0);
     expect(carouselScrollLeftForIndex(2)).toBe(684);
+  });
+});
+
+describe('dragEdgeScrollDirection', () => {
+  it('scrolls only inside the 40px edge bands', () => {
+    expect(BOARD_DRAG_EDGE_PX).toBe(40);
+    expect(dragEdgeScrollDirection(100, 0, 400)).toBe(0);
+    expect(dragEdgeScrollDirection(39, 0, 400)).toBe(-1);
+    expect(dragEdgeScrollDirection(40, 0, 400)).toBe(0);
+    expect(dragEdgeScrollDirection(361, 0, 400)).toBe(1);
+    expect(dragEdgeScrollDirection(360, 0, 400)).toBe(0);
   });
 });

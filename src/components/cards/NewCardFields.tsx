@@ -192,7 +192,7 @@ export default function NewCardFields({
         )}
       </Field>
 
-      <div className="flex flex-col gap-5 tablet:grid tablet:grid-cols-[minmax(0,1fr)_168px] tablet:gap-4">
+      <div className="flex flex-col gap-5">
         <Field className="gap-2 tablet:gap-[7px]">
           <FieldLabel className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs">
             Assignees

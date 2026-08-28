@@ -7,12 +7,7 @@ import { shellFocusClassName } from '@/components/projects/shell';
 import {
   ARCHIVED_LONG_PRESS_MOVE_PX,
   ARCHIVED_LONG_PRESS_MS,
-  ARCHIVED_SWIPE_COMMIT_PX,
-  ARCHIVED_SWIPE_LIMIT_PX,
-  ARCHIVED_SWIPE_OPEN_PX,
-  ARCHIVED_SWIPE_REST_PX,
   ARCHIVED_SWIPE_REVEAL_PX,
-  ARCHIVED_SWIPE_TAP_PX,
   archivedByLine,
   archivedProjectDetailLine,
   archivedTaskDetailLine,
@@ -22,6 +17,7 @@ import {
   type ArchivedTask,
 } from '@/lib/archived';
 import { archivedCopy } from '@/lib/archivedCopy';
+import { startRowPointer } from '@/lib/swipe';
 import { subtaskProgress } from '@/lib/cardCounters';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
@@ -131,83 +127,27 @@ function ArchivedRowChrome({
   const adminTitle = canAdminister ? undefined : adminOnly;
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    const target = event.target as HTMLElement;
-    if (target.closest('button, input, a')) return;
-    const pointerId = event.pointerId;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let moved = false;
-    let fired = false;
-    let lastDx = 0;
-    const origin = event.currentTarget;
-    origin.setPointerCapture?.(pointerId);
-
-    const timer = window.setTimeout(() => {
-      fired = true;
-      if (navigator.vibrate) navigator.vibrate(10);
-      ignoreClickRef.current = true;
-      onLongPress();
-    }, ARCHIVED_LONG_PRESS_MS);
-
-    function onMove(moveEvent: PointerEvent) {
-      if (moveEvent.pointerId !== pointerId) return;
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
-      if (Math.hypot(deltaX, deltaY) > ARCHIVED_LONG_PRESS_MOVE_PX) {
-        window.clearTimeout(timer);
-      }
-      if (Math.abs(deltaX) > ARCHIVED_SWIPE_TAP_PX || Math.abs(deltaY) > ARCHIVED_SWIPE_TAP_PX) {
-        moved = true;
-        window.clearTimeout(timer);
-      }
-      if (!swipeEnabled || selectionMode || !moved) return;
-      lastDx = Math.max(-ARCHIVED_SWIPE_LIMIT_PX, Math.min(ARCHIVED_SWIPE_LIMIT_PX, deltaX));
-      onSwipeChange(lastDx);
-    }
-
-    function onUp(upEvent: PointerEvent) {
-      if (upEvent.pointerId !== pointerId) return;
-      window.clearTimeout(timer);
-      origin.releasePointerCapture?.(pointerId);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      if (fired) return;
-      ignoreClickRef.current = true;
-      if (!moved) {
+    startRowPointer(event, {
+      swipeEnabled,
+      selectionMode,
+      longPressMs: ARCHIVED_LONG_PRESS_MS,
+      longPressMovePx: ARCHIVED_LONG_PRESS_MOVE_PX,
+      onLongPress,
+      onTap: () => {
         if (selectionMode) onToggleSelect();
         else onOpen();
-        onSwipeEnd(0);
-        return;
-      }
-      if (!swipeEnabled || selectionMode) {
-        onSwipeEnd(0);
-        return;
-      }
-      if (lastDx > ARCHIVED_SWIPE_COMMIT_PX) {
-        if (canAdminister) onRestore();
-        onSwipeEnd(0);
-        return;
-      }
-      if (lastDx < -ARCHIVED_SWIPE_COMMIT_PX) {
-        if (canAdminister) onDelete();
-        onSwipeEnd(0);
-        return;
-      }
-      if (lastDx > ARCHIVED_SWIPE_OPEN_PX) {
-        onSwipeEnd(ARCHIVED_SWIPE_REST_PX);
-        return;
-      }
-      if (lastDx < -ARCHIVED_SWIPE_OPEN_PX) {
-        onSwipeEnd(-ARCHIVED_SWIPE_REST_PX);
-        return;
-      }
-      onSwipeEnd(0);
-    }
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
+      },
+      suppressClickOnTap: true,
+      onSuppressClick: () => {
+        ignoreClickRef.current = true;
+      },
+      onSwipeChange,
+      onSwipeEnd,
+      onCommitPositive: onRestore,
+      onCommitNegative: onDelete,
+      canCommitPositive: canAdminister,
+      canCommitNegative: canAdminister,
+    });
   }
 
   return (

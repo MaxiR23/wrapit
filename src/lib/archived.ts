@@ -1,16 +1,24 @@
 import { commentCount, subtaskProgress } from '@/lib/cardCounters';
 import { activityCopy } from '@/lib/activityCopy';
 import type { CardLabelView } from '@/lib/labels';
+import {
+  SWIPE_COMMIT_PX,
+  SWIPE_LIMIT_PX,
+  SWIPE_OPEN_PX,
+  SWIPE_REST_PX,
+  SWIPE_REVEAL_PX,
+  SWIPE_TAP_PX,
+} from '@/lib/swipe';
 
 export const ARCHIVED_PAGE_SIZE = 50;
 export const ARCHIVED_LONG_PRESS_MS = 420;
 export const ARCHIVED_LONG_PRESS_MOVE_PX = 6;
-export const ARCHIVED_SWIPE_TAP_PX = 4;
-export const ARCHIVED_SWIPE_REVEAL_PX = 8;
-export const ARCHIVED_SWIPE_LIMIT_PX = 150;
-export const ARCHIVED_SWIPE_COMMIT_PX = 96;
-export const ARCHIVED_SWIPE_OPEN_PX = 40;
-export const ARCHIVED_SWIPE_REST_PX = 104;
+export const ARCHIVED_SWIPE_TAP_PX = SWIPE_TAP_PX;
+export const ARCHIVED_SWIPE_REVEAL_PX = SWIPE_REVEAL_PX;
+export const ARCHIVED_SWIPE_LIMIT_PX = SWIPE_LIMIT_PX;
+export const ARCHIVED_SWIPE_COMMIT_PX = SWIPE_COMMIT_PX;
+export const ARCHIVED_SWIPE_OPEN_PX = SWIPE_OPEN_PX;
+export const ARCHIVED_SWIPE_REST_PX = SWIPE_REST_PX;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

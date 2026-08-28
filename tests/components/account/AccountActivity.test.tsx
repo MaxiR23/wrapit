@@ -6,7 +6,8 @@
 // - Renders project cards with role, assigned count, and a link to the board
 // - Groups events by day and names the project on each row
 // - Sentences match the board-log formatter, including a comment quote
-// - Shows empty copy when there are no projects or events
+// - Shows only the projects empty copy when there are no projects
+// - Shows the activity empty copy when there are projects but no events
 // - Load earlier appends the next page
 // - An older in-flight page does not overwrite a newer one
 // - A rejected load shows the generic error and clears busy
@@ -146,14 +147,36 @@ describe('AccountActivity', () => {
     expect(screen.getAllByText(formatActivityClockTime(today)).length).toBeGreaterThan(0);
   });
 
-  it('shows empty copy when there are no projects or events', () => {
+  it('shows only the projects empty copy when there are no projects or events', () => {
     render(<AccountActivity projects={[]} initialItems={[]} initialCursor={null} now={now} />);
 
     expect(screen.getByText(activityCopy.emptyProjects)).toBeInTheDocument();
-    expect(screen.getByText(activityCopy.empty)).toBeInTheDocument();
+    expect(screen.queryByText(activityCopy.empty)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: activityCopy.loadEarlier }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the activity empty copy when there are projects but no events', () => {
+    render(
+      <AccountActivity
+        projects={[
+          {
+            id: 'project-1',
+            title: 'Sprint board',
+            description: null,
+            role: 'OWNER',
+            assignedCount: 0,
+          },
+        ]}
+        initialItems={[]}
+        initialCursor={null}
+        now={now}
+      />,
+    );
+
+    expect(screen.queryByText(activityCopy.emptyProjects)).not.toBeInTheDocument();
+    expect(screen.getByText(activityCopy.empty)).toBeInTheDocument();
   });
 
   it('appends the next page from load earlier', async () => {

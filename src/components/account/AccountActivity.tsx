@@ -92,6 +92,7 @@ function AccountActivityBody({
 
   const views = collapseActivityEvents(items.map(activityEventViewFromItem));
   const days = groupActivityByDay(views, now);
+  const noProjects = projects.length === 0;
   const emptyTimeline = !loading && items.length === 0 && error == null;
   const projectTitleById = new Map(items.map((item) => [item.id, item.projectTitle]));
 
@@ -109,7 +110,7 @@ function AccountActivityBody({
             {activityCopy.emptyProjects}
           </p>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {projects.map((project) => (
               <Link
                 key={project.id}
@@ -148,7 +149,7 @@ function AccountActivityBody({
             {GENERIC_ERROR_MESSAGE}
           </p>
         ) : null}
-        {emptyTimeline ? (
+        {emptyTimeline && !noProjects ? (
           <p className="py-6 text-center text-[13.5px] text-muted-foreground">
             {activityCopy.empty}
           </p>
@@ -205,7 +206,7 @@ function ActivityRow({
   const quote = activityQuote(event);
 
   return (
-    <article className="grid grid-cols-[1fr_150px_68px] items-start gap-3.5 border-b border-border px-1 py-[11px]">
+    <article className="flex flex-col gap-1.5 border-b border-border px-1 py-[11px] md:grid md:grid-cols-[1fr_150px_68px] md:items-start md:gap-3.5">
       <div className="flex min-w-0 flex-col gap-1">
         <p className="text-pretty text-[13.5px] leading-[1.45] text-foreground">
           {activitySentence(event, activityCopy, viewerTimeZone)}
@@ -216,13 +217,15 @@ function ActivityRow({
           </p>
         ) : null}
       </div>
-      <span className="min-w-0 truncate text-xs text-muted-foreground">{projectTitle}</span>
-      <time
-        dateTime={event.createdAt.toISOString()}
-        className="text-right text-xs text-subtle tabular-nums"
-      >
-        {formatActivityClockTime(event.createdAt)}
-      </time>
+      <div className="flex min-w-0 items-baseline justify-between gap-3 md:contents">
+        <span className="min-w-0 truncate text-xs text-muted-foreground">{projectTitle}</span>
+        <time
+          dateTime={event.createdAt.toISOString()}
+          className="shrink-0 text-xs text-subtle tabular-nums md:text-right"
+        >
+          {formatActivityClockTime(event.createdAt)}
+        </time>
+      </div>
     </article>
   );
 }
