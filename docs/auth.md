@@ -58,6 +58,7 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/components/auth/ForgotPasswordForm.tsx  the forgot-password form
     src/components/auth/ResetPasswordForm.tsx   the reset-password form
     src/components/auth/LandingHero.tsx mobile hero on /sign-in
+    src/components/auth/MobileAuthBar.tsx  fixed phone bar; fades in as the hero leaves
     src/components/auth/AuthFormIsland.tsx  light form column shared by auth layouts
     src/components/account/useSignOut.ts  shared sign-out for the account menu
     src/components/account/AccountMenu.tsx  topbar/mobile account trigger, popover, sheet
@@ -161,9 +162,20 @@ The sign-in route has its own layout (`src/app/(sign-in)/sign-in/layout.tsx`),
 not the shared `(auth)` split. It is one page with two CSS presentations of the
 same form: below `auth-sm` the `LandingHero` sits above the form island; from
 `auth-sm` up the existing brand panel and form split is used. Breakpoints only —
-no `matchMedia`, no user-agent. Sign-up, forgot-password and reset-password
-keep the shared layout and do not show the hero. Why the hero lives here:
-`docs/adr/0001-landing-hero-in-signin.md`.
+no `matchMedia`, no user-agent. Below `auth-sm` the same `MobileAuthBar` as
+sign-up is fixed to the top and fades in as `#landing-hero` leaves the viewport:
+the fade starts when the hero's top edge crosses the top of the viewport and
+is fully opaque after 96px (`MOBILE_AUTH_BAR_FADE_DISTANCE_PX`). Scroll
+timelines fade the bar where they are supported; JavaScript drives opacity so
+the bar stays hidden over the hero where they are not. While the bar
+is fully transparent it is out of the tab order and hidden from assistive
+technology (`visibility: hidden` and `inert`); it becomes available again as
+soon as the fade starts.
+soon as the fade starts.
+Reduced motion skips the fade; the bar is simply there. Its Back control
+scrolls to that target. Pages without a hero show the bar fully. Sign-up, forgot-password and
+reset-password keep the shared layout and do not show the hero. Why the hero
+lives here: `docs/adr/0001-landing-hero-in-signin.md`.
 
 The rules live in `src/lib/validation/signIn.ts` as `signInSchema`. The form and
 `validateSignIn` both use that schema. They deliberately do **not** reuse

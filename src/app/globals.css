@@ -73,6 +73,8 @@
   --spacing-sidebar-collapsed: 64px;
   --spacing-topbar: 64px;
   --spacing-mobile-header: 56px;
+  --spacing-auth-bar: 4.5rem;
+  --mobile-auth-bar-fade-distance: 96px;
   --spacing-mobile-search: 46px;
   --color-form-bg: var(--form-bg);
   --color-form-fg: var(--form-fg);
@@ -239,6 +241,51 @@
   100% {
     opacity: 0;
     transform: scale(1);
+  }
+}
+
+@keyframes mobile-auth-bar-fade {
+  from {
+    opacity: 0;
+    pointer-events: none;
+  }
+  to {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@keyframes mobile-auth-bar-availability {
+  from {
+    visibility: hidden;
+  }
+  to {
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(#landing-hero) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Fade the phone bar in over the first 96px of the hero leaving the top
+   of the viewport. Keep in sync with MOBILE_AUTH_BAR_FADE_DISTANCE_PX.
+   Reduced motion skips this: the bar is simply there. Browsers without
+   scroll timelines skip this rule; JavaScript then drives opacity so the
+   bar does not sit opaque over the hero. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html:has(#landing-hero) .brand-bar-surface {
+      animation:
+        mobile-auth-bar-fade linear both,
+        mobile-auth-bar-availability linear both;
+      animation-timeline: scroll(root), scroll(root);
+      animation-range:
+        0px var(--mobile-auth-bar-fade-distance, 96px),
+        0px 1px;
+    }
   }
 }
 

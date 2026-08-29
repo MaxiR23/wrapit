@@ -5,15 +5,18 @@
 // Tested:
 // - Renders the page form in the layout slot once
 // - Shows the landing hero only below auth-sm
+// - Shows the mobile auth bar after the hero, with Back to #landing-hero
+// - The bar is fixed to the top and hidden above auth-sm
 // - Keeps the brand panel for the existing split
 // - Wraps the form column in the light island with an in-page target
 //
 // What is covered:
-// - Single form slot, CSS-only mobile hero, brand panel, light island
+// - Single form slot, CSS-only mobile hero, mobile back bar, brand panel, light island
 //
 // Run with: pnpm test:run tests/app/sign-in-layout.test.tsx
 //
-// SEE: src/app/(sign-in)/sign-in/layout.tsx, src/components/auth/LandingHero.tsx
+// SEE: src/app/(sign-in)/sign-in/layout.tsx, src/components/auth/LandingHero.tsx,
+//      src/components/auth/MobileAuthBar.tsx
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -42,7 +45,23 @@ describe('SignInLayout', () => {
 
     expect(hero).toBeInTheDocument();
     expect(hero?.parentElement).toHaveClass('auth-sm:hidden');
-    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument();
+    expect(hero?.parentElement).toHaveAttribute('id', 'landing-hero');
+  });
+
+  it('shows the mobile auth bar after the hero, linking back to it', () => {
+    const { container } = render(
+      <SignInLayout>
+        <p>Form slot</p>
+      </SignInLayout>,
+    );
+
+    const heroWrap = container.querySelector('#landing-hero');
+    const bar = container.querySelector('header');
+    const back = container.querySelector('a[aria-label="Back"]');
+
+    expect(heroWrap?.nextElementSibling).toBe(bar);
+    expect(back).toHaveAttribute('href', '#landing-hero');
+    expect(bar).toHaveClass('fixed', 'auth-sm:hidden');
   });
 
   it('keeps the brand panel for the split layout', () => {
