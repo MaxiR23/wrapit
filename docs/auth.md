@@ -25,6 +25,14 @@ They live in `.env` (never committed) and are listed in `.env.example`:
   URL, with `callbackURL=/verify-email`.
 - `RESEND_API_KEY` — used by `src/lib/email.ts` to send the reset and
   verification emails. Never hardcode it.
+- `SKIP_EMAIL_VERIFICATION` — **test-only**. The exact string `true` turns
+  off `requireEmailVerification`, turns off `sendOnSignUp`, and marks new
+  accounts verified on creation. Absent or any other value (including `TRUE`,
+  `1`, or empty) leaves verification on, so a typo or a forgotten variable is
+  the safe direction. Not tied to `NODE_ENV`: a test deployment is production
+  as far as the runtime is concerned, so this has to be explicit. When it is
+  on, the process logs a warning at startup so it cannot run unnoticed.
+  Commented in `.env.example` so copying that file cannot enable it.
 
 ## Files
 
@@ -33,6 +41,7 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
     src/proxy.ts                        route protection, runs before every request
     src/lib/routes.ts                   which routes are public; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath, CHECK_EMAIL_PATH, VERIFY_EMAIL_PATH
     src/lib/auth.ts                     the Better Auth instance (server)
+    src/lib/skipEmailVerification.ts    SKIP_EMAIL_VERIFICATION predicate (test-only)
     src/lib/authClient.ts               the Better Auth client (browser)
     src/lib/email.ts                    Resend helpers for password-reset and verification emails
     src/lib/emailLayout.ts              shared HTML + plain-text layout both helpers fill in
@@ -76,11 +85,13 @@ logic stay as they are.
 `src/lib/prisma.ts` and enables email and password. Required unique `username`
 is declared under `user.additionalFields` (not the username plugin, which also
 writes `displayUsername` and our Prisma `User` has no such column).
-`emailAndPassword.requireEmailVerification` is on: sign-up does not open a
-session, and an unverified sign-in is 403 `EMAIL_NOT_VERIFIED`.
-`emailVerification.sendOnSignUp` is true; `sendOnSignIn` is false so a
-password-correct unverified sign-in does not mail again — the form offers an
-explicit resend. `autoSignInAfterVerification` is true; `expiresIn` is 86400
+`emailAndPassword.requireEmailVerification` is on unless
+`SKIP_EMAIL_VERIFICATION=true`: sign-up does not open a session, and an
+unverified sign-in is 403 `EMAIL_NOT_VERIFIED`. The flag is test-only; see
+Environment variables.
+`emailVerification.sendOnSignUp` is true unless `SKIP_EMAIL_VERIFICATION=true`;
+`sendOnSignIn` is false so a password-correct unverified sign-in does not mail
+again — the form offers an explicit resend. `autoSignInAfterVerification` is true; `expiresIn` is 86400
 seconds (24 hours). `customSyntheticUser` includes `username` so a
 duplicate-email 200 has the same JSON shape as a real create.
 `sendResetPassword` builds `{BETTER_AUTH_URL}/reset-password?token=` from the
@@ -224,7 +235,8 @@ already verified and links to sign in.
 Existing accounts were marked verified by the
 `mark_existing_users_email_verified` migration. They were created before
 verification existed; locking them out protects nothing. New sign-ups keep
-`emailVerified` false via the column default.
+`emailVerified` false via the column default, unless
+`SKIP_EMAIL_VERIFICATION=true` (test-only; see Environment variables).
 
 Rate limiting is Better Auth's built-in limiter, keyed on client IP
 (`x-forwarded-for`). It is **on in production and off in development**
@@ -420,7 +432,11 @@ cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/app/sign-in-layout.test.tsx` covers the CSS hero/split on `/sign-in`.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
-unverified sign in, duplicate email, taken username, verify) and
+unverified sign in, duplicate email, taken username, verify),
+`tests/lib/skipEmailVerification.test.ts` (only the exact string `true`
+disables verification),
+`tests/lib/auth-skip-email-verification.test.ts` (flag on: warning, verified
+create, no verification mail, immediate sign-in), and
 `tests/api/auth/route.test.ts`, which drives
 the real route handler with raw `Request` objects and replays the session cookie
 to prove that sign out actually removes the `Session` row. Those tests mock

@@ -5,10 +5,20 @@ import { nextCookies } from 'better-auth/next-js';
 import { sendResetPasswordEmail, sendVerificationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 import { RESET_PASSWORD_PATH } from '@/lib/routes';
+import {
+  isSkipEmailVerificationEnabled,
+  SKIP_EMAIL_VERIFICATION_WARNING,
+} from '@/lib/skipEmailVerification';
 import { MIN_PASSWORD_LENGTH } from '@/lib/validation/signUp';
 
 /** Verification JWT lifetime. Better Auth `expiresIn` is seconds; 24 hours. */
 const EMAIL_VERIFICATION_EXPIRES_IN = 86400;
+
+const skipEmailVerification = isSkipEmailVerificationEnabled();
+
+if (skipEmailVerification) {
+  console.warn(SKIP_EMAIL_VERIFICATION_WARNING);
+}
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -19,7 +29,7 @@ export const auth = betterAuth({
     // Set explicitly so the server enforces the same minimum the sign up form
     // validates against.
     minPasswordLength: MIN_PASSWORD_LENGTH,
-    requireEmailVerification: true,
+    requireEmailVerification: !skipEmailVerification,
     // Duplicate-email sign-up returns this shape instead of 422, so the JSON
     // still includes `username` and cannot be told apart from a real create.
     customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
@@ -34,7 +44,7 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
-    sendOnSignUp: true,
+    sendOnSignUp: !skipEmailVerification,
     // Unverified sign-in is 403 with an explicit resend on the form. Mailing
     // on every password-correct attempt would be extra mail for little gain.
     sendOnSignIn: false,
@@ -63,6 +73,19 @@ export const auth = betterAuth({
       },
     },
   },
+  ...(skipEmailVerification
+    ? {
+        databaseHooks: {
+          user: {
+            create: {
+              before: async (user) => ({
+                data: { ...user, emailVerified: true },
+              }),
+            },
+          },
+        },
+      }
+    : {}),
   // additionalFields (not the username plugin): our Prisma User has required
   // unique `username` and no `displayUsername`, which the username plugin would
   // try to write. Sign-up accepts `username` and persists it on the User row.

@@ -263,6 +263,7 @@ in `docs/kanban.md`.
     src/proxy.ts                        route protection (cookie check only)
     src/lib/routes.ts                   public routes; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
     src/lib/auth.ts                     Better Auth instance (server)
+    src/lib/skipEmailVerification.ts    SKIP_EMAIL_VERIFICATION predicate (test-only)
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helpers (password-reset and verification emails)
     src/lib/emailLayout.ts              shared HTML + plain-text layout for those emails
