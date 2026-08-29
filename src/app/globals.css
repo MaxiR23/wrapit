@@ -270,21 +270,31 @@
   }
 }
 
-/* Fade the phone bar in over the first 96px of the hero leaving the top
-   of the viewport. Keep in sync with MOBILE_AUTH_BAR_FADE_DISTANCE_PX.
-   Reduced motion skips this: the bar is simply there. Browsers without
-   scroll timelines skip this rule; JavaScript then drives opacity so the
-   bar does not sit opaque over the hero. */
-@supports (animation-timeline: scroll()) {
+/* Fade the phone bar in over the 96px as the landing-hero scroll cue
+   approaches the top of the viewport. Keep in sync with
+   MOBILE_AUTH_BAR_FADE_DISTANCE_PX. Reduced motion skips this: the bar is
+   simply there. Browsers without view timelines skip this rule; JavaScript
+   then drives opacity so the bar does not sit opaque over the hero. */
+@supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
+    html:has(#landing-hero) {
+      timeline-scope: --landing-hero-cue;
+    }
+
+    #landing-hero-cue {
+      view-timeline-name: --landing-hero-cue;
+      view-timeline-axis: block;
+    }
+
     html:has(#landing-hero) .brand-bar-surface {
       animation:
         mobile-auth-bar-fade linear both,
         mobile-auth-bar-availability linear both;
-      animation-timeline: scroll(root), scroll(root);
+      animation-timeline: --landing-hero-cue, --landing-hero-cue;
       animation-range:
-        0px var(--mobile-auth-bar-fade-distance, 96px),
-        0px 1px;
+        exit calc(-1 * var(--mobile-auth-bar-fade-distance, 96px)) exit 0%,
+        exit calc(-1 * var(--mobile-auth-bar-fade-distance, 96px)) exit
+          calc(-1 * var(--mobile-auth-bar-fade-distance, 96px) + 1px);
     }
   }
 }
