@@ -40,7 +40,7 @@ describe('AuthLayout', () => {
     const back = screen.getByRole('link', { name: 'Back' });
 
     expect(back).toHaveAttribute('href', '/');
-    expect(back.closest('header')).toHaveClass('auth-sm:hidden');
+    expect(back.closest('header')).toHaveClass('fixed', 'auth-sm:hidden');
   });
 
   it('wraps the form column in the light island', () => {
