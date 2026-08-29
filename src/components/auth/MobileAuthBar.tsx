@@ -1,12 +1,14 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import BrandMark from '@/components/auth/BrandMark';
+import { easeDocumentScrollTo } from '@/components/auth/easeDocumentScroll';
 import {
+  LANDING_HERO_CUE_ID,
   MOBILE_AUTH_BAR_FADE_DISTANCE_PX,
   mobileAuthBarOpacity,
 } from '@/components/auth/mobileAuthBarOpacity';
@@ -51,10 +53,8 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
     }
 
     const update = () => {
-      const hero = document.getElementById(coverId);
-      setOpacity(
-        mobileAuthBarOpacity(hero ? hero.getBoundingClientRect().top : null, reducedMotion),
-      );
+      const cue = document.getElementById(LANDING_HERO_CUE_ID);
+      setOpacity(mobileAuthBarOpacity(cue ? cue.getBoundingClientRect().top : null, reducedMotion));
     };
 
     window.addEventListener('scroll', update, { passive: true });
@@ -71,6 +71,22 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
   }, [coverId, reducedMotion]);
 
   const unavailable = opacity === 0;
+
+  function onHashBackClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (!coverId) {
+      return;
+    }
+
+    const target = document.getElementById(coverId);
+    if (!target) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.blur();
+    easeDocumentScrollTo(target.getBoundingClientRect().top + window.scrollY, reducedMotion);
+    history.pushState(null, '', href);
+  }
 
   return (
     <header
@@ -91,6 +107,7 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
           aria-label="Back"
           className={backClassName}
           tabIndex={unavailable ? -1 : undefined}
+          onClick={onHashBackClick}
         >
           {icon}
         </a>

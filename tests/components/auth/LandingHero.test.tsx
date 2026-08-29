@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Renders the brand headline, decorative mini-board and a Sign in control
-// - The chevron control scrolls to the sign-in form island
+// - The chevron control scrolls to the sign-in form island and is the fade cue
 //
 // What is covered:
 // - Hero content, in-page chevron anchor
@@ -26,6 +26,7 @@ describe('LandingHero', () => {
       screen.getByRole('heading', { name: "Your team's work, in columns." }),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '#sign-in-form');
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('id', 'landing-hero-cue');
     expect(document.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 });
