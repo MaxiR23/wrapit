@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { Archive, Trash2 } from 'lucide-react';
 
 import DueDateField, { splitDueValue } from '@/components/cards/DueDateField';
-import EditableServiceText from '@/components/cards/EditableServiceText';
+import EditableCardText from '@/components/cards/EditableCardText';
 
 import { updateCardAssignees } from '@/actions/updateCardAssignees';
 import { updateCardField } from '@/actions/updateCardField';
@@ -245,11 +245,12 @@ function CardDetailFields({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <EditableServiceText
+        <EditableCardText
           ariaLabel="Title"
           value={title.value}
           canEdit={canEdit}
           rows={2}
+          variant="inline"
           onChange={(next) => {
             title.setValue(next);
             onCardPatch({ title: next });
@@ -276,7 +277,7 @@ function CardDetailFields({
         <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
           Description
         </span>
-        <EditableServiceText
+        <EditableCardText
           ariaLabel="Description"
           value={description.value}
           canEdit={canEdit}
@@ -292,7 +293,7 @@ function CardDetailFields({
             'resize-none rounded-md border border-border bg-background px-[13px] py-[11px] text-sm leading-[1.6] tablet:text-[13.5px]',
           )}
           displayClassName={cn(
-            'min-h-[6.4em] whitespace-pre-wrap rounded-md border border-border bg-background px-[13px] py-[11px] text-sm leading-[1.6] tablet:text-[13.5px]',
+            'min-h-[6.4em] rounded-md border border-border bg-background px-[13px] py-[11px] text-sm leading-[1.6] tablet:text-[13.5px]',
             canEdit && 'cursor-text',
           )}
         />

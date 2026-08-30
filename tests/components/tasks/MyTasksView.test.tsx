@@ -3,6 +3,7 @@
 // Tests for the My tasks list: filters, split row actions, empty states, and create.
 //
 // Tested:
+// - Renders markdown in a task title
 // - The complete circle does not open detail; the rest of the row does
 // - Completing calls setCardCompleted without opening detail
 // - Search, project chip, and period combine with AND
@@ -137,10 +138,23 @@ describe('MyTasksView', () => {
     });
     expect(screen.queryByRole('dialog', { name: 'Task detail' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Ship the grid/ }));
+    await user.click(screen.getByText('Ship the grid'));
 
     expect(screen.getByRole('dialog', { name: 'Task detail' })).toBeInTheDocument();
     expect(setCardCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders markdown in a task title', () => {
+    renderView(
+      <MyTasksView
+        initialTasks={[{ ...openToday, title: '**Ship the grid**' }]}
+        createProjects={[]}
+        now={frozenNow}
+      />,
+    );
+
+    expect(screen.getByText('Ship the grid').closest('strong')).toHaveTextContent('Ship the grid');
+    expect(screen.getByText('Ship the grid').closest('button')).toBeNull();
   });
 
   it('keeps overdue rows when Today is selected', async () => {

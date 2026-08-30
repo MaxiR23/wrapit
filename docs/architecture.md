@@ -292,6 +292,8 @@ in `docs/kanban.md`.
     src/lib/cardCode.ts                 stored card code from project title + counter
     src/lib/cardDue.ts                  the one due formatter, overdue, day delta, calendar-day persist, zone math
     src/lib/serviceLinks.ts             recognised service URLs: match, labels, sanitised href
+    src/lib/cardMarkdown.ts             closed markdown subset for card titles, descriptions, comments
+    src/lib/markdownToolbar.ts          wrap a text selection with markdown markers
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
     src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
@@ -406,7 +408,7 @@ in `docs/kanban.md`.
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, archive confirm, viewer time zone, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
-    src/components/cards/               board cards, new-task dialog, card detail, due date+time control, service-link text
+    src/components/cards/               board cards, new-task dialog, card detail, due date+time control, markdown and service-link text
     src/components/tasks/               My tasks list, rows, detail panel/sheet, two-step create
     src/components/archived/            archived list, row, detail, empty state, delete/export dialogs
     src/components/ui/                  shadcn/ui primitives

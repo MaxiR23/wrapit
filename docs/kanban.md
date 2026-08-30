@@ -71,10 +71,26 @@ the title that points at GitHub, Figma, Notion, Google Docs, or Slack renders
 as that service's icon and a label derived from the URL (`src/lib/serviceLinks.ts`).
 Lucide 1.30 has no brand marks for GitHub, Figma, or Slack, so those chips use
 `GitBranch`, `Layers`, and `Hash`; Google Docs uses `FileText` and Notion uses
-`BookOpen`. The board face does not show description. The card detail uses the same helper
-for title and description: display mode shows the chip, and Enter, Space, or a
-click that is not on the chip switches to the textarea with the raw URL. Unrecognised
-addresses stay as typed. Labels are never fetched. Clicking a board card opens the
+`BookOpen`. Card titles, descriptions, and comments also render a closed
+markdown subset (bold, italic, lists, inline code, code blocks, links) from
+`src/lib/cardMarkdown.ts`. The board, the card detail, My tasks, and archived
+card text all use `CardMarkdown`, so those surfaces cannot drift. Titles are
+inline-only: list markers and fences stay as characters, and a newline is
+whitespace rather than a hard break, so a board card stays one line. Descriptions and comments parse blocks. A description that already
+begins with a dash becomes a list; that is the subset working, and it changes
+how existing cards read. Board search still matches the stored string, so the
+markers are part of what is searched. Service chips run through
+`splitServiceLinks` on markdown text nodes, not inside code. A markdown link to
+a recognised service keeps the typed label and the service icon. The stored
+value is exactly what was typed; nothing is converted on save. The board face
+does not show description. The card detail uses the same helper
+for title and description: display mode shows the rendered text, and Enter, Space, or a
+click that is not on a link switches to the textarea with the raw source. A
+formatting toolbar wraps the selection while that textarea is open. Unrecognised
+addresses stay as typed. Labels are never fetched. Board cards, My task rows, and
+archived task rows are articles (not buttons wrapping the title), so a markdown
+or service link in the title is valid HTML; following the link and opening the
+row stay separate actions. Clicking a board card opens the
 detail dialog: title, description, due date, assignees, label, and subtask
 done all go through `useProfileAutosave` (debounce 0 for assignees, label,
 and done). One write is in flight per card for assignees and for label, and
@@ -399,7 +415,9 @@ src/components/cards/NewCardDialog.tsx  new-task dialog (540px tablet+, full scr
 src/components/cards/NewCardFields.tsx  shared new-task form body
 src/components/cards/BoardCard.tsx      card face (label, code, title, derived footer)
 src/components/cards/ServiceLinkText.tsx  recognised service URL chip in user text
-src/components/cards/EditableServiceText.tsx  display vs textarea for title and description
+src/components/cards/CardMarkdown.tsx     closed markdown subset on card text
+src/components/cards/EditableCardText.tsx  display vs textarea for title and description
+src/components/cards/MarkdownToolbar.tsx  wrap/insert markers in a plain text field
 src/components/cards/CardDetailDialog.tsx  card detail (900px two-column tablet+, full screen on phone)
 src/components/cards/CardDetailBody.tsx    shared detail body (CSS breakpoints only)
 src/components/cards/CardSubtaskList.tsx   subtask add/rename/check/remove and progress
@@ -407,9 +425,11 @@ src/components/cards/CardCommentThread.tsx comments list and pinned/in-column co
 src/components/projects/BoardToast.tsx     archive/delete toast; View archived link; restore undo
 src/lib/cardCounters.ts                 comment count and subtask done/total
 src/lib/serviceLinks.ts             recognised service URLs: match, labels, sanitised href
+src/lib/cardMarkdown.ts             closed markdown subset for card titles, descriptions, comments
+src/lib/markdownToolbar.ts          wrap a text selection with markdown markers
 src/components/cards/DueDateField.tsx      shared date + optional time control
 src/components/tasks/MyTasksView.tsx    assigned-task list, filters, groups, empty states
-src/components/tasks/MyTaskRow.tsx      complete circle vs open-detail split
+src/components/tasks/MyTaskRow.tsx      article row: complete circle vs open-detail split
 src/components/tasks/MyTasksDetail.tsx  right panel from tablet; bottom sheet on phone
 src/components/tasks/NewTaskPopover.tsx two-step create (project, then title + due)
 src/components/archived/ArchivedView.tsx  archived tasks or projects: filters, selection, restore, export, delete

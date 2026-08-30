@@ -152,6 +152,13 @@ function parseHttpUrl(raw: string): URL | null {
   }
 }
 
+/** http(s) only, hostname required, userinfo stripped. Null means do not link. */
+export function sanitiseHttpHref(raw: string): string | null {
+  const url = parseHttpUrl(raw.trim());
+  if (!url) return null;
+  return sanitisedHref(url);
+}
+
 /** Match a single URL to a known service. Null means leave the text as-is. */
 export function recognizeServiceLink(raw: string): ServiceLinkMatch | null {
   const url = parseHttpUrl(raw);

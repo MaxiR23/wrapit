@@ -9,6 +9,7 @@
 // - After the viewer zone resolves, a due moment shows that zone's wall time
 // - A GitHub URL in the title and description renders as the same labelled link
 // - Enter on the title display opens the textarea with the raw URL
+// - A description list chips a service URL inside the item
 //
 // What is covered:
 // - One in-flight write per card for assignees and for label; a stale success
@@ -211,6 +212,22 @@ describe('CardDetailBody', () => {
     await user.keyboard('{Enter}');
 
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue(
+      'https://github.com/wrapit/wrapit/issues/42',
+    );
+  });
+
+  it('renders a description list and chips a service URL inside it', () => {
+    render(
+      <Harness
+        card={{
+          ...baseCard,
+          description: `- see https://github.com/wrapit/wrapit/issues/42`,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('listitem').querySelector('a')).toHaveAttribute(
+      'href',
       'https://github.com/wrapit/wrapit/issues/42',
     );
   });

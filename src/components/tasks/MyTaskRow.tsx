@@ -1,7 +1,9 @@
 'use client';
 
 import { Check } from 'lucide-react';
+import { useId, type KeyboardEvent, type MouseEvent } from 'react';
 
+import CardMarkdown from '@/components/cards/CardMarkdown';
 import { canEditBoard } from '@/lib/boardAccess';
 import { subtaskProgress } from '@/lib/cardCounters';
 import { cardDueLabel } from '@/lib/cardDue';
@@ -11,6 +13,10 @@ import type { MyTask } from '@/lib/myTasks';
 import { cn } from '@/lib/utils';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
+
+function isNestedControl(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('a, button, input'));
+}
 
 export default function MyTaskRow({
   task,
@@ -28,6 +34,7 @@ export default function MyTaskRow({
   onToggleComplete: () => void;
 }) {
   const viewerTimeZone = useViewerTimeZone();
+  const titleId = useId();
   const canEdit = canEditBoard(task.project.access);
   const progress = subtaskProgress(task.subtasks);
   const due =
@@ -37,9 +44,24 @@ export default function MyTaskRow({
   const tone = task.label ? labelToneClasses(task.label.tone) : null;
   const completeLabel = completed ? 'Mark as pending' : 'Mark as completed';
 
+  function openFromRow(event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) {
+    if (isNestedControl(event.target)) return;
+    onOpen();
+  }
+
   return (
-    <div
+    <article
+      tabIndex={0}
+      aria-labelledby={titleId}
+      onClick={openFromRow}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (isNestedControl(event.target)) return;
+        event.preventDefault();
+        onOpen();
+      }}
       className={cn(
+        shellFocusClassName,
         'grid items-center gap-x-3.5 rounded-[10px] border border-border bg-card px-4 py-[13px] tabular-nums transition-[background,border-color] duration-150',
         'grid-cols-[18px_minmax(0,1fr)]',
         'tablet:grid-cols-[20px_minmax(0,1fr)_auto] tablet:px-3.5 tablet:py-3',
@@ -68,24 +90,22 @@ export default function MyTaskRow({
         {completed ? <Check className="size-2.5" strokeWidth={3} /> : null}
       </button>
 
-      <button
-        type="button"
-        onClick={onOpen}
+      <div
         className={cn(
-          shellFocusClassName,
-          'min-w-0 rounded-md text-left',
+          'min-w-0 text-left',
           'tablet:flex tablet:flex-col tablet:gap-0.5',
           'lg:contents',
         )}
       >
         <span className="flex min-w-0 flex-col gap-0.5">
           <span
+            id={titleId}
             className={cn(
               'truncate text-[15px] font-medium tablet:text-sm',
               completed ? 'text-muted-foreground line-through' : 'text-foreground',
             )}
           >
-            {task.title}
+            <CardMarkdown text={task.title} variant="inline" />
           </span>
           {progress.total > 0 ? (
             <span className="text-xs text-subtle">
@@ -145,7 +165,7 @@ export default function MyTaskRow({
             </span>
           ))}
         </span>
-      </button>
-    </div>
+      </div>
+    </article>
   );
 }

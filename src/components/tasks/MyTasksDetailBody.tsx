@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import CardMarkdown from '@/components/cards/CardMarkdown';
 import { subtaskProgress } from '@/lib/cardCounters';
 import { cardDueLabel } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
@@ -32,7 +33,9 @@ export default function MyTasksDetailBody({ task }: { task: MyTask }) {
         ) : null}
         <span className="text-[12.5px] text-muted-foreground">{task.project.title}</span>
       </div>
-      <h2 className="text-lg font-semibold tracking-[-0.02em] lg:text-xl">{task.title}</h2>
+      <h2 className="text-lg font-semibold tracking-[-0.02em] lg:text-xl">
+        <CardMarkdown text={task.title} variant="inline" />
+      </h2>
       <dl className="flex flex-col gap-px overflow-hidden rounded-md bg-border">
         <DetailRow label="Due date">
           <span className={due?.late ? 'text-late' : undefined}>{due?.text ?? 'No date'}</span>

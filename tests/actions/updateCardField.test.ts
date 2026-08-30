@@ -113,6 +113,26 @@ describe('updateCardField', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/tasks');
   });
 
+  it('stores markdown in the title and description exactly as typed', async () => {
+    const { card } = await seedOwnedCard();
+
+    const titled = await updateCardField({
+      cardId: card.id,
+      field: 'title',
+      value: '**Keep stars**',
+    });
+    expect(titled).toEqual({ data: { value: '**Keep stars**' } });
+    expect(db.card.rows[0]?.title).toBe('**Keep stars**');
+
+    const described = await updateCardField({
+      cardId: card.id,
+      field: 'description',
+      value: '```\nconst n = 1;\n```',
+    });
+    expect(described).toEqual({ data: { value: '```\nconst n = 1;\n```' } });
+    expect(db.card.rows[0]?.description).toBe('```\nconst n = 1;\n```');
+  });
+
   it('rejects an empty title with a clear field error', async () => {
     const { card } = await seedOwnedCard();
 
