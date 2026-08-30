@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { Archive, Trash2 } from 'lucide-react';
 
 import DueDateField, { splitDueValue } from '@/components/cards/DueDateField';
+import EditableServiceText from '@/components/cards/EditableServiceText';
 
 import { updateCardAssignees } from '@/actions/updateCardAssignees';
 import { updateCardField } from '@/actions/updateCardField';
@@ -244,14 +245,12 @@ function CardDetailFields({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <textarea
-          aria-label="Title"
-          rows={2}
+        <EditableServiceText
+          ariaLabel="Title"
           value={title.value}
-          readOnly={!canEdit}
-          onChange={(event) => {
-            if (!canEdit) return;
-            const next = event.target.value;
+          canEdit={canEdit}
+          rows={2}
+          onChange={(next) => {
             title.setValue(next);
             onCardPatch({ title: next });
           }}
@@ -260,6 +259,11 @@ function CardDetailFields({
             shellFocusClassName,
             'w-full resize-none border-b border-transparent bg-transparent text-xl font-semibold tracking-[-0.02em] leading-[1.3]',
             'hover:border-border tablet:text-[19px]',
+          )}
+          displayClassName={cn(
+            'w-full border-b border-transparent text-xl font-semibold tracking-[-0.02em] leading-[1.3]',
+            'hover:border-border tablet:text-[19px]',
+            canEdit && 'cursor-text',
           )}
         />
         {title.error ? (
@@ -272,15 +276,13 @@ function CardDetailFields({
         <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
           Description
         </span>
-        <textarea
-          aria-label="Description"
-          rows={4}
+        <EditableServiceText
+          ariaLabel="Description"
           value={description.value}
-          readOnly={!canEdit}
+          canEdit={canEdit}
+          rows={4}
           placeholder="Add context, acceptance criteria, or links"
-          onChange={(event) => {
-            if (!canEdit) return;
-            const next = event.target.value;
+          onChange={(next) => {
             description.setValue(next);
             onCardPatch({ description: next });
           }}
@@ -288,6 +290,10 @@ function CardDetailFields({
           className={cn(
             shellFocusClassName,
             'resize-none rounded-md border border-border bg-background px-[13px] py-[11px] text-sm leading-[1.6] tablet:text-[13.5px]',
+          )}
+          displayClassName={cn(
+            'min-h-[6.4em] whitespace-pre-wrap rounded-md border border-border bg-background px-[13px] py-[11px] text-sm leading-[1.6] tablet:text-[13.5px]',
+            canEdit && 'cursor-text',
           )}
         />
         {description.error ? (

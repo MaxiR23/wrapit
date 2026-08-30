@@ -653,7 +653,7 @@ describe('ProjectBoard', () => {
 
     await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
 
-    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+    expect(screen.getByLabelText('Title')).toHaveTextContent('Card A');
     expect(screen.getByRole('dialog')).toHaveTextContent('CA-1');
   });
 
@@ -670,7 +670,7 @@ describe('ProjectBoard', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+    expect(screen.getByLabelText('Title')).toHaveTextContent('Card A');
   });
 
   it('does not open detail when initialOpenCardId is not on the board', () => {
@@ -823,7 +823,7 @@ describe('ProjectBoard', () => {
 
     await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
     expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Title')).toHaveValue('Card A');
+    expect(screen.getByLabelText('Title')).toHaveTextContent('Card A');
   });
 
   it('hides mounted columns while the activity log is open and keeps queued moves', async () => {

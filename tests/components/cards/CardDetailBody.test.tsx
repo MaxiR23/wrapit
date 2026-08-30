@@ -1,16 +1,20 @@
 // tests/components/cards/CardDetailBody.test.tsx
 //
-// Tests for coalesced assignee and label writes on the card detail pane.
+// Tests for coalesced assignee and label writes on the card detail pane,
+// and for service-link display in title and description.
 //
 // Tested:
 // - Rapid assignee toggles persist the last selection regardless of response order
 // - Rapid label selections persist the last label chosen
 // - After the viewer zone resolves, a due moment shows that zone's wall time
+// - A GitHub URL in the title and description renders as the same labelled link
+// - Enter on the title display opens the textarea with the raw URL
 //
 // What is covered:
 // - One in-flight write per card for assignees and for label; a stale success
 //   still advances persisted so the correction write can run
 // - Due value resync when the viewer zone becomes known
+// - Board and detail share the same derived service-link label
 //
 // Run with: pnpm test:run tests/components/cards/CardDetailBody.test.tsx
 //
@@ -176,5 +180,38 @@ describe('CardDetailBody', () => {
     rerender(<Harness card={madridCard} />);
 
     expect(screen.getAllByLabelText('Due time')[0]).toHaveValue('11:00');
+  });
+
+  it('shows a GitHub issue in the title as the same labelled link as the board', () => {
+    render(<Harness card={{ ...baseCard, title: 'https://github.com/wrapit/wrapit/issues/42' }} />);
+
+    const link = screen.getByRole('link', { name: 'wrapit/wrapit#42' });
+    expect(link).toHaveAttribute('href', 'https://github.com/wrapit/wrapit/issues/42');
+  });
+
+  it('shows a recognised description link with the same label as the board would', () => {
+    render(
+      <Harness
+        card={{
+          ...baseCard,
+          description: 'See https://github.com/wrapit/wrapit/issues/42 please',
+        }}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'wrapit/wrapit#42' });
+    expect(link).toHaveAttribute('href', 'https://github.com/wrapit/wrapit/issues/42');
+  });
+
+  it('opens the raw title URL in a textarea after Enter on the display', async () => {
+    const user = userEvent.setup();
+    render(<Harness card={{ ...baseCard, title: 'https://github.com/wrapit/wrapit/issues/42' }} />);
+
+    screen.getByLabelText('Title').focus();
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue(
+      'https://github.com/wrapit/wrapit/issues/42',
+    );
   });
 });
