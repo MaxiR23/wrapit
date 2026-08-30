@@ -66,7 +66,15 @@ The project detail page loads ordered columns and visible cards (those with
 Non-members get `notFound()`. A project with no columns still mounts
 `ProjectBoard`, so the header and Share stay available; the column area shows
 `ColumnsEmptyState`. Cards with a `labelId` render a pill from
-`cardLabelFromRow`; unlabeled cards omit it. Clicking a board card opens the
+`cardLabelFromRow`; unlabeled cards omit it. An `http://` or `https://` URL in
+the title that points at GitHub, Figma, Notion, Google Docs, or Slack renders
+as that service's icon and a label derived from the URL (`src/lib/serviceLinks.ts`).
+Lucide 1.30 has no brand marks for GitHub, Figma, or Slack, so those chips use
+`GitBranch`, `Layers`, and `Hash`; Google Docs uses `FileText` and Notion uses
+`BookOpen`. The board face does not show description. The card detail uses the same helper
+for title and description: display mode shows the chip, and Enter, Space, or a
+click that is not on the chip switches to the textarea with the raw URL. Unrecognised
+addresses stay as typed. Labels are never fetched. Clicking a board card opens the
 detail dialog: title, description, due date, assignees, label, and subtask
 done all go through `useProfileAutosave` (debounce 0 for assignees, label,
 and done). One write is in flight per card for assignees and for label, and
@@ -390,12 +398,15 @@ src/components/labels/LabelEditor.tsx     reusable editor (inline in new task)
 src/components/cards/NewCardDialog.tsx  new-task dialog (540px tablet+, full screen on phone)
 src/components/cards/NewCardFields.tsx  shared new-task form body
 src/components/cards/BoardCard.tsx      card face (label, code, title, derived footer)
+src/components/cards/ServiceLinkText.tsx  recognised service URL chip in user text
+src/components/cards/EditableServiceText.tsx  display vs textarea for title and description
 src/components/cards/CardDetailDialog.tsx  card detail (900px two-column tablet+, full screen on phone)
 src/components/cards/CardDetailBody.tsx    shared detail body (CSS breakpoints only)
 src/components/cards/CardSubtaskList.tsx   subtask add/rename/check/remove and progress
 src/components/cards/CardCommentThread.tsx comments list and pinned/in-column composer
 src/components/projects/BoardToast.tsx     archive/delete toast; View archived link; restore undo
 src/lib/cardCounters.ts                 comment count and subtask done/total
+src/lib/serviceLinks.ts             recognised service URLs: match, labels, sanitised href
 src/components/cards/DueDateField.tsx      shared date + optional time control
 src/components/tasks/MyTasksView.tsx    assigned-task list, filters, groups, empty states
 src/components/tasks/MyTaskRow.tsx      complete circle vs open-detail split

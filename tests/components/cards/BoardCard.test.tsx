@@ -4,6 +4,10 @@
 //
 // Tested:
 // - Renders title and stored code
+// - Shows a GitHub issue in the title as a labelled link
+// - Leaves an unrecognised title URL as the raw address
+// - Clicking a recognised title link does not open the card
+// - A javascript: title does not become a link
 // - Shows 0 comments and 0/0 subtasks when lists are empty
 // - Shows a due label and the late token when the date is before today
 // - Shows the time of a due moment, converted into the viewer's zone
@@ -15,6 +19,7 @@
 //
 // What is covered:
 // - Present fields only, overdue styling, unknown tone omitted, due moments
+// - Recognised title links, unrecognised URLs, click does not open the card
 //
 // Run with: pnpm test:run tests/components/cards/BoardCard.test.tsx
 //
@@ -22,6 +27,7 @@
 
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import BoardCard from '@/components/cards/BoardCard';
 import type { BoardCardData } from '@/components/projects/boardTypes';
@@ -40,6 +46,42 @@ describe('BoardCard', () => {
 
     expect(screen.getByRole('heading', { name: 'Write the board' })).toBeInTheDocument();
     expect(screen.getByText('WB-1')).toBeInTheDocument();
+  });
+
+  it('renders a GitHub issue in the title as a labelled link', () => {
+    render(<BoardCard card={{ ...base, title: 'https://github.com/wrapit/wrapit/issues/42' }} />);
+
+    const link = screen.getByRole('link', { name: 'wrapit/wrapit#42' });
+    expect(link).toHaveAttribute('href', 'https://github.com/wrapit/wrapit/issues/42');
+  });
+
+  it('leaves an unrecognised title URL as the raw address', () => {
+    render(<BoardCard card={{ ...base, title: 'https://example.com/x' }} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'https://example.com/x' })).toBeInTheDocument();
+  });
+
+  it('does not open the card when a recognised title link is clicked', async () => {
+    const onClick = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BoardCard
+        card={{ ...base, title: 'https://github.com/wrapit/wrapit/issues/42' }}
+        onClick={onClick}
+      />,
+    );
+
+    await user.click(screen.getByRole('link', { name: 'wrapit/wrapit#42' }));
+
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('does not turn a javascript title into a link', () => {
+    render(<BoardCard card={{ ...base, title: 'javascript:alert(1)' }} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'javascript:alert(1)' })).toBeInTheDocument();
   });
 
   it('shows zero comment and subtask counts when lists are empty', () => {

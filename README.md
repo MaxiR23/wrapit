@@ -16,6 +16,14 @@ when present; there is no editor for it on the board.
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
 
+## Planned work
+
+Service links in card titles and descriptions currently derive their labels from
+the URL alone. Fetching real titles and status from GitHub, Figma, Notion,
+Google Docs, and Slack is a later slice. That connection will be per user
+rather than per project, so nobody sees anything from a private repository they
+could not already open themselves.
+
 ## Stack
 
 - Next.js 16 (App Router, Server Components)

@@ -1,6 +1,7 @@
 import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
 import { MessageSquare } from 'lucide-react';
 
+import ServiceLinkText from '@/components/cards/ServiceLinkText';
 import { commentCount, subtaskProgress } from '@/lib/cardCounters';
 import { cardDueLabel } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
@@ -70,6 +71,7 @@ export default function BoardCard({
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key !== 'Enter' || !onClick) return;
+    if (event.target instanceof Element && event.target.closest('a')) return;
     event.preventDefault();
     onClick(event as unknown as MouseEvent<HTMLElement>);
   }
@@ -118,7 +120,9 @@ export default function BoardCard({
         </div>
       ) : null}
 
-      <h3 className="text-[13.5px] font-medium leading-[1.35] text-pretty">{card.title}</h3>
+      <h3 className="text-[13.5px] font-medium leading-[1.35] text-pretty">
+        <ServiceLinkText text={card.title} />
+      </h3>
 
       {showFooter ? (
         <div className="flex items-center gap-3 border-t border-border pt-[11px] text-[11.5px] text-muted-foreground tabular-nums">

@@ -8,6 +8,7 @@
 // - Delete confirmation replaces archive and delete
 // - Archive and confirmed delete call the parent handlers
 // - View-only access hides archive, delete, and the comment composer
+//   and does not expose a title editor
 // - Comment access keeps the composer and hides archive/delete
 //
 // What is covered:
@@ -101,7 +102,7 @@ describe('CardDetailDialog', () => {
   it('shows the title, code, and column', () => {
     renderDialog();
 
-    expect(screen.getByLabelText('Title')).toHaveValue('Write the board');
+    expect(screen.getByLabelText('Title')).toHaveTextContent('Write the board');
     expect(screen.getByText('WB-1')).toBeInTheDocument();
     expect(screen.getAllByText('To do').length).toBeGreaterThan(0);
   });
@@ -149,7 +150,8 @@ describe('CardDetailDialog', () => {
     expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Comment' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Title')).toHaveAttribute('readOnly');
+    expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).not.toHaveAttribute('tabindex');
   });
 
   it('keeps the comment composer and hides archive for comment access', () => {
