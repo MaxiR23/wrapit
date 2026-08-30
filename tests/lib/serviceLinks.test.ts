@@ -8,10 +8,11 @@
 // - An unrecognised URL is left as text
 // - Hostile and malformed strings never become a service href
 // - Userinfo is stripped from the stored href
+// - sanitiseHttpHref allows any http(s) address and rejects other schemes
 //
 // What is covered:
 // - Happy path per service, mixed text, scheme-less, www, http,
-//   allowlist, userinfo, javascript/data, malformed
+//   allowlist, userinfo, javascript/data, malformed, generic href sanitise
 //
 // Run with: pnpm test:run tests/lib/serviceLinks.test.ts
 //
@@ -19,7 +20,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { recognizeServiceLink, splitServiceLinks } from '@/lib/serviceLinks';
+import { recognizeServiceLink, sanitiseHttpHref, splitServiceLinks } from '@/lib/serviceLinks';
 
 describe('recognizeServiceLink', () => {
   it('labels a GitHub issue from the owner, repo, and number', () => {
@@ -123,6 +124,19 @@ describe('recognizeServiceLink', () => {
 
   it('returns null for a malformed URL', () => {
     expect(recognizeServiceLink('https://[')).toBeNull();
+  });
+});
+
+describe('sanitiseHttpHref', () => {
+  it('keeps an http or https address and strips userinfo', () => {
+    expect(sanitiseHttpHref('https://example.com/x')).toBe('https://example.com/x');
+    expect(sanitiseHttpHref('https://user:pass@example.com/a')).toBe('https://example.com/a');
+  });
+
+  it('rejects javascript, data, and malformed strings', () => {
+    expect(sanitiseHttpHref('javascript:alert(1)')).toBeNull();
+    expect(sanitiseHttpHref('data:text/html,hi')).toBeNull();
+    expect(sanitiseHttpHref('https://[')).toBeNull();
   });
 });
 

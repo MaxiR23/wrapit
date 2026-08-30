@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Check, Download, Trash2, X } from 'lucide-react';
 
+import CardMarkdown from '@/components/cards/CardMarkdown';
 import { archivedCopy } from '@/lib/archivedCopy';
 import {
   archivedByLine,
@@ -87,7 +88,7 @@ export default function ArchivedDetail({
               id="archived-detail-title"
               className="mt-1 text-[17px] font-semibold tracking-[-0.02em] text-pretty"
             >
-              {title}
+              {card ? <CardMarkdown text={card.title} variant="inline" /> : title}
             </h2>
             <p className="mt-1 truncate text-[12.5px] text-subtle">{context}</p>
           </div>
@@ -235,7 +236,9 @@ export default function ArchivedDetail({
                     <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
                       {initials(comment.author.name, comment.author.username)}
                     </span>
-                    <p className="text-[13px] text-pretty">{comment.body}</p>
+                    <div className="text-[13px] text-pretty">
+                      <CardMarkdown text={comment.body} />
+                    </div>
                   </li>
                 ))}
               </ul>

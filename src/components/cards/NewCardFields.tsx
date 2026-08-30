@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 
 import DueDateField from '@/components/cards/DueDateField';
+import MarkdownToolbar, {
+  applyMarkdownToField,
+  markdownHotkey,
+} from '@/components/cards/MarkdownToolbar';
 import LabelEditor from '@/components/labels/LabelEditor';
 import type { BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -60,6 +64,8 @@ export default function NewCardFields({
   onDueDateChange: (value: string) => void;
 }) {
   const [editingLabels, setEditingLabels] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const selectedAssignees = new Set(assigneeIds);
   const viewerTimeZone = useViewerTimeZone();
 
@@ -73,16 +79,31 @@ export default function NewCardFields({
   return (
     <div className="flex flex-col gap-5 overflow-auto px-4 py-[18px] tablet:gap-[18px] tablet:p-5">
       <Field data-invalid={Boolean(titleError)} className="gap-2 tablet:gap-[7px]">
-        <FieldLabel
-          htmlFor="new-card-title"
-          className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs"
-        >
-          Title
-        </FieldLabel>
+        <div className="flex items-center justify-between gap-2">
+          <FieldLabel
+            htmlFor="new-card-title"
+            className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs"
+          >
+            Title
+          </FieldLabel>
+          <MarkdownToolbar
+            variant="inline"
+            fieldRef={titleRef}
+            value={title}
+            onChange={onTitleChange}
+          />
+        </div>
         <Input
+          ref={titleRef}
           id="new-card-title"
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
+          onKeyDown={(event) => {
+            const action = markdownHotkey(event, 'inline');
+            if (!action) return;
+            event.preventDefault();
+            applyMarkdownToField(event.currentTarget, title, action, onTitleChange);
+          }}
           placeholder="What needs doing"
           autoComplete="off"
           autoFocus
@@ -94,16 +115,31 @@ export default function NewCardFields({
       </Field>
 
       <Field data-invalid={Boolean(descriptionError)} className="gap-2 tablet:gap-[7px]">
-        <FieldLabel
-          htmlFor="new-card-description"
-          className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs"
-        >
-          Description
-        </FieldLabel>
+        <div className="flex items-center justify-between gap-2">
+          <FieldLabel
+            htmlFor="new-card-description"
+            className="text-[12.5px] font-medium text-muted-foreground tablet:text-xs"
+          >
+            Description
+          </FieldLabel>
+          <MarkdownToolbar
+            variant="full"
+            fieldRef={descriptionRef}
+            value={description}
+            onChange={onDescriptionChange}
+          />
+        </div>
         <Textarea
+          ref={descriptionRef}
           id="new-card-description"
           value={description}
           onChange={(event) => onDescriptionChange(event.target.value)}
+          onKeyDown={(event) => {
+            const action = markdownHotkey(event, 'full');
+            if (!action) return;
+            event.preventDefault();
+            applyMarkdownToField(event.currentTarget, description, action, onDescriptionChange);
+          }}
           rows={3}
           placeholder="Context, acceptance criteria, links"
           aria-invalid={Boolean(descriptionError)}

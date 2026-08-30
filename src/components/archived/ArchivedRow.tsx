@@ -1,8 +1,15 @@
 'use client';
 
-import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { Download, RotateCcw, Trash2 } from 'lucide-react';
 
+import CardMarkdown from '@/components/cards/CardMarkdown';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
   ARCHIVED_LONG_PRESS_MOVE_PX,
@@ -23,6 +30,10 @@ import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
 import { projectStatusBarClass } from '@/lib/projectGrid';
 import { cn } from '@/lib/utils';
+
+function isNestedControl(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('a, button, input'));
+}
 
 function ArchivedCheckbox({
   checked,
@@ -87,6 +98,7 @@ type RowChrome = {
 
 function ArchivedRowChrome({
   name,
+  nameDisplay,
   subtitle,
   label,
   mobileMeta,
@@ -113,6 +125,7 @@ function ArchivedRowChrome({
   onSwipeEnd,
 }: RowChrome & {
   name: string;
+  nameDisplay?: ReactNode;
   subtitle: string;
   label: ReactNode;
   mobileMeta: ReactNode;
@@ -123,10 +136,12 @@ function ArchivedRowChrome({
   archivedBy: ArchivedPerson | null;
 }) {
   const ignoreClickRef = useRef(false);
+  const titleId = useId();
   const by = archivedByLine({ archivedBy });
   const adminTitle = canAdminister ? undefined : adminOnly;
 
-  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (isNestedControl(event.target)) return;
     startRowPointer(event, {
       swipeEnabled,
       selectionMode,
@@ -172,10 +187,11 @@ function ArchivedRowChrome({
           </div>
         </div>
       ) : null}
-      <div
-        role="button"
+      <article
         tabIndex={0}
-        onClick={() => {
+        aria-labelledby={titleId}
+        onClick={(event) => {
+          if (isNestedControl(event.target)) return;
           if (ignoreClickRef.current) {
             ignoreClickRef.current = false;
             return;
@@ -183,15 +199,16 @@ function ArchivedRowChrome({
           if (selectionMode) onToggleSelect();
           else onOpen();
         }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            if (selectionMode) onToggleSelect();
-            else onOpen();
-          }
+        onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          if (isNestedControl(event.target)) return;
+          event.preventDefault();
+          if (selectionMode) onToggleSelect();
+          else onOpen();
         }}
         onPointerDown={handlePointerDown}
         className={cn(
+          shellFocusClassName,
           'relative grid items-center gap-2.5 bg-card px-4 py-3 text-left tabular-nums transition-colors duration-150',
           'min-h-16 grid-cols-[auto_minmax(0,1fr)]',
           'tablet:min-h-0 tablet:grid-cols-[auto_minmax(0,1fr)_auto] tablet:px-4 tablet:py-3',
@@ -217,7 +234,9 @@ function ArchivedRowChrome({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             {label}
-            <span className="truncate text-[14px] font-medium">{name}</span>
+            <span id={titleId} className="truncate text-[14px] font-medium">
+              {nameDisplay ?? name}
+            </span>
           </div>
           <p className="truncate text-[12px] text-subtle">{subtitle}</p>
           <div className="mt-1 flex items-center gap-2 text-[12px] text-subtle tablet:hidden">
@@ -294,7 +313,7 @@ function ArchivedRowChrome({
             <Trash2 className="size-3.5" strokeWidth={1.8} />
           </button>
         </div>
-      </div>
+      </article>
     </div>
   );
 }
@@ -394,6 +413,7 @@ export default function ArchivedRow({
     <ArchivedRowChrome
       {...chrome}
       name={card.title}
+      nameDisplay={<CardMarkdown text={card.title} variant="inline" />}
       subtitle={archivedTaskDetailLine(card)}
       label={
         tone && card.label ? (

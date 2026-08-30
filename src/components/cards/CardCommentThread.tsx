@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 import { createComment } from '@/actions/createComment';
+import CardMarkdown from '@/components/cards/CardMarkdown';
+import MarkdownToolbar, {
+  applyMarkdownToField,
+  markdownHotkey,
+} from '@/components/cards/MarkdownToolbar';
 import type { BoardComment, BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { initials } from '@/lib/initials';
@@ -39,9 +44,9 @@ export default function CardCommentThread({ comments }: { comments: BoardComment
                     {formatRelativeTime(comment.createdAt)}
                   </span>
                 </div>
-                <p className="text-[13.5px] leading-[1.55] text-pretty text-muted-foreground">
-                  {comment.body}
-                </p>
+                <div className="text-[13.5px] leading-[1.55] text-pretty text-muted-foreground">
+                  <CardMarkdown text={comment.body} />
+                </div>
               </div>
             </article>
           ))}
@@ -65,6 +70,7 @@ export function CardCommentComposer({
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
   const canSubmit = draft.trim().length > 0 && !submitting;
 
   async function handleSubmit() {
@@ -95,32 +101,42 @@ export function CardCommentComposer({
         >
           {initials(currentUser.name, currentUser.username)}
         </span>
-        <div className="flex min-w-0 flex-1 items-end gap-[9px] tablet:flex-col tablet:items-end tablet:gap-2">
-          <textarea
-            aria-label="Write a comment"
-            rows={2}
-            value={draft}
-            placeholder="Write a comment"
-            onChange={(event) => setDraft(event.target.value)}
-            className={cn(
-              shellFocusClassName,
-              'min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2.5 text-sm leading-[1.4] tablet:w-full tablet:text-[13.5px] tablet:leading-[1.55]',
-            )}
-          />
-          <button
-            type="button"
-            title="Comment"
-            disabled={!canSubmit}
-            onClick={() => void handleSubmit()}
-            className={cn(
-              shellFocusClassName,
-              'inline-flex size-[42px] shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-45',
-              'tablet:h-8 tablet:w-auto tablet:px-3.5 tablet:text-[12.5px] tablet:font-semibold',
-            )}
-          >
-            <ArrowRight className="size-[18px] tablet:hidden" strokeWidth={2} />
-            <span className="hidden tablet:inline">Comment</span>
-          </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 tablet:w-full">
+          <MarkdownToolbar variant="full" fieldRef={fieldRef} value={draft} onChange={setDraft} />
+          <div className="flex min-w-0 items-end gap-[9px] tablet:flex-col tablet:items-end tablet:gap-2">
+            <textarea
+              ref={fieldRef}
+              aria-label="Write a comment"
+              rows={2}
+              value={draft}
+              placeholder="Write a comment"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                const action = markdownHotkey(event, 'full');
+                if (!action) return;
+                event.preventDefault();
+                applyMarkdownToField(event.currentTarget, draft, action, setDraft);
+              }}
+              className={cn(
+                shellFocusClassName,
+                'min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2.5 text-sm leading-[1.4] tablet:w-full tablet:text-[13.5px] tablet:leading-[1.55]',
+              )}
+            />
+            <button
+              type="button"
+              title="Comment"
+              disabled={!canSubmit}
+              onClick={() => void handleSubmit()}
+              className={cn(
+                shellFocusClassName,
+                'inline-flex size-[42px] shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-45',
+                'tablet:h-8 tablet:w-auto tablet:px-3.5 tablet:text-[12.5px] tablet:font-semibold',
+              )}
+            >
+              <ArrowRight className="size-[18px] tablet:hidden" strokeWidth={2} />
+              <span className="hidden tablet:inline">Comment</span>
+            </button>
+          </div>
         </div>
       </div>
       {error ? (

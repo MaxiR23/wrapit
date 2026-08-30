@@ -6,9 +6,11 @@
 // - A long press selects and does not open detail
 // - Moving more than 6px cancels the long press
 // - A tap opens detail
+// - A markdown title is not nested in a button
+// - A title link does not open the row
 //
 // What is covered:
-// - Long-press vs tap vs cancelled press
+// - Long-press vs tap vs cancelled press, title-link isolation
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedRow.test.tsx
 //
@@ -16,6 +18,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import ArchivedRow from '@/components/archived/ArchivedRow';
 import { ARCHIVED_LONG_PRESS_MS } from '@/lib/archived';
@@ -36,10 +39,7 @@ const card: ArchivedTask = {
 };
 
 function rowEl() {
-  const title = screen.getByText('Write tests');
-  const row = title.closest('[role="button"]');
-  if (!row) throw new Error('Missing archived row');
-  return row;
+  return screen.getByRole('article', { name: 'Write tests' });
 }
 
 describe('ArchivedRow', () => {
@@ -147,6 +147,66 @@ describe('ArchivedRow', () => {
     fireEvent.pointerDown(rowEl(), { pointerId: 1, clientX: 10, clientY: 10 });
     fireEvent(window, new PointerEvent('pointerup', { pointerId: 1, clientX: 10, clientY: 10 }));
 
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders markdown in an archived card title', () => {
+    render(
+      <ArchivedRow
+        card={{ ...card, title: '**Write tests**' }}
+        selected={false}
+        selectionMode={false}
+        swipeEnabled
+        canAdminister
+        dx={0}
+        tween={false}
+        onOpen={vi.fn()}
+        onToggleSelect={vi.fn()}
+        onRestore={vi.fn()}
+        onExport={vi.fn()}
+        onDelete={vi.fn()}
+        onLongPress={vi.fn()}
+        onSwipeChange={vi.fn()}
+        onSwipeEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Write tests')[0]!.closest('strong')).toHaveTextContent(
+      'Write tests',
+    );
+    expect(screen.getAllByText('Write tests')[0]!.closest('button')).toBeNull();
+  });
+
+  it('opens the row from the article and does not open when a title link is clicked', async () => {
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ArchivedRow
+        card={{ ...card, title: '[docs](https://example.com/x)' }}
+        selected={false}
+        selectionMode={false}
+        swipeEnabled={false}
+        canAdminister
+        dx={0}
+        tween={false}
+        onOpen={onOpen}
+        onToggleSelect={vi.fn()}
+        onRestore={vi.fn()}
+        onExport={vi.fn()}
+        onDelete={vi.fn()}
+        onLongPress={vi.fn()}
+        onSwipeChange={vi.fn()}
+        onSwipeEnd={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'docs' });
+    expect(link).toHaveAttribute('href', 'https://example.com/x');
+    expect(link.closest('button')).toBeNull();
+    await user.click(link);
+    expect(onOpen).not.toHaveBeenCalled();
+
+    await user.click(screen.getByText('0/0 subtasks · 0 comments'));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

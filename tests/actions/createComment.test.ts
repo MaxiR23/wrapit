@@ -102,6 +102,21 @@ describe('createComment', () => {
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
+  it('stores markdown in the comment body exactly as typed', async () => {
+    const { card } = await seedOwnedCard();
+    await db.user.create({
+      data: { id: sessionUser.id, name: sessionUser.name, username: sessionUser.username },
+    });
+
+    const body = 'Use `pnpm test` and **bold**';
+    const result = await createComment({ cardId: card.id, body });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ body }),
+    });
+    expect(db.comment.rows[0]?.body).toBe(body);
+  });
+
   it('rejects an empty body with a clear field error', async () => {
     const { card } = await seedOwnedCard();
 

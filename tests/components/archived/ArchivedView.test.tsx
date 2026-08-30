@@ -94,6 +94,10 @@ function renderView(ui: ReactElement) {
   return render(ui, { wrapper: Harness });
 }
 
+function archivedRow(title: string) {
+  return screen.getAllByRole('article', { name: title })[0]!;
+}
+
 describe('ArchivedView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -280,7 +284,7 @@ describe('ArchivedView', () => {
     );
 
     await user.click(
-      within(screen.getAllByRole('button', { name: /Write tests/ })[0]!).getAllByRole('button', {
+      within(archivedRow('Write tests')).getAllByRole('button', {
         name: 'Restore',
       })[0]!,
     );
@@ -288,7 +292,7 @@ describe('ArchivedView', () => {
       expect(restoreArchivedCards).toHaveBeenCalledTimes(1);
     });
     await user.click(
-      within(screen.getAllByRole('button', { name: /Ship the grid/ })[0]!).getAllByRole('button', {
+      within(archivedRow('Ship the grid')).getAllByRole('button', {
         name: 'Restore',
       })[0]!,
     );

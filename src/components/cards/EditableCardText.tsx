@@ -1,8 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
 
-import ServiceLinkText from '@/components/cards/ServiceLinkText';
+import CardMarkdown from '@/components/cards/CardMarkdown';
+import MarkdownToolbar, {
+  applyMarkdownToField,
+  markdownHotkey,
+} from '@/components/cards/MarkdownToolbar';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +21,7 @@ function isInsideLink(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('a'));
 }
 
-export default function EditableServiceText({
+export default function EditableCardText({
   value,
   ariaLabel,
   canEdit,
@@ -18,6 +29,7 @@ export default function EditableServiceText({
   placeholder,
   className,
   displayClassName,
+  variant = 'full',
   onChange,
   onBlur,
 }: {
@@ -28,6 +40,7 @@ export default function EditableServiceText({
   placeholder?: string;
   className?: string;
   displayClassName?: string;
+  variant?: 'inline' | 'full';
   onChange: (value: string) => void;
   onBlur: () => void;
 }) {
@@ -60,25 +73,42 @@ export default function EditableServiceText({
     startEditing();
   }
 
+  function handleWrapperBlur(event: FocusEvent<HTMLElement>) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.contains(next)) return;
+    onBlur();
+    setEditing(false);
+  }
+
   if (canEdit && editing) {
     return (
-      <textarea
-        ref={textareaRef}
-        aria-label={ariaLabel}
-        rows={rows}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape') return;
-          event.currentTarget.blur();
-        }}
-        onBlur={() => {
-          onBlur();
-          setEditing(false);
-        }}
-        className={className}
-      />
+      <div className="flex flex-col gap-1.5" onBlur={handleWrapperBlur}>
+        <MarkdownToolbar
+          variant={variant}
+          fieldRef={textareaRef}
+          value={value}
+          onChange={onChange}
+        />
+        <textarea
+          ref={textareaRef}
+          aria-label={ariaLabel}
+          rows={rows}
+          value={value}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.currentTarget.blur();
+              return;
+            }
+            const action = markdownHotkey(event, variant);
+            if (!action) return;
+            event.preventDefault();
+            applyMarkdownToField(event.currentTarget, value, action, onChange);
+          }}
+          className={className}
+        />
+      </div>
     );
   }
 
@@ -96,7 +126,7 @@ export default function EditableServiceText({
         showPlaceholder && 'text-muted-foreground',
       )}
     >
-      {showPlaceholder ? placeholder : <ServiceLinkText text={value} />}
+      {showPlaceholder ? placeholder : <CardMarkdown text={value} variant={variant} />}
     </div>
   );
 }

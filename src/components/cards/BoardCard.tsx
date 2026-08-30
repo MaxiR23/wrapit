@@ -1,7 +1,7 @@
 import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react';
 import { MessageSquare } from 'lucide-react';
 
-import ServiceLinkText from '@/components/cards/ServiceLinkText';
+import CardMarkdown from '@/components/cards/CardMarkdown';
 import { commentCount, subtaskProgress } from '@/lib/cardCounters';
 import { cardDueLabel } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
@@ -69,9 +69,18 @@ export default function BoardCard({
       : null;
   const tone = card.label ? labelToneClasses(card.label.tone) : null;
 
+  function isNestedControl(target: EventTarget | null): boolean {
+    return target instanceof Element && Boolean(target.closest('a, button'));
+  }
+
+  function handleClick(event: MouseEvent<HTMLElement>) {
+    if (isNestedControl(event.target)) return;
+    onClick?.(event);
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key !== 'Enter' || !onClick) return;
-    if (event.target instanceof Element && event.target.closest('a')) return;
+    if (isNestedControl(event.target)) return;
     event.preventDefault();
     onClick(event as unknown as MouseEvent<HTMLElement>);
   }
@@ -87,7 +96,7 @@ export default function BoardCard({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      onClick={onClick}
+      onClick={onClick ? handleClick : undefined}
       onKeyDown={handleKeyDown}
       className={cn(
         'relative flex flex-col gap-[11px] rounded-[12px] border bg-card p-[13px] shadow-[0_1px_2px_oklch(0_0_0/0.35)]',
@@ -121,7 +130,7 @@ export default function BoardCard({
       ) : null}
 
       <h3 className="text-[13.5px] font-medium leading-[1.35] text-pretty">
-        <ServiceLinkText text={card.title} />
+        <CardMarkdown text={card.title} variant="inline" />
       </h3>
 
       {showFooter ? (

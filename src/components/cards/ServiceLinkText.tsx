@@ -1,4 +1,10 @@
-import { Fragment, type DragEvent, type MouseEvent, type PointerEvent } from 'react';
+import {
+  Fragment,
+  type DragEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { BookOpen, FileText, GitBranch, Hash, Layers, type LucideIcon } from 'lucide-react';
 
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -21,6 +27,39 @@ function stopCardHandlers(
   if ('preventDefault' in event && event.type === 'dragstart') event.preventDefault();
 }
 
+export function CardTextLink({
+  href,
+  service,
+  className,
+  children,
+}: {
+  href: string;
+  service?: ServiceId;
+  className?: string;
+  children: ReactNode;
+}) {
+  const Icon = service ? SERVICE_ICONS[service] : null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      draggable={false}
+      onClick={stopCardHandlers}
+      onPointerDown={stopCardHandlers}
+      onDragStart={stopCardHandlers}
+      className={cn(
+        shellFocusClassName,
+        'inline-flex max-w-full items-center gap-1 rounded-sm align-text-bottom text-inherit no-underline hover:underline',
+        className,
+      )}
+    >
+      {Icon ? <Icon aria-hidden className="size-[1em] shrink-0" strokeWidth={2} /> : null}
+      {children}
+    </a>
+  );
+}
+
 export default function ServiceLinkText({ text, className }: { text: string; className?: string }) {
   const segments = splitServiceLinks(text);
   return (
@@ -29,26 +68,15 @@ export default function ServiceLinkText({ text, className }: { text: string; cla
         if (segment.type === 'text') {
           return <Fragment key={index}>{segment.value}</Fragment>;
         }
-        const Icon = SERVICE_ICONS[segment.service];
         return (
-          <a
+          <CardTextLink
             key={`${segment.href}-${index}`}
             href={segment.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            draggable={false}
-            onClick={stopCardHandlers}
-            onPointerDown={stopCardHandlers}
-            onDragStart={stopCardHandlers}
-            className={cn(
-              shellFocusClassName,
-              'inline-flex max-w-full items-center gap-1 rounded-sm align-text-bottom text-inherit no-underline hover:underline',
-              className,
-            )}
+            service={segment.service}
+            className={className}
           >
-            <Icon aria-hidden className="size-[1em] shrink-0" strokeWidth={2} />
             {segment.label}
-          </a>
+          </CardTextLink>
         );
       })}
     </>

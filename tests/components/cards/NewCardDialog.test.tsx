@@ -261,4 +261,22 @@ describe('NewCardDialog', () => {
     expect(screen.getByText('Edit the name, click the color to change it')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
   });
+
+  it('keeps markdown markers in the create payload after a toolbar wrap', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const description = screen.getByLabelText('Description') as HTMLTextAreaElement;
+    await user.type(screen.getByLabelText('Title'), 'Write tests');
+    await user.type(description, 'Cover');
+    description.setSelectionRange(0, 5);
+    await user.click(screen.getAllByRole('button', { name: 'Bold' })[1]!);
+    await user.click(screen.getByRole('button', { name: 'Create task' }));
+
+    await waitFor(() => {
+      expect(createCard).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Write tests', description: '**Cover**' }),
+      );
+    });
+  });
 });

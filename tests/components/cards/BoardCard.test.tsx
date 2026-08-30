@@ -8,6 +8,7 @@
 // - Leaves an unrecognised title URL as the raw address
 // - Clicking a recognised title link does not open the card
 // - A javascript: title does not become a link
+// - A bold title renders as strong; a list marker in a title stays characters
 // - Shows 0 comments and 0/0 subtasks when lists are empty
 // - Shows a due label and the late token when the date is before today
 // - Shows the time of a due moment, converted into the viewer's zone
@@ -75,6 +76,7 @@ describe('BoardCard', () => {
     await user.click(screen.getByRole('link', { name: 'wrapit/wrapit#42' }));
 
     expect(onClick).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: 'wrapit/wrapit#42' }).closest('button')).toBeNull();
   });
 
   it('does not turn a javascript title into a link', () => {
@@ -82,6 +84,18 @@ describe('BoardCard', () => {
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'javascript:alert(1)' })).toBeInTheDocument();
+  });
+
+  it('renders markdown in the title and leaves list markers as characters', () => {
+    const { rerender } = render(<BoardCard card={{ ...base, title: '**Write the board**' }} />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Write the board' }).querySelector('strong'),
+    ).toHaveTextContent('Write the board');
+
+    rerender(<BoardCard card={{ ...base, title: '- a title' }} />);
+    expect(screen.getByRole('heading', { name: '- a title' })).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 
   it('shows zero comment and subtask counts when lists are empty', () => {
