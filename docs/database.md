@@ -182,8 +182,18 @@ Passwords live on `Account`, not on `User`. See `docs/auth.md`.
 `pnpm db:migrate` asks for a migration name before creating and applying it, and
 `pnpm db:reset` drops the database and replays every migration from scratch.
 
+`pnpm db:deploy` runs `prisma migrate deploy`: it applies pending migrations
+without prompting and without creating new ones. Use that against any
+non-local database (Vercel production, a preview DB, a shared staging
+instance). `pnpm build` runs `db:deploy` and `db:generate` before
+`next build`, so a Vercel deploy cannot ship schema that the database has
+not caught up with. Skipping deploy after a merge that adds a migration
+leaves the app selecting columns that do not exist; authenticated pages
+that read `Membership` (including `/projects` and `/account`) then 500.
+
 In Prisma 7, `migrate` does not generate the client automatically. Run
-`pnpm db:generate` after schema changes.
+`pnpm db:generate` after schema changes. Production builds already do
+that step.
 
 See: https://www.prisma.io/docs/orm
 
