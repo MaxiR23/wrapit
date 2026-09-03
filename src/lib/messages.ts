@@ -82,6 +82,9 @@ export const COMMENT_CHANGED_ELSEWHERE_MESSAGE = 'This comment changed somewhere
 export const MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE =
   "This person's role changed somewhere else.";
 
+/** Occupancy miss: the invitation is no longer the pending row the caller read. */
+export const INVITATION_NO_LONGER_VALID_MESSAGE = 'This invitation is no longer valid.';
+
 /** Confirm copy before an admin demotes themselves. */
 export const REMOVE_ADMIN_SELF_DESCRIPTION =
   'You will no longer be able to invite people, change access, or manage the project. Another admin would have to promote you again.';

@@ -9,7 +9,7 @@ import {
   InvitationNotPendingError,
   invitationRejectedMessage,
 } from '@/lib/invitations';
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { GENERIC_ERROR_MESSAGE, INVITATION_NO_LONGER_VALID_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH, projectPath } from '@/lib/routes';
 import { rejectInvitationSchema } from '@/lib/validation/invitation';
@@ -42,7 +42,12 @@ export async function rejectInvitation(invitationId: string): Promise<RejectInvi
 
   try {
     await prisma.$transaction(async (tx) => {
-      await claimPendingInvitation(tx, { id: invitation.id, status: 'REJECTED' });
+      await claimPendingInvitation(tx, {
+        id: invitation.id,
+        status: 'REJECTED',
+        role: invitation.role,
+        inviterId: invitation.inviterId,
+      });
       await tx.notification.create({
         data: {
           type: 'INVITATION_REJECTED',
@@ -66,7 +71,7 @@ export async function rejectInvitation(invitationId: string): Promise<RejectInvi
     return { data: { id: invitation.id } };
   } catch (error) {
     if (error instanceof InvitationNotPendingError) {
-      return { error: 'Unauthorized' };
+      return { error: INVITATION_NO_LONGER_VALID_MESSAGE };
     }
     return { error: GENERIC_ERROR_MESSAGE };
   }

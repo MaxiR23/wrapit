@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Parses a valid payload per event type
+// - Parses MEMBER_ADDED written before a role was recorded
 // - Rejects a payload missing required ids
 // - Rejects unknown keys when writing
 // - Writes a typed event through recordActivityEvent
@@ -88,6 +89,7 @@ const validPayloads = {
     inviterId: 'user-grace',
     inviterName: 'Grace Hopper',
     inviterUsername: 'grace',
+    role: 'MEMBER',
   },
   MEMBER_REMOVED: {
     ...actor,
@@ -140,6 +142,19 @@ describe('parseActivityPayload', () => {
       const result = parseActivityPayload(type as keyof typeof validPayloads, payload);
       expect(result.success).toBe(true);
     }
+  });
+
+  it('parses MEMBER_ADDED written before a role was recorded', () => {
+    const result = parseActivityPayload('MEMBER_ADDED', {
+      ...actor,
+      memberId: 'user-ada',
+      memberName: 'Ada Lovelace',
+      memberUsername: 'ada',
+      inviterId: 'user-grace',
+      inviterName: 'Grace Hopper',
+      inviterUsername: 'grace',
+    });
+    expect(result.success).toBe(true);
   });
 
   it('rejects a payload missing a required id', () => {

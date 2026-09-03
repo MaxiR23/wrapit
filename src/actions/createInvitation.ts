@@ -28,6 +28,7 @@ type CreateInvitationResult =
 export async function createInvitation(input: {
   projectId: string;
   username: string;
+  role?: string;
 }): Promise<CreateInvitationResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -36,8 +37,10 @@ export async function createInvitation(input: {
 
   const parsed = invitationSchema.safeParse(input);
   if (!parsed.success) {
-    const projectIdIssue = parsed.error.issues.some((issue) => issue.path.includes('projectId'));
-    if (projectIdIssue) {
+    const unauthorizedIssue = parsed.error.issues.some(
+      (issue) => issue.path.includes('projectId') || issue.path.includes('role'),
+    );
+    if (unauthorizedIssue) {
       return { error: 'Unauthorized' };
     }
     logInfo('invite.denied', {
@@ -59,6 +62,7 @@ export async function createInvitation(input: {
       projectId: project.id,
       inviterId: session.user.id,
       username: parsed.data.username,
+      role: parsed.data.role,
     });
     if (!result.ok) {
       return { error: CANT_INVITE_USER_MESSAGE };

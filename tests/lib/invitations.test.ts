@@ -3,10 +3,12 @@
 // Tests for inviteUserToProject and invitation notification copy.
 //
 // Tested:
-// - Creates a PENDING MEMBER invitation and INVITATION_RECEIVED notification
+// - Creates a PENDING invitation with the chosen role and INVITATION_RECEIVED
+// - Defaults to MEMBER when role is omitted
 // - Denies unknown username, self, existing member, pending, and accepted
 //   invitations without writing
 // - Reuses a REJECTED row instead of inserting a second invitation
+// - A re-invite writes the newly chosen role, not the stored one
 // - Two overlapping re-invites on the same REJECTED row: one PENDING winner,
 //   one INVITATION_RECEIVED, loser returns pending_invitation
 // - Two overlapping first-time invites: one PENDING winner, one
@@ -14,7 +16,8 @@
 // - Logs the internal deny reason without putting it on the result
 //
 // What is covered:
-// - Happy path, each deny reason, REJECTED reuse, concurrent invite, logging
+// - Happy path, chosen role, each deny reason, REJECTED reuse, concurrent
+//   invite, logging
 //
 // Run with: pnpm test:run tests/lib/invitations.test.ts
 //
@@ -87,6 +90,24 @@ describe('inviteUserToProject', () => {
       }),
     ]);
     expect(logInfo).not.toHaveBeenCalled();
+  });
+
+  it('persists ADMIN on a first-time insert', async () => {
+    const project = await seedInviterProject();
+
+    const result = await inviteUserToProject(db, {
+      projectId: project.id,
+      inviterId: inviter.id,
+      username: 'maxi',
+      role: 'ADMIN',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.invitation).toEqual(
+      expect.objectContaining({ role: 'ADMIN', status: 'PENDING' }),
+    );
+    expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ role: 'ADMIN' }));
   });
 
   it('denies an unknown username without writing', async () => {
@@ -225,6 +246,40 @@ describe('inviteUserToProject', () => {
         type: 'INVITATION_RECEIVED',
         invitationId: rejected.id,
         recipientId: invitee.id,
+      }),
+    );
+  });
+
+  it('overwrites the stored role with the newly chosen one on REJECTED reuse', async () => {
+    const project = await seedInviterProject();
+    const rejected = await db.invitation.create({
+      data: {
+        id: 'invite-1',
+        projectId: project.id,
+        inviterId: 'user-old',
+        inviteeId: invitee.id,
+        status: 'REJECTED',
+        role: 'MEMBER',
+      },
+    });
+
+    const result = await inviteUserToProject(db, {
+      projectId: project.id,
+      inviterId: inviter.id,
+      username: 'maxi',
+      role: 'ADMIN',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.invitation.id).toBe(rejected.id);
+    expect(db.invitation.rows).toHaveLength(1);
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({
+        id: rejected.id,
+        status: 'PENDING',
+        inviterId: inviter.id,
+        role: 'ADMIN',
       }),
     );
   });

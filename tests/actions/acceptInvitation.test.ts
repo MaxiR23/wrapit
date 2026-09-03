@@ -3,17 +3,30 @@
 // Tests for the acceptInvitation server action.
 //
 // Tested:
-// - The invitee accepts: status ACCEPTED, MEMBER membership, inviter notified,
-//   received notification deleted
+// - The invitee accepts: status ACCEPTED, membership with the granted role and
+//   EDIT access, accessBeforeAdmin null, inviter notified, received
+//   notification deleted
+// - Accepting ADMIN yields ADMIN plus EDIT when the inviter still administers
+// - Accepting MEMBER yields MEMBER plus EDIT
+// - An ADMIN invitation from a since-demoted or departed inviter yields MEMBER
+// - A demote, removal, or leave that lands between membership create and the
+//   ADMIN occupancy write still joins as MEMBER with EDIT and the accept succeeds
+// - MEMBER_ADDED records the granted role on both the grant hit and miss
+// - An invited ADMIN later demoted lands on EDIT with accessBeforeAdmin null
+// - After every path, OWNER and ADMIN remain at EDIT
 // - Inviter and a third user cannot accept; invitation stays PENDING
 // - Non-PENDING invitations are refused without writing
-// - A second accept, or a reject after accept, loses: Unauthorized and no extra writes
+// - A second accept, or a reject after accept, loses: invitation no longer
+//   valid and no extra writes
+// - A pending ADMIN invite rewritten as MEMBER, or with a new inviter, cannot
+//   be accepted from the stale snapshot
 // - A mid-transaction failure rolls back every write
 // - Rejects the call when there is no session
 // - Rejects an empty, oversized, or non-string invitation id without a lookup
 //
 // What is covered:
-// - Happy path, authorization, transaction rollback, unauthorized, invalid id
+// - Happy path, granted role, grant re-check, demotion restore, authorization,
+//   transaction rollback, unauthorized, invalid id
 //
 // Run with: pnpm test:run tests/actions/acceptInvitation.test.ts
 //
@@ -21,7 +34,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { GENERIC_ERROR_MESSAGE, INVITATION_NO_LONGER_VALID_MESSAGE } from '@/lib/messages';
 import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
@@ -47,9 +60,11 @@ vi.mock('next/cache', () => ({
 
 const { acceptInvitation } = await import('@/actions/acceptInvitation');
 const { rejectInvitation } = await import('@/actions/rejectInvitation');
+const { updateMembershipRole } = await import('@/actions/updateMembershipRole');
 
 const inviter = { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' };
 const invitee = { id: 'user-max', name: 'Maxi', username: 'maxi' };
+const owner = { id: 'user-owner', name: 'Owner', username: 'owner' };
 
 describe('acceptInvitation', () => {
   beforeEach(async () => {
@@ -60,11 +75,57 @@ describe('acceptInvitation', () => {
     await db.user.create({ data: invitee });
   });
 
-  async function seedPendingInvite() {
-    const project = await seedAccessibleProject(db, {
-      title: 'Sprint board',
-      userId: inviter.id,
+  function expectPrivilegedEdit(rows: Array<Record<string, unknown>>) {
+    for (const row of rows) {
+      if (row.role === 'OWNER' || row.role === 'ADMIN') {
+        expect(row.access).toBe('EDIT');
+      }
+    }
+  }
+
+  function inviteeMembership(projectId: string) {
+    return db.membership.rows.find(
+      (row) => row.userId === invitee.id && row.projectId === projectId,
+    );
+  }
+
+  function afterInviteeMembershipCreated(mutate: () => Promise<void>) {
+    db.membership.create.mockImplementationOnce(async (args: { data: Record<string, unknown> }) => {
+      const created = await db.membership.create(args);
+      await mutate();
+      return created;
     });
+  }
+
+  async function seedPendingInvite(options?: {
+    role?: 'OWNER' | 'ADMIN' | 'MEMBER';
+    inviterRole?: 'OWNER' | 'ADMIN' | 'MEMBER';
+  }) {
+    const role = options?.role ?? 'MEMBER';
+    const inviterRole = options?.inviterRole ?? 'OWNER';
+    let project;
+    if (inviterRole === 'OWNER') {
+      project = await seedAccessibleProject(db, {
+        title: 'Sprint board',
+        userId: inviter.id,
+      });
+    } else {
+      await db.user.create({ data: owner });
+      project = await seedAccessibleProject(db, {
+        title: 'Sprint board',
+        userId: owner.id,
+        ownerId: owner.id,
+        role: 'OWNER',
+      });
+      await db.membership.create({
+        data: {
+          userId: inviter.id,
+          projectId: project.id,
+          role: inviterRole,
+          access: 'EDIT',
+        },
+      });
+    }
     const invitation = await db.invitation.create({
       data: {
         id: 'invite-1',
@@ -72,7 +133,7 @@ describe('acceptInvitation', () => {
         inviterId: inviter.id,
         inviteeId: invitee.id,
         status: 'PENDING',
-        role: 'MEMBER',
+        role,
       },
     });
     await db.notification.create({
@@ -95,15 +156,14 @@ describe('acceptInvitation', () => {
 
     expect(result).toEqual({ data: { id: invitation.id } });
     expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'ACCEPTED' }));
-    expect(db.membership.rows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          userId: invitee.id,
-          projectId: project.id,
-          role: 'MEMBER',
-          access: 'COMMENT',
-        }),
-      ]),
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        userId: invitee.id,
+        projectId: project.id,
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
     );
     expect(db.notification.rows).toEqual([
       expect.objectContaining({
@@ -125,9 +185,187 @@ describe('acceptInvitation', () => {
           memberId: invitee.id,
           inviterId: inviter.id,
           inviterName: 'Ada Lovelace',
+          role: 'MEMBER',
         }),
       }),
     ]);
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('accepts an ADMIN invitation as ADMIN with EDIT when the inviter still administers', async () => {
+    const { project, invitation } = await seedPendingInvite({ role: 'ADMIN' });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'ADMIN',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ role: 'ADMIN' }));
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('grants MEMBER when an ADMIN invitation is accepted after the inviter was demoted', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    const inviterMembership = db.membership.rows.find(
+      (row) => row.userId === inviter.id && row.projectId === project.id,
+    );
+    await db.membership.update({
+      where: { id: String(inviterMembership?.id) },
+      data: { role: 'MEMBER', access: 'EDIT' },
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ role: 'MEMBER' }));
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('grants MEMBER when an ADMIN invitation is accepted after the inviter left', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    await db.membership.deleteMany({
+      where: { userId: inviter.id, projectId: project.id },
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ role: 'MEMBER' }));
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('joins as MEMBER when the inviter is demoted between create and the ADMIN occupancy write', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    afterInviteeMembershipCreated(async () => {
+      const inviterMembership = db.membership.rows.find(
+        (row) => row.userId === inviter.id && row.projectId === project.id,
+      );
+      await db.membership.update({
+        where: { id: String(inviterMembership?.id) },
+        data: { role: 'MEMBER', access: 'EDIT' },
+      });
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(result).not.toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(result).not.toEqual({ error: 'Unauthorized' });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ role: 'MEMBER' }));
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('joins as MEMBER when the inviter is removed between create and the ADMIN occupancy write', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    afterInviteeMembershipCreated(async () => {
+      await db.membership.deleteMany({
+        where: { userId: inviter.id, projectId: project.id },
+      });
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(result).not.toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('joins as MEMBER when the inviter leaves between create and the ADMIN occupancy write', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    afterInviteeMembershipCreated(async () => {
+      await db.membership.deleteMany({
+        where: { userId: inviter.id, projectId: project.id },
+      });
+    });
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ data: { id: invitation.id } });
+    expect(result).not.toEqual({ error: GENERIC_ERROR_MESSAGE });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expect(db.activityEvent.rows[0]?.payload).toEqual(expect.objectContaining({ role: 'MEMBER' }));
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('lands an invited ADMIN on EDIT with a null column after a later demotion', async () => {
+    const { project, invitation } = await seedPendingInvite({ role: 'ADMIN' });
+
+    expect(await acceptInvitation(invitation.id)).toEqual({ data: { id: invitation.id } });
+    const joined = inviteeMembership(project.id);
+    expect(joined).toEqual(
+      expect.objectContaining({ role: 'ADMIN', access: 'EDIT', accessBeforeAdmin: null }),
+    );
+
+    getSession.mockResolvedValue({ user: inviter });
+    const result = await updateMembershipRole({
+      projectId: project.id,
+      membershipId: String(joined?.id),
+      role: 'MEMBER',
+    });
+
+    expect(result).toEqual({ data: { role: 'MEMBER', access: 'EDIT' } });
+    expect(inviteeMembership(project.id)).toEqual(
+      expect.objectContaining({
+        role: 'MEMBER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
+    );
+    expectPrivilegedEdit(db.membership.rows);
   });
 
   it('rejects an invite to an archived project without writing', async () => {
@@ -142,6 +380,7 @@ describe('acceptInvitation', () => {
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'PENDING' }));
     expect(db.membership.rows).toHaveLength(1);
+    expectPrivilegedEdit(db.membership.rows);
   });
 
   it('rejects when the inviter tries to accept', async () => {
@@ -175,7 +414,8 @@ describe('acceptInvitation', () => {
 
     const result = await acceptInvitation(invitation.id);
 
-    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(result).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(result).not.toEqual({ error: 'Unauthorized' });
     expect(db.membership.rows).toHaveLength(1);
     expect(db.notification.rows).toHaveLength(1);
   });
@@ -188,12 +428,60 @@ describe('acceptInvitation', () => {
     const second = await acceptInvitation(invitation.id);
 
     expect(first).toEqual({ data: { id: invitation.id } });
-    expect(second).toEqual({ error: 'Unauthorized' });
+    expect(second).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(second).not.toEqual({ error: 'Unauthorized' });
     expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'ACCEPTED' }));
     expect(db.membership.rows).toHaveLength(membershipCountAfterSeed + 1);
     expect(db.notification.rows).toEqual([
       expect.objectContaining({ type: 'INVITATION_ACCEPTED', invitationId: invitation.id }),
     ]);
+    expectPrivilegedEdit(db.membership.rows);
+  });
+
+  it('cannot accept a stale ADMIN role after the row was re-invited as MEMBER', async () => {
+    const { invitation } = await seedPendingInvite({ role: 'ADMIN' });
+    const stale = { ...db.invitation.rows[0]! };
+    const membershipCountAfterSeed = db.membership.rows.length;
+    await db.invitation.update({
+      where: { id: invitation.id },
+      data: { status: 'PENDING', role: 'MEMBER', inviterId: inviter.id },
+    });
+    db.invitation.findFirst.mockImplementationOnce(async () => stale);
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(result).not.toEqual({ error: 'Unauthorized' });
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({ status: 'PENDING', role: 'MEMBER', inviterId: inviter.id }),
+    );
+    expect(db.membership.rows).toHaveLength(membershipCountAfterSeed);
+    expect(db.activityEvent.rows).toHaveLength(0);
+  });
+
+  it('cannot accept with a stale inviter after REJECTED reuse assigned a new one', async () => {
+    const { project, invitation } = await seedPendingInvite({
+      role: 'ADMIN',
+      inviterRole: 'ADMIN',
+    });
+    const stale = { ...db.invitation.rows[0]! };
+    const membershipCountAfterSeed = db.membership.rows.length;
+    await db.invitation.update({
+      where: { id: invitation.id },
+      data: { status: 'PENDING', role: 'ADMIN', inviterId: owner.id },
+    });
+    db.invitation.findFirst.mockImplementationOnce(async () => stale);
+
+    const result = await acceptInvitation(invitation.id);
+
+    expect(result).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(result).not.toEqual({ error: 'Unauthorized' });
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({ status: 'PENDING', role: 'ADMIN', inviterId: owner.id }),
+    );
+    expect(db.membership.rows).toHaveLength(membershipCountAfterSeed);
+    expect(inviteeMembership(project.id)).toBeUndefined();
+    expect(db.activityEvent.rows).toHaveLength(0);
   });
 
   it('keeps an accepted invitation when a later reject arrives', async () => {
@@ -204,7 +492,8 @@ describe('acceptInvitation', () => {
     const rejected = await rejectInvitation(invitation.id);
 
     expect(accepted).toEqual({ data: { id: invitation.id } });
-    expect(rejected).toEqual({ error: 'Unauthorized' });
+    expect(rejected).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(rejected).not.toEqual({ error: 'Unauthorized' });
     expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'ACCEPTED' }));
     expect(db.membership.rows).toHaveLength(membershipCountAfterSeed + 1);
     expect(db.notification.rows).toEqual([

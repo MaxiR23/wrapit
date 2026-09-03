@@ -86,8 +86,11 @@ export class InvitationNotPendingError extends Error {
 }
 
 /**
- * First write of accept/reject: claim the PENDING row or throw so the
- * transaction rolls back. Count !== 1 means another request already won.
+ * First write of accept/reject: claim the PENDING row the caller read, or
+ * throw so the transaction rolls back. The where includes role and inviterId
+ * because REJECTED reuse now rewrites both; a miss means the invitation the
+ * caller was looking at no longer exists. Count !== 1 means another request
+ * already won.
  */
 export async function claimPendingInvitation(
   tx: {
@@ -98,10 +101,20 @@ export async function claimPendingInvitation(
       }) => Promise<{ count: number }>;
     };
   },
-  input: { id: string; status: 'ACCEPTED' | 'REJECTED' },
+  input: {
+    id: string;
+    status: 'ACCEPTED' | 'REJECTED';
+    role: InvitationRow['role'];
+    inviterId: string;
+  },
 ): Promise<void> {
   const result = await tx.invitation.updateMany({
-    where: { id: input.id, status: 'PENDING' },
+    where: {
+      id: input.id,
+      status: 'PENDING',
+      role: input.role,
+      inviterId: input.inviterId,
+    },
     data: { status: input.status },
   });
   if (result.count !== 1) {
@@ -129,10 +142,11 @@ function deny(
  */
 export async function inviteUserToProject(
   db: InvitationDb,
-  input: { projectId: string; inviterId: string; username: string },
+  input: { projectId: string; inviterId: string; username: string; role?: 'ADMIN' | 'MEMBER' },
 ): Promise<InviteUserResult> {
   const username = normalizeInviteUsername(input.username);
   const { projectId, inviterId } = input;
+  const role = input.role ?? 'MEMBER';
 
   const invitee = await db.user.findFirst({ where: { username } });
   if (!invitee) {
@@ -173,7 +187,7 @@ export async function inviteUserToProject(
     if (existing) {
       const claimed = await tx.invitation.updateMany({
         where: { id: String(existing.id), status: 'REJECTED' },
-        data: { status: 'PENDING', inviterId, role: 'MEMBER' },
+        data: { status: 'PENDING', inviterId, role },
       });
       if (claimed.count !== 1) {
         return deny('pending_invitation', { projectId, inviterId, username });
@@ -192,7 +206,7 @@ export async function inviteUserToProject(
             projectId,
             inviterId,
             inviteeId,
-            role: 'MEMBER',
+            role,
             status: 'PENDING',
           },
         ],

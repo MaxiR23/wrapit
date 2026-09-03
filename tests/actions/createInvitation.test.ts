@@ -4,6 +4,8 @@
 //
 // Tested:
 // - An OWNER or ADMIN can invite by username
+// - The chosen MEMBER or ADMIN role is stored on create and on REJECTED reuse
+// - An OWNER role is refused without a lookup
 // - A MEMBER cannot invite (team administration, not board access)
 // - Unknown username, self, existing member, and pending invitation all return
 //   the same generic error and write nothing
@@ -15,8 +17,8 @@
 // - Invalid projectId wins over invalid username: Unauthorized, no query, no log
 //
 // What is covered:
-// - Happy path, generic deny cases, authorization, unexpected Prisma failure,
-//   concurrent first-time invite, invalid id
+// - Happy path, chosen role, generic deny cases, authorization, unexpected
+//   Prisma failure, concurrent first-time invite, invalid id
 //
 // Run with: pnpm test:run tests/actions/createInvitation.test.ts
 //
@@ -96,6 +98,91 @@ describe('createInvitation', () => {
     expect(revalidatePath).toHaveBeenCalledWith(`/projects/${project.id}`);
   });
 
+  it('persists ADMIN when the inviter chooses that role', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+
+    const result = await createInvitation({
+      projectId: project.id,
+      username: 'maxi',
+      role: 'ADMIN',
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({
+        projectId: project.id,
+        inviteeId: invitee.id,
+        status: 'PENDING',
+        role: 'ADMIN',
+      }),
+    });
+    expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ role: 'ADMIN' }));
+  });
+
+  it('writes the newly chosen role when reusing a REJECTED invitation', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+    await db.invitation.create({
+      data: {
+        projectId: project.id,
+        inviterId: sessionUser.id,
+        inviteeId: invitee.id,
+        status: 'REJECTED',
+        role: 'MEMBER',
+      },
+    });
+
+    const result = await createInvitation({
+      projectId: project.id,
+      username: 'maxi',
+      role: 'ADMIN',
+    });
+
+    expect(result).toEqual({
+      data: expect.objectContaining({ status: 'PENDING', role: 'ADMIN' }),
+    });
+    expect(db.invitation.rows).toHaveLength(1);
+    expect(db.invitation.rows[0]).toEqual(
+      expect.objectContaining({ status: 'PENDING', role: 'ADMIN', inviterId: sessionUser.id }),
+    );
+  });
+
+  it('rejects an OWNER role without a lookup', async () => {
+    db.project.findFirst.mockClear();
+
+    const result = await createInvitation({
+      projectId: 'project-1',
+      username: 'maxi',
+      role: 'OWNER',
+    });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(result).not.toEqual({ error: CANT_INVITE_USER_MESSAGE });
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(logInfo).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rejects OWNER even when username is also invalid without a lookup or log', async () => {
+    db.project.findFirst.mockClear();
+
+    const result = await createInvitation({
+      projectId: 'project-1',
+      username: 'ab',
+      role: 'OWNER',
+    });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.project.findFirst).not.toHaveBeenCalled();
+    expect(logInfo).not.toHaveBeenCalled();
+    expect(db.invitation.rows).toHaveLength(0);
+  });
+
   it('rejects when the user is a MEMBER', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
@@ -105,6 +192,25 @@ describe('createInvitation', () => {
     });
 
     const result = await createInvitation({ projectId: project.id, username: 'maxi' });
+
+    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(db.invitation.rows).toHaveLength(0);
+    expect(logInfo).not.toHaveBeenCalled();
+  });
+
+  it('rejects when a MEMBER tries to invite as ADMIN', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+      ownerId: 'user-other',
+      role: 'MEMBER',
+    });
+
+    const result = await createInvitation({
+      projectId: project.id,
+      username: 'maxi',
+      role: 'ADMIN',
+    });
 
     expect(result).toEqual({ error: 'Unauthorized' });
     expect(db.invitation.rows).toHaveLength(0);

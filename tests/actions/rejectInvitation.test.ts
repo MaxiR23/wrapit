@@ -7,7 +7,7 @@
 //   received notification deleted
 // - Inviter and a third user cannot reject; invitation stays PENDING
 // - Non-PENDING invitations are refused without writing
-// - An accept after reject loses: Unauthorized, no membership, no extra notifications
+// - An accept after reject loses: invitation no longer valid, no membership, no extra notifications
 // - A mid-transaction failure rolls back every write
 // - Rejects the call when there is no session
 // - Rejects an empty, oversized, or non-string invitation id without a lookup
@@ -21,7 +21,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { GENERIC_ERROR_MESSAGE, INVITATION_NO_LONGER_VALID_MESSAGE } from '@/lib/messages';
 import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
@@ -139,7 +139,8 @@ describe('rejectInvitation', () => {
 
     const result = await rejectInvitation(invitation.id);
 
-    expect(result).toEqual({ error: 'Unauthorized' });
+    expect(result).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(result).not.toEqual({ error: 'Unauthorized' });
     expect(db.notification.rows).toHaveLength(1);
   });
 
@@ -151,7 +152,8 @@ describe('rejectInvitation', () => {
     const accepted = await acceptInvitation(invitation.id);
 
     expect(rejected).toEqual({ data: { id: invitation.id } });
-    expect(accepted).toEqual({ error: 'Unauthorized' });
+    expect(accepted).toEqual({ error: INVITATION_NO_LONGER_VALID_MESSAGE });
+    expect(accepted).not.toEqual({ error: 'Unauthorized' });
     expect(db.invitation.rows[0]).toEqual(expect.objectContaining({ status: 'REJECTED' }));
     expect(db.membership.rows).toHaveLength(membershipCountAfterSeed);
     expect(db.notification.rows).toEqual([
