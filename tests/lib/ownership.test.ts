@@ -13,9 +13,12 @@
 // - Resolves a subtask through card, column, and project membership
 // - Returns null for a subtask on a project the user is not a member of
 // - Returns null for an unknown subtask id
+// - Resolves a comment through card, column, and project membership
+// - Returns null when COMMENT is required and the member is VIEW
+// - Returns null for an unknown comment id
 //
 // What is covered:
-// - Membership chain for columns, cards, labels, and subtasks
+// - Membership chain for columns, cards, labels, subtasks, and comments
 //
 // Run with: pnpm test:run tests/lib/ownership.test.ts
 //
@@ -29,7 +32,7 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { getColumnForUser, getCardForUser, getLabelForUser, getSubtaskForUser } =
+const { getColumnForUser, getCardForUser, getLabelForUser, getSubtaskForUser, getCommentForUser } =
   await import('@/lib/ownership');
 
 describe('getColumnForUser', () => {
@@ -252,5 +255,72 @@ describe('getSubtaskForUser', () => {
 
   it('returns null for an unknown subtask id', async () => {
     expect(await getSubtaskForUser('missing-subtask', 'user-ada')).toBeNull();
+  });
+});
+
+describe('getCommentForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  async function seedComment(access: 'EDIT' | 'COMMENT' | 'VIEW' = 'EDIT') {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+      ownerId: 'user-other',
+      role: 'MEMBER',
+      access,
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Write tests', order: 1, columnId: column.id },
+    });
+    const comment = await db.comment.create({
+      data: { body: 'Looks good', cardId: card.id, authorId: 'user-ada' },
+    });
+    return { project, column, card, comment };
+  }
+
+  it('resolves a comment through card, column, and project membership', async () => {
+    const { comment, card, column, project } = await seedComment();
+
+    const result = await getCommentForUser(comment.id, 'user-ada');
+
+    expect(result).toEqual({
+      comment: expect.objectContaining({ id: comment.id, body: 'Looks good' }),
+      card: expect.objectContaining({ id: card.id }),
+      column: expect.objectContaining({ id: column.id }),
+      project: expect.objectContaining({ id: project.id }),
+    });
+  });
+
+  it('returns null when COMMENT is required and the member is VIEW', async () => {
+    const { comment } = await seedComment('VIEW');
+
+    expect(await getCommentForUser(comment.id, 'user-ada', 'COMMENT')).toBeNull();
+    expect(await getCommentForUser(comment.id, 'user-ada', 'VIEW')).not.toBeNull();
+  });
+
+  it('returns null for a comment on a project the user is not a member of', async () => {
+    const project = await db.project.create({
+      data: { title: 'Other board', ownerId: 'user-other' },
+    });
+    const column = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'Stolen', order: 1, columnId: column.id },
+    });
+    const comment = await db.comment.create({
+      data: { body: 'Secret', cardId: card.id, authorId: 'user-other' },
+    });
+
+    expect(await getCommentForUser(comment.id, 'user-ada')).toBeNull();
+  });
+
+  it('returns null for an unknown comment id', async () => {
+    expect(await getCommentForUser('missing-comment', 'user-ada')).toBeNull();
   });
 });

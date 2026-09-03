@@ -43,6 +43,7 @@ export type ArchivedComment = {
   id: string;
   body: string;
   createdAt: Date;
+  editedAt: Date | null;
   author: ArchivedPerson;
 };
 
@@ -241,6 +242,7 @@ export function reviveArchivedTask(card: ArchivedTask): ArchivedTask {
     comments: card.comments.map((comment) => ({
       ...comment,
       createdAt: new Date(comment.createdAt),
+      editedAt: comment.editedAt ? new Date(comment.editedAt) : null,
     })),
   };
 }

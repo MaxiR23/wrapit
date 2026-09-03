@@ -5,8 +5,8 @@
 // Tested:
 // - EDIT can create a card
 // - COMMENT cannot create, move, archive, delete, or rename a card or subtask
-// - COMMENT can comment and check a subtask
-// - VIEW cannot comment or check a subtask
+// - COMMENT can comment, edit their own comment, and check a subtask
+// - VIEW cannot comment, edit a comment, or check a subtask
 //
 // What is covered:
 // - Access denials and COMMENT-level writes
@@ -41,6 +41,7 @@ const { archiveCard } = await import('@/actions/archiveCard');
 const { deleteCard } = await import('@/actions/deleteCard');
 const { updateCardField } = await import('@/actions/updateCardField');
 const { createComment } = await import('@/actions/createComment');
+const { updateComment } = await import('@/actions/updateComment');
 const { createSubtask } = await import('@/actions/createSubtask');
 const { updateSubtaskField } = await import('@/actions/updateSubtaskField');
 const { deleteSubtask } = await import('@/actions/deleteSubtask');
@@ -114,11 +115,16 @@ describe('board access', () => {
     expect(await createLabel({ projectId: project.id })).toEqual({ error: 'Unauthorized' });
   });
 
-  it('lets COMMENT comment and check a subtask', async () => {
+  it('lets COMMENT comment, edit their own comment, and check a subtask', async () => {
     const { card, subtask } = await seedBoard('COMMENT');
 
-    expect(await createComment({ cardId: card.id, body: 'Looks good' })).toEqual(
+    const created = await createComment({ cardId: card.id, body: 'Looks good' });
+    expect(created).toEqual(
       expect.objectContaining({ data: expect.objectContaining({ body: 'Looks good' }) }),
+    );
+    const commentId = 'data' in created ? created.data.id : '';
+    expect(await updateComment({ commentId, body: 'Looks better' })).toEqual(
+      expect.objectContaining({ data: expect.objectContaining({ body: 'Looks better' }) }),
     );
     expect(await updateSubtaskField({ subtaskId: subtask.id, field: 'done', value: true })).toEqual(
       {
@@ -129,8 +135,14 @@ describe('board access', () => {
 
   it('rejects VIEW on comments and subtask checks', async () => {
     const { card, subtask, todo } = await seedBoard('VIEW');
+    const comment = await db.comment.create({
+      data: { body: 'Mine', cardId: card.id, authorId: sessionUser.id },
+    });
 
     expect(await createComment({ cardId: card.id, body: 'Hello' })).toEqual({
+      error: 'Unauthorized',
+    });
+    expect(await updateComment({ commentId: comment.id, body: 'Still mine' })).toEqual({
       error: 'Unauthorized',
     });
     expect(await updateSubtaskField({ subtaskId: subtask.id, field: 'done', value: true })).toEqual(

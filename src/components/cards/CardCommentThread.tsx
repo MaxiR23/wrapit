@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Pencil } from 'lucide-react';
 
 import { createComment } from '@/actions/createComment';
+import { updateComment } from '@/actions/updateComment';
 import CardMarkdown from '@/components/cards/CardMarkdown';
+import EditableCardText from '@/components/cards/EditableCardText';
 import MarkdownToolbar, {
   applyMarkdownToField,
   markdownHotkey,
@@ -12,11 +14,21 @@ import MarkdownToolbar, {
 import type { BoardComment, BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { initials } from '@/lib/initials';
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { COMMENT_CHANGED_ELSEWHERE_MESSAGE, GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { cn } from '@/lib/utils';
 
-export default function CardCommentThread({ comments }: { comments: BoardComment[] }) {
+export default function CardCommentThread({
+  comments,
+  currentUser,
+  canComment = false,
+  onChange,
+}: {
+  comments: BoardComment[];
+  currentUser: BoardMember;
+  canComment?: boolean;
+  onChange: (comments: BoardComment[]) => void;
+}) {
   return (
     <div className="flex flex-col gap-3.5">
       <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
@@ -27,32 +39,151 @@ export default function CardCommentThread({ comments }: { comments: BoardComment
       ) : (
         <div className="flex flex-col gap-3.5">
           {comments.map((comment) => (
-            <article
+            <CommentItem
               key={comment.id}
-              className="grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] tablet:grid-cols-[28px_minmax(0,1fr)]"
-            >
-              <span
-                title={comment.author.name}
-                className="inline-flex size-[30px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-[10.5px] font-semibold tablet:size-7 tablet:text-[9.5px]"
-              >
-                {initials(comment.author.name, comment.author.username)}
-              </span>
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[13px] font-medium">{comment.author.name}</span>
-                  <span className="text-[11.5px] text-subtle">
-                    {formatRelativeTime(comment.createdAt)}
-                  </span>
-                </div>
-                <div className="text-[13.5px] leading-[1.55] text-pretty text-muted-foreground">
-                  <CardMarkdown text={comment.body} />
-                </div>
-              </div>
-            </article>
+              comment={comment}
+              comments={comments}
+              currentUser={currentUser}
+              canComment={canComment}
+              onChange={onChange}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function CommentItem({
+  comment,
+  comments,
+  currentUser,
+  canComment,
+  onChange,
+}: {
+  comment: BoardComment;
+  comments: BoardComment[];
+  currentUser: BoardMember;
+  canComment: boolean;
+  onChange: (comments: BoardComment[]) => void;
+}) {
+  const canEdit = canComment && currentUser.id === comment.author.id;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleCancel() {
+    setDraft(comment.body);
+    setError(null);
+    setEditing(false);
+  }
+
+  async function handleSave() {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    const result = await updateComment({ commentId: comment.id, body: draft });
+    setSubmitting(false);
+    if ('fieldErrors' in result) {
+      setError(result.fieldErrors.body ?? GENERIC_ERROR_MESSAGE);
+      return;
+    }
+    if ('error' in result) {
+      setError(
+        result.error === COMMENT_CHANGED_ELSEWHERE_MESSAGE ? result.error : GENERIC_ERROR_MESSAGE,
+      );
+      return;
+    }
+    setDraft(result.data.body);
+    setEditing(false);
+    onChange(
+      comments.map((item) =>
+        item.id === comment.id
+          ? {
+              ...item,
+              body: result.data.body,
+              createdAt: result.data.createdAt,
+              editedAt: result.data.editedAt,
+            }
+          : item,
+      ),
+    );
+  }
+
+  return (
+    <article className="grid grid-cols-[30px_minmax(0,1fr)] gap-[11px] tablet:grid-cols-[28px_minmax(0,1fr)]">
+      <span
+        title={comment.author.name}
+        className="inline-flex size-[30px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-[10.5px] font-semibold tablet:size-7 tablet:text-[9.5px]"
+      >
+        {initials(comment.author.name, comment.author.username)}
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[13px] font-medium">{comment.author.name}</span>
+          <span className="text-[11.5px] text-subtle">
+            {formatRelativeTime(comment.createdAt)}
+            {comment.editedAt ? (
+              <>
+                {' '}
+                <span className="text-muted-foreground" title={comment.editedAt.toISOString()}>
+                  (edited)
+                </span>
+              </>
+            ) : null}
+          </span>
+          {canEdit && !editing ? (
+            <button
+              type="button"
+              title="Edit comment"
+              aria-label="Edit comment"
+              onClick={() => {
+                setDraft(comment.body);
+                setError(null);
+                setEditing(true);
+              }}
+              className={cn(
+                shellFocusClassName,
+                'ml-auto inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-card hover:text-foreground',
+              )}
+            >
+              <Pencil className="size-3.5" strokeWidth={1.7} />
+            </button>
+          ) : null}
+        </div>
+        <div className="text-[13.5px] leading-[1.55] text-pretty text-muted-foreground">
+          {canEdit ? (
+            <EditableCardText
+              ariaLabel="Edit comment body"
+              value={draft}
+              canEdit={canEdit}
+              rows={3}
+              variant="full"
+              editing={editing}
+              onEditingChange={setEditing}
+              activateOnDisplay={false}
+              saveOnBlur={false}
+              saveDisabled={submitting || draft.trim().length === 0}
+              onChange={setDraft}
+              onSave={() => void handleSave()}
+              onCancel={handleCancel}
+              className={cn(
+                shellFocusClassName,
+                'w-full resize-none rounded-md border border-border bg-background px-3 py-2.5 text-sm leading-[1.55]',
+              )}
+            />
+          ) : (
+            <CardMarkdown text={comment.body} />
+          )}
+        </div>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </article>
   );
 }
 

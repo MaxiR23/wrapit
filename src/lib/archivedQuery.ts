@@ -133,6 +133,7 @@ export async function getArchivedCardsForUser(
       id: row.id,
       body: row.body,
       createdAt: row.createdAt,
+      editedAt: row.editedAt ?? null,
       author,
     });
     commentsByCardId.set(row.cardId, current);

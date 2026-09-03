@@ -35,6 +35,7 @@ const card: ArchivedTask = {
       id: 'c1',
       body: 'Keep the icon set.',
       createdAt: new Date('2026-08-08T10:00:00.000Z'),
+      editedAt: null,
       author: { id: 'user-grace', name: 'Grace Hopper', username: 'grace' },
     },
   ],

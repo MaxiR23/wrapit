@@ -10,6 +10,7 @@
 // - Returns the project with columns in order for a member
 // - Returns each column with its cards in order
 // - Attaches ordered subtasks and comments (with author) on each card
+// - Orders comments by createdAt even when a later editedAt is present
 // - Omits archived cards so their subtasks and comments are not loaded
 // - Returns null for a non-member or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
@@ -231,11 +232,54 @@ describe('getProjectForUser', () => {
 
     expect(loaded?.subtasks.map((subtask) => subtask.text)).toEqual(['First step', 'Later']);
     expect(loaded?.comments.map((comment) => comment.body)).toEqual(['First note', 'Second note']);
+    expect(loaded?.comments[0]?.editedAt).toBeNull();
     expect(loaded?.comments[0]?.author).toEqual({
       id: 'user-ada',
       name: 'Ada Lovelace',
       username: 'ada',
     });
+  });
+
+  it('orders comments by createdAt even when editedAt is later', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: { title: 'First', order: 1, columnId: todo.id },
+    });
+    await db.comment.create({
+      data: {
+        body: 'Edited first',
+        cardId: card.id,
+        authorId: 'user-ada',
+        createdAt: new Date('2026-08-01'),
+        editedAt: new Date('2026-08-20'),
+      },
+    });
+    await db.comment.create({
+      data: {
+        body: 'Second note',
+        cardId: card.id,
+        authorId: 'user-ada',
+        createdAt: new Date('2026-08-02'),
+      },
+    });
+
+    const result = await getProjectForUser(project.id, 'user-ada');
+    const loaded = result?.columns[0]?.cards[0];
+
+    expect(loaded?.comments.map((comment) => comment.body)).toEqual([
+      'Edited first',
+      'Second note',
+    ]);
+    expect(loaded?.comments[0]?.editedAt).toEqual(new Date('2026-08-20'));
   });
 
   it('omits archived cards from the board payload', async () => {

@@ -97,7 +97,9 @@ and done). One write is in flight per card for assignees and for label, and
 per subtask for done; a successful stale response still advances persisted
 so the loop can write the correction. Column writes immediately and updates
 the board without a remount. Subtasks (add, rename, check, remove)
-and comments (create) live on the card; footer counters on the board face
+and comments (create, edit own) live on the card. Comment order stays
+`createdAt`. The author edits through Save and Cancel, not blur; an occupancy
+conflict keeps the typed draft. Footer counters on the board face
 are derived from those lists (`commentCount` / `subtaskProgress` in
 `src/lib/cardCounters.ts`), including `0` and `0/0`. Archive and delete
 close the dialog, drop the card from the board, and show a board toast with a
@@ -416,7 +418,7 @@ src/components/cards/NewCardFields.tsx  shared new-task form body
 src/components/cards/BoardCard.tsx      card face (label, code, title, derived footer)
 src/components/cards/ServiceLinkText.tsx  recognised service URL chip in user text
 src/components/cards/CardMarkdown.tsx     closed markdown subset on card text
-src/components/cards/EditableCardText.tsx  display vs textarea for title and description
+src/components/cards/EditableCardText.tsx  display vs textarea; saveOnBlur for cards, Save/Cancel for comments
 src/components/cards/MarkdownToolbar.tsx  wrap/insert markers in a plain text field
 src/components/cards/CardDetailDialog.tsx  card detail (900px two-column tablet+, full screen on phone)
 src/components/cards/CardDetailBody.tsx    shared detail body (CSS breakpoints only)
@@ -467,6 +469,7 @@ src/actions/createSubtask.ts            append a subtask (max order + 1)
 src/actions/updateSubtaskField.ts       persist subtask text or done
 src/actions/deleteSubtask.ts            delete a subtask
 src/actions/createComment.ts            append a comment as the session user
+src/actions/updateComment.ts            author edits own comment; no activity or notification
 src/actions/listActivityEvents.ts       member-only project activity page (VIEW+)
 src/actions/listMyActivityEvents.ts      session user's events across current memberships
 ```

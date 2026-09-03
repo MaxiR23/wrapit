@@ -64,6 +64,31 @@ export async function getSubtaskForUser(
 }
 
 /**
+ * A comment reached through its card, column, and project membership.
+ * Returns null when any link in the chain is missing or below `minAccess`.
+ */
+export async function getCommentForUser(
+  commentId: string,
+  userId: string,
+  minAccess: BoardAccess = 'VIEW',
+) {
+  const comment = await prisma.comment.findFirst({
+    where: { id: commentId },
+  });
+  if (!comment) return null;
+
+  const owned = await getCardForUser(comment.cardId, userId, minAccess);
+  if (!owned) return null;
+
+  return {
+    comment,
+    card: owned.card,
+    column: owned.column,
+    project: owned.project,
+  };
+}
+
+/**
  * A label on a project the given user can access at `minAccess`.
  * Returns null when the label is missing or the membership is too weak.
  */

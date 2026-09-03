@@ -25,6 +25,7 @@ type CreateCommentResult =
         id: string;
         body: string;
         createdAt: Date;
+        editedAt: Date | null;
         cardId: string;
         author: { id: string; name: string; username: string };
       };
@@ -99,6 +100,7 @@ export async function createComment(input: {
         id: created.id,
         body: created.body,
         createdAt: created.createdAt,
+        editedAt: created.editedAt ?? null,
         cardId: created.cardId,
         author: {
           id: session.user.id,

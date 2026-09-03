@@ -18,7 +18,7 @@
 // SEE: src/components/cards/EditableCardText.tsx
 
 import { useState } from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -124,5 +124,82 @@ describe('EditableCardText', () => {
     expect(display).not.toHaveAttribute('tabindex');
     await user.click(display);
     expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument();
+  });
+
+  it('does not save on blur when saveOnBlur is false', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onCancel = vi.fn();
+    const onBlur = vi.fn();
+    render(
+      <EditableCardText
+        value="Looks **good**"
+        ariaLabel="Edit comment body"
+        canEdit
+        rows={3}
+        editing
+        saveOnBlur={false}
+        activateOnDisplay={false}
+        onChange={() => {}}
+        onBlur={onBlur}
+        onSave={onSave}
+        onCancel={onCancel}
+      />,
+    );
+
+    screen.getByRole('textbox', { name: 'Edit comment body' }).focus();
+    await user.tab();
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onBlur).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Edit comment body' })).toBeInTheDocument();
+  });
+
+  it('calls onCancel from Cancel and Escape when saveOnBlur is false', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <EditableCardText
+        value="Looks **good**"
+        ariaLabel="Edit comment body"
+        canEdit
+        rows={3}
+        editing
+        saveOnBlur={false}
+        activateOnDisplay={false}
+        onChange={() => {}}
+        onSave={onSave}
+        onCancel={onCancel}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
+
+    screen.getByRole('textbox', { name: 'Edit comment body' }).focus();
+    await user.keyboard('{Escape}');
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('does not open on click when activateOnDisplay is false', async () => {
+    const user = userEvent.setup();
+    render(
+      <EditableCardText
+        value="Looks **good**"
+        ariaLabel="Edit comment body"
+        canEdit
+        rows={3}
+        activateOnDisplay={false}
+        saveOnBlur={false}
+        onChange={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByLabelText('Edit comment body'));
+    expect(screen.queryByRole('textbox', { name: 'Edit comment body' })).not.toBeInTheDocument();
   });
 });

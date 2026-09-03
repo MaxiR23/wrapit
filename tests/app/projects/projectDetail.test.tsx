@@ -94,6 +94,7 @@ vi.mock('@/actions/updateSubtaskField', () => ({
 }));
 vi.mock('@/actions/deleteSubtask', () => ({ deleteSubtask: vi.fn() }));
 vi.mock('@/actions/createComment', () => ({ createComment: vi.fn() }));
+vi.mock('@/actions/updateComment', () => ({ updateComment: vi.fn() }));
 vi.mock('@/actions/updateLabelField', () => ({
   updateLabelField: vi.fn(async (input: { value: string }) => ({ data: { value: input.value } })),
 }));
