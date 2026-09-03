@@ -53,14 +53,21 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `accessBeforeAdmin`. Every project must have at least one OWNER.
 - `Invitation` belongs to a `Project`, an inviter `User`, and an invitee `User`.
   One row per `(projectId, inviteeId)`. Status is `PENDING`, `ACCEPTED`, or
-  `REJECTED`. Invites always write role `MEMBER`. A `REJECTED` row is reused
-  (set back to `PENDING`) rather than inserting a second invitation. Reuse
+  `REJECTED`. Invites write the chosen `MEMBER` or `ADMIN` role (default
+  `MEMBER`). A `REJECTED` row is reused
+  (set back to `PENDING`, with the newly chosen role) rather than inserting a second invitation. Reuse
   claims `REJECTED` with `updateMany` (`id` + `REJECTED`) so two overlapping
   re-invites cannot each write an `INVITATION_RECEIVED`. A first-time insert
   uses `createMany` with `skipDuplicates` so a concurrent create returns
   `pending_invitation` instead of throwing. Accept and
-  reject claim `PENDING` with `updateMany` (`id` + `PENDING`) so only one
-  status transition wins. Accept writes `access: COMMENT` on the new membership.
+  reject claim `PENDING` with `updateMany` (`id` + `PENDING` + role +
+  `inviterId`) so only one
+  status transition wins, and a REJECTED reuse that rewrote role or inviter
+  cannot be accepted from the previous snapshot. A missed claim returns that
+  the invitation is no longer valid. Accept creates MEMBER with `access: EDIT`
+  and `accessBeforeAdmin: null`, then an ADMIN offer claims ADMIN with
+  `updateMany` that requires the inviter still administers; a miss leaves
+  MEMBER. `MEMBER_ADDED` records the granted role.
 - `Notification` belongs to a recipient `User` and optionally an `Invitation`.
   `type` is `NotificationType`: `INVITATION_RECEIVED`, `INVITATION_ACCEPTED`,
   `INVITATION_REJECTED`. `invitationId` links the row so accept/reject can
@@ -112,7 +119,9 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `payload` is JSON; the
   app parses it with a per-type Zod map before write and again on read. Every
   payload snapshots `actorName` / `actorUsername` plus type-specific ids and
-  display names (card title, column title, project title, and so on). There is no `cardId`
+  display names (card title, column title, project title, and so on).
+  `MEMBER_ADDED` also snapshots the granted role (`ADMIN` or `MEMBER`); events
+  written before that field still parse. There is no `cardId`
   column and no FK to `Card`, so archive and delete history survives. `actorId`
   is `onDelete: SetNull` so deleting a user keeps the row. Sentences are not
   stored; the UI builds them from the snapshot at display time. Events are

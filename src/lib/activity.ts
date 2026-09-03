@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '@/lib/validation/id';
+import { MEMBERSHIP_ROLE_VALUES } from '@/lib/validation/membership';
 
 export const ACTIVITY_EVENT_TYPES = [
   'CARD_CREATED',
@@ -120,6 +121,8 @@ export const activityPayloadSchemas = {
     inviterId: idSchema,
     inviterName: z.string().min(1),
     inviterUsername: z.string(),
+    // Optional so events written before accept recorded a role still parse.
+    role: z.enum(MEMBERSHIP_ROLE_VALUES).optional(),
   }),
   MEMBER_REMOVED: z.object({
     ...actorFields,

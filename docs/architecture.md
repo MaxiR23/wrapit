@@ -255,23 +255,34 @@ zero rows, a follow-up read only chooses `OWNER_MUST_TRANSFER_MESSAGE` vs
 Unauthorized. Admins and members leave freely. Recents for that user+project
 are deleted. Rejoin needs a new invitation.
 
-OWNER and ADMIN can invite by username (`createInvitation`). A MEMBER cannot.
+OWNER and ADMIN can invite by username (`createInvitation`), choosing MEMBER
+or ADMIN (default MEMBER). A MEMBER cannot. OWNER is not an invite role:
+that payload fails parse and returns Unauthorized with no lookup.
 Non-invitable targets
 (unknown username, self, already a member, existing PENDING invitation) return
 the same generic message (`CANT_INVITE_USER_MESSAGE`) and write nothing; the
 server logs the real reason. `inviteUserToProject` in `src/lib/invitations.ts`
-owns those checks. Re-inviting after a reject claims `REJECTED` inside the
+owns those checks and writes the chosen role on a first-time insert and on
+REJECTED reuse (the new choice overwrites the stored role). Re-inviting after
+a reject claims `REJECTED` inside the
 transaction (`updateMany` on `id` + `REJECTED`); a first-time insert claims
 with `createMany` + `skipDuplicates`. A lost claim returns `pending_invitation`
 and writes nothing. The invitee accepts or rejects; only the invitee can.
 `acceptInvitation` runs in one transaction. The first write is a conditional
-`updateMany` (`id` + `PENDING` → `ACCEPTED`); if that does not claim exactly
-one row, the transaction rolls back and the action returns Unauthorized. Only
-then: `MEMBER` membership with `COMMENT` access, `INVITATION_ACCEPTED` for the inviter, delete the
-invitee's `INVITATION_RECEIVED`. `rejectInvitation` is the same without the
-membership write (`PENDING` → `REJECTED`). The invitee check stays outside the
-transaction; the status check does not. Neither action reads `ownerId` for
-access.
+`updateMany` (`id` + `PENDING` + the role and `inviterId` the caller read →
+`ACCEPTED`); if that does not claim exactly
+one row, the transaction rolls back and the action returns that the invitation
+is no longer valid. REJECTED reuse can rewrite role and inviter, so the claim
+describes the row the caller expected rather than re-reading after occupying
+status. An ADMIN offer creates the membership as MEMBER, then claims ADMIN with
+`updateMany` (`id` + `MEMBER` + `administeredByUser` for the inviter). A miss
+leaves MEMBER; acceptance does not fail. Both paths write `EDIT` access and
+`accessBeforeAdmin: null` (a later demotion of an invited ADMIN restores EDIT).
+`MEMBER_ADDED` records the granted role. Then: `INVITATION_ACCEPTED` for the
+inviter, delete the invitee's `INVITATION_RECEIVED`. `rejectInvitation` is the
+same without the membership write (`PENDING` → `REJECTED`). The invitee check
+stays outside the transaction; the status check does not. Neither action reads
+`ownerId` for access.
 
 Extra rules for moving cards (same project, neighbors in the target column) live
 in `docs/kanban.md`.
@@ -339,7 +350,7 @@ in `docs/kanban.md`.
     src/lib/validation/forgotPassword.ts  forgot-password rules
     src/lib/validation/resetPassword.ts reset-password rules
     src/lib/validation/id.ts            bounded identifier shared by action schemas
-    src/lib/validation/invitation.ts    invite projectId + username; accept/reject invitationId
+    src/lib/validation/invitation.ts    invite projectId + username + MEMBER/ADMIN role; accept/reject invitationId
     src/lib/validation/notification.ts  markNotificationRead notificationId
     src/lib/validation/project.ts       project title, optional description/status/featured/columns/invitees
     src/lib/validation/projectAccess.ts recordRecentProject projectId; setProjectStarred projectId + starred
@@ -363,8 +374,8 @@ in `docs/kanban.md`.
     src/actions/deleteUserStatus.ts     delete an owned status; lock the user; refuse the last remaining
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
     src/lib/validation/membership.ts    update access, update role, remove member, transfer, leave, public-link flag
-    src/actions/createInvitation.ts     invite a user by username (OWNER/ADMIN only; generic deny)
-    src/actions/acceptInvitation.ts     invitee accepts: MEMBER + COMMENT access + notify inviter
+    src/actions/createInvitation.ts     invite a user by username as MEMBER or ADMIN (OWNER/ADMIN only; generic deny)
+    src/actions/acceptInvitation.ts     invitee accepts: MEMBER then occupancy ADMIN if inviter still administers; EDIT access; notify inviter
     src/actions/updateMembershipAccess.ts  OWNER/ADMIN set a MEMBER's board access
     src/actions/updateMembershipRole.ts OWNER/ADMIN promote MEMBER to ADMIN or demote ADMIN to MEMBER
     src/actions/removeMember.ts         OWNER/ADMIN remove a person; last-OWNER guarded; unassign

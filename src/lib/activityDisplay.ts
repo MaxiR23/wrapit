@@ -174,7 +174,7 @@ function sentenceFor(
     }
     case 'MEMBER_ADDED': {
       const data = payload as ActivityPayloadFor<'MEMBER_ADDED'>;
-      return copy.memberAdded({ actorName: data.actorName });
+      return copy.memberAdded({ actorName: data.actorName, role: data.role });
     }
     case 'MEMBER_REMOVED': {
       const data = payload as ActivityPayloadFor<'MEMBER_REMOVED'>;

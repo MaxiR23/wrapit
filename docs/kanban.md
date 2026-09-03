@@ -20,11 +20,14 @@ OWNER `Membership` for the session user are created in the same transaction as
 the project. A create-time `featured` flag sets `starred: true` on that OWNER
 row; otherwise it is unstarred.
 
-OWNER and ADMIN can invite another user by username. Invites always create a
-`MEMBER` role. `acceptInvitation` claims `PENDING` with a conditional
-`updateMany` inside the transaction, then inserts the membership with
-`COMMENT` access; a concurrent
-reject or a second accept cannot leave a membership on a non-PENDING row. A
+OWNER and ADMIN can invite another user by username as MEMBER or ADMIN
+(default MEMBER). `acceptInvitation` claims `PENDING` with a conditional
+`updateMany` (`id` + `PENDING` + role + `inviterId`) inside the transaction,
+then inserts MEMBER with `EDIT` and `accessBeforeAdmin` null. An ADMIN offer
+promotes that row with a second `updateMany` that requires the inviter still
+administers; a miss leaves MEMBER and the accept still succeeds. A concurrent
+reject, a second accept, or a REJECTED reuse that changed role or inviter
+cannot leave a membership on a row the caller did not claim. A
 mid-flight failure rolls back. Invite, accept, and reject are
 membership-based, never `ownerId`. A MEMBER cannot invite.
 
@@ -403,7 +406,7 @@ src/components/projects/BoardHeader.tsx   title, progress, members, Share, filte
 src/components/projects/BoardActivityLog.tsx  day-grouped activity rows, empty copy, load earlier
 src/components/account/AccountActivity.tsx    account Activity tab: project cards + personal timeline
 src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
-src/components/projects/ShareModalBody.tsx  invite, with-access list, public-link row, leave
+src/components/projects/ShareModalBody.tsx  invite with Member/Admin role, with-access list, public-link row, leave
 src/components/projects/ShareMemberRow.tsx  permission menu, transfer, coalesced access/remove
 src/components/projects/ShareConfirm.tsx  inline confirm (transfer and leave)
 src/components/projects/BoardFiltersPopover.tsx  label / only-mine / only-overdue popover and sheet

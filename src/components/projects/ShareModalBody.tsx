@@ -61,6 +61,7 @@ export default function ShareModalBody({
 }) {
   const router = useRouter();
   const [username, setUsername] = useState('');
+  const [inviteRole, setInviteRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [transferConfirmId, setTransferConfirmId] = useState<string | null>(null);
@@ -120,13 +121,14 @@ export default function ShareModalBody({
     if (!viewerCanAdminister || !trimmed || inviting) return;
     setInviting(true);
     setInviteError(null);
-    const result = await createInvitation({ projectId, username: trimmed });
+    const result = await createInvitation({ projectId, username: trimmed, role: inviteRole });
     setInviting(false);
     if ('error' in result) {
       setInviteError(result.error === 'Unauthorized' ? result.error : CANT_INVITE_USER_MESSAGE);
       return;
     }
     setUsername('');
+    setInviteRole('MEMBER');
   }
 
   async function onCopy() {
@@ -175,6 +177,42 @@ export default function ShareModalBody({
             'placeholder:text-subtle disabled:opacity-50',
           )}
         />
+        {viewerCanAdminister ? (
+          <div
+            role="group"
+            aria-label="Invite as"
+            className="flex h-11 shrink-0 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:h-[38px]"
+          >
+            <button
+              type="button"
+              aria-pressed={inviteRole === 'MEMBER'}
+              onClick={() => setInviteRole('MEMBER')}
+              className={cn(
+                shellFocusClassName,
+                'h-full rounded-[6px] px-3 text-[13px] font-medium',
+                inviteRole === 'MEMBER'
+                  ? 'bg-card text-foreground'
+                  : 'bg-transparent text-muted-foreground',
+              )}
+            >
+              Member
+            </button>
+            <button
+              type="button"
+              aria-pressed={inviteRole === 'ADMIN'}
+              onClick={() => setInviteRole('ADMIN')}
+              className={cn(
+                shellFocusClassName,
+                'h-full rounded-[6px] px-3 text-[13px] font-medium',
+                inviteRole === 'ADMIN'
+                  ? 'bg-card text-foreground'
+                  : 'bg-transparent text-muted-foreground',
+              )}
+            >
+              Admin
+            </button>
+          </div>
+        ) : null}
         <button
           type="submit"
           disabled={!canInvite}

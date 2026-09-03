@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Invites by username through createInvitation
+// - The invite form offers Member and Admin, defaulting to Member
 // - Owner row has no permission control
 // - Admins can open the permission menu and pick an access
 // - Non-admins see the list and link but cannot invite or change access
@@ -177,7 +178,26 @@ describe('ShareModalBody', () => {
     await events.type(screen.getByLabelText('Username'), 'grace');
     await events.click(screen.getByRole('button', { name: 'Invite' }));
 
-    expect(createInvitation).toHaveBeenCalledWith({ projectId: 'project-1', username: 'grace' });
+    expect(createInvitation).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      username: 'grace',
+      role: 'MEMBER',
+    });
+  });
+
+  it('invites as ADMIN when that role is chosen', async () => {
+    const events = userEvent.setup();
+    renderBody();
+
+    await events.click(screen.getByRole('button', { name: 'Admin' }));
+    await events.type(screen.getByLabelText('Username'), 'grace');
+    await events.click(screen.getByRole('button', { name: 'Invite' }));
+
+    expect(createInvitation).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      username: 'grace',
+      role: 'ADMIN',
+    });
   });
 
   it('shows the generic invite error', async () => {
@@ -223,6 +243,9 @@ describe('ShareModalBody', () => {
 
     expect(screen.getByLabelText('Username')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Invite' })).toBeDisabled();
+    expect(screen.queryByRole('group', { name: 'Invite as' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Member' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Admin' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Change permission' })).not.toBeInTheDocument();
     expect(screen.getByText('Anyone with the link can view the board')).toBeInTheDocument();
     expect(screen.getByText('https://wrapit.example/projects/project-1')).toBeInTheDocument();

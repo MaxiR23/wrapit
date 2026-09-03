@@ -10,7 +10,8 @@ import {
   InvitationNotPendingError,
   invitationAcceptedMessage,
 } from '@/lib/invitations';
-import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
+import { administeredByUser } from '@/lib/membership';
+import { GENERIC_ERROR_MESSAGE, INVITATION_NO_LONGER_VALID_MESSAGE } from '@/lib/messages';
 import { prisma } from '@/lib/prisma';
 import { PROJECTS_PATH, projectPath } from '@/lib/routes';
 import { acceptInvitationSchema } from '@/lib/validation/invitation';
@@ -51,15 +52,36 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
       if (live.count !== 1) {
         throw new InvitationNotPendingError();
       }
-      await claimPendingInvitation(tx, { id: invitation.id, status: 'ACCEPTED' });
-      await tx.membership.create({
+      await claimPendingInvitation(tx, {
+        id: invitation.id,
+        status: 'ACCEPTED',
+        role: invitation.role,
+        inviterId: invitation.inviterId,
+      });
+      const created = await tx.membership.create({
         data: {
           userId: invitation.inviteeId,
           projectId: invitation.projectId,
           role: 'MEMBER',
-          access: 'COMMENT',
+          access: 'EDIT',
+          accessBeforeAdmin: null,
         },
       });
+      let grantedRole: 'ADMIN' | 'MEMBER' = 'MEMBER';
+      if (invitation.role === 'ADMIN') {
+        const promoted = await tx.membership.updateMany({
+          where: {
+            id: created.id,
+            role: 'MEMBER',
+            access: 'EDIT',
+            project: administeredByUser(invitation.inviterId),
+          },
+          data: { role: 'ADMIN' },
+        });
+        if (promoted.count === 1) {
+          grantedRole = 'ADMIN';
+        }
+      }
       await tx.notification.create({
         data: {
           type: 'INVITATION_ACCEPTED',
@@ -88,6 +110,7 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
           inviterId: inviter.id,
           inviterName: inviter.name,
           inviterUsername: inviter.username,
+          role: grantedRole,
         },
       });
     });
@@ -97,7 +120,7 @@ export async function acceptInvitation(invitationId: string): Promise<AcceptInvi
     return { data: { id: invitation.id } };
   } catch (error) {
     if (error instanceof InvitationNotPendingError) {
-      return { error: 'Unauthorized' };
+      return { error: INVITATION_NO_LONGER_VALID_MESSAGE };
     }
     return { error: GENERIC_ERROR_MESSAGE };
   }

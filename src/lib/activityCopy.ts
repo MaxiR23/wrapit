@@ -34,7 +34,7 @@ export type ActivityCopy = {
   }) => string;
   commentAdded: (input: { actorName: string; cardTitle: string }) => string;
   projectCreated: (input: { actorName: string; projectTitle: string }) => string;
-  memberAdded: (input: { actorName: string }) => string;
+  memberAdded: (input: { actorName: string; role?: 'ADMIN' | 'MEMBER' }) => string;
   memberRemoved: (input: { actorName: string; memberName: string }) => string;
   ownershipTransferred: (input: { actorName: string; memberName: string }) => string;
   memberLeft: (input: { actorName: string }) => string;
@@ -94,7 +94,11 @@ export const activityCopy: ActivityCopy = {
   },
   commentAdded: ({ actorName, cardTitle }) => `${actorName} commented on "${cardTitle}".`,
   projectCreated: ({ actorName, projectTitle }) => `${actorName} created "${projectTitle}".`,
-  memberAdded: ({ actorName }) => `${actorName} joined the project.`,
+  memberAdded: ({ actorName, role }) => {
+    if (role === 'ADMIN') return `${actorName} joined the project as an admin.`;
+    if (role === 'MEMBER') return `${actorName} joined the project as a member.`;
+    return `${actorName} joined the project.`;
+  },
   memberRemoved: ({ actorName, memberName }) =>
     `${actorName} removed ${memberName} from the project.`,
   ownershipTransferred: ({ actorName, memberName }) =>

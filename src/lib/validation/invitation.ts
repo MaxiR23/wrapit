@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '@/lib/validation/id';
+import { MEMBERSHIP_ROLE_VALUES } from '@/lib/validation/membership';
 import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
@@ -8,9 +9,10 @@ import {
 } from '@/lib/validation/signUp';
 
 /**
- * Invite payload. A malformed projectId is Unauthorized. Username format
- * failures are mapped to the generic "can't invite" message by the action.
- * This schema is not used to return field errors.
+ * Invite payload. A malformed projectId or role is Unauthorized. Username
+ * format failures are mapped to the generic "can't invite" message by the
+ * action. This schema is not used to return field errors. Role reuses the
+ * MEMBER/ADMIN values from membership role changes; OWNER is not invitable.
  */
 export const invitationSchema = z.object({
   projectId: idSchema,
@@ -21,6 +23,7 @@ export const invitationSchema = z.object({
     .min(USERNAME_MIN_LENGTH)
     .max(USERNAME_MAX_LENGTH)
     .regex(USERNAME_PATTERN),
+  role: z.enum(MEMBERSHIP_ROLE_VALUES).default('MEMBER'),
 });
 
 export type InvitationInput = z.infer<typeof invitationSchema>;

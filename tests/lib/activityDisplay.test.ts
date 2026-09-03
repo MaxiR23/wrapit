@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Builds an English sentence from each event type
+// - Names the granted role on MEMBER_ADDED when the payload has one
 // - Keeps a snapshotted column name after a rename
 // - Formats a due date as an absolute calendar day, not Today
 // - Reads a due moment in the viewer zone and names the zone it was set in
@@ -180,6 +181,44 @@ describe('activitySentence', () => {
         }),
       ),
     ).toBe('Ada Lovelace joined the project.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e8-admin',
+          type: 'MEMBER_ADDED',
+          payload: {
+            ...actor,
+            memberId: 'user-ada',
+            memberName: 'Ada Lovelace',
+            memberUsername: 'ada',
+            inviterId: 'user-grace',
+            inviterName: 'Grace Hopper',
+            inviterUsername: 'grace',
+            role: 'ADMIN',
+          },
+        }),
+      ),
+    ).toBe('Ada Lovelace joined the project as an admin.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e8-member',
+          type: 'MEMBER_ADDED',
+          payload: {
+            ...actor,
+            memberId: 'user-ada',
+            memberName: 'Ada Lovelace',
+            memberUsername: 'ada',
+            inviterId: 'user-grace',
+            inviterName: 'Grace Hopper',
+            inviterUsername: 'grace',
+            role: 'MEMBER',
+          },
+        }),
+      ),
+    ).toBe('Ada Lovelace joined the project as a member.');
 
     expect(
       activitySentence(
