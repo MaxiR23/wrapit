@@ -188,6 +188,14 @@ function sentenceFor(
       const data = payload as ActivityPayloadFor<'MEMBER_LEFT'>;
       return copy.memberLeft({ actorName: data.actorName });
     }
+    case 'MEMBER_PROMOTED': {
+      const data = payload as ActivityPayloadFor<'MEMBER_PROMOTED'>;
+      return copy.memberPromoted({ actorName: data.actorName, memberName: data.memberName });
+    }
+    case 'MEMBER_DEMOTED': {
+      const data = payload as ActivityPayloadFor<'MEMBER_DEMOTED'>;
+      return copy.memberDemoted({ actorName: data.actorName, memberName: data.memberName });
+    }
     case 'PROJECT_ARCHIVED': {
       const data = payload as ActivityPayloadFor<'PROJECT_ARCHIVED'>;
       return copy.projectArchived({ actorName: data.actorName, projectTitle: data.projectTitle });

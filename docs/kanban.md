@@ -29,8 +29,11 @@ mid-flight failure rolls back. Invite, accept, and reject are
 membership-based, never `ownerId`. A MEMBER cannot invite.
 
 The owner can transfer the project from Share: that member becomes OWNER
-with EDIT access and the previous owner becomes ADMIN, in one transaction
-(demote then promote, each `updateMany` count-guarded). Non-owners can leave
+with EDIT access, `accessBeforeAdmin` cleared, and the previous owner becomes
+ADMIN, in one transaction (demote then promote, each `updateMany`
+count-guarded). OWNER and ADMIN can promote a MEMBER to ADMIN or demote an
+ADMIN to MEMBER from the same row menu; OWNER is never a role-change target.
+Non-owners can leave
 from the bottom of Share; the owner’s Leave control is disabled and explains
 that a transfer comes first. Leaving and removing both unassign that person
 on the project’s cards.
@@ -385,7 +388,7 @@ src/actions/updateBoardVisibility.ts persist board field visibility on UserPrefe
 src/lib/projects.ts                 load project with ordered columns/cards; grid/list summaries
 src/lib/templates.ts                project template catalog (id, name, ordered column titles)
 src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, archived counterparts, last-OWNER guard, unassign, owner backfill
-src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
+src/lib/boardAccess.ts              access labels, viewer capabilities, ownership display, public board URL
 src/actions/createProject.ts        create a project, optional column list, optional featured star
 src/lib/projectGrid.ts              done/total progress; doneColumnFrom / inboxColumnFrom
 src/components/projects/ProjectsView.tsx  grid/list toggle (client); zero-project empty state

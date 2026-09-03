@@ -234,6 +234,36 @@ describe('activitySentence', () => {
     expect(
       activitySentence(
         view({
+          id: 'e-promoted',
+          type: 'MEMBER_PROMOTED',
+          payload: {
+            ...actor,
+            memberId: 'user-max',
+            memberName: 'Maxi',
+            memberUsername: 'maxi',
+          },
+        }),
+      ),
+    ).toBe('Ada Lovelace made Maxi an admin.');
+
+    expect(
+      activitySentence(
+        view({
+          id: 'e-demoted',
+          type: 'MEMBER_DEMOTED',
+          payload: {
+            ...actor,
+            memberId: 'user-max',
+            memberName: 'Maxi',
+            memberUsername: 'maxi',
+          },
+        }),
+      ),
+    ).toBe('Ada Lovelace removed Maxi as an admin.');
+
+    expect(
+      activitySentence(
+        view({
           id: 'e-archived',
           type: 'PROJECT_ARCHIVED',
           payload: { ...actor, projectTitle: 'Sprint board' },

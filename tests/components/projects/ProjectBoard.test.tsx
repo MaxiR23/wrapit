@@ -24,9 +24,14 @@
 // - Opening the log does not drop an in-flight persist queue
 // - An older activity load that resolves after a newer one is dropped
 // - A rejected activity load clears loading and shows a generic error
+// - Self-demote from COMMENT restores comment-only controls without a reload
+// - Self-demote from VIEW restores view-only controls without a reload
+// - Self-demote with no stored access keeps EDIT controls
+// - The viewer's share row drives capabilities even when boardAccess stays EDIT
+// - A missing viewer row still falls back to the boardAccess and teamRole props
 //
 // What is covered:
-// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail, activity log surface
+// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail, activity log surface, live membership capabilities
 //
 // Run with: pnpm test:run tests/components/projects/ProjectBoard.test.tsx
 //
@@ -39,7 +44,8 @@ import userEvent from '@testing-library/user-event';
 
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import type { ProjectBoardHandle } from '@/components/projects/ProjectBoard';
-import type { BoardColumnData } from '@/components/projects/boardTypes';
+import type { BoardColumnData, ShareMember } from '@/components/projects/boardTypes';
+import type { BoardAccess } from '@/lib/membership';
 
 const moveCard = vi.fn();
 const createCard = vi.fn();
@@ -93,6 +99,10 @@ vi.mock('@/actions/createInvitation', () => ({
 }));
 vi.mock('@/actions/updateMembershipAccess', () => ({
   updateMembershipAccess: vi.fn(),
+}));
+const updateMembershipRole = vi.fn();
+vi.mock('@/actions/updateMembershipRole', () => ({
+  updateMembershipRole,
 }));
 vi.mock('@/actions/removeMember', () => ({
   removeMember: vi.fn(),
@@ -180,6 +190,75 @@ function cardTitlesInColumn(title: string): string[] {
   return within(desktopColumn(title))
     .queryAllByRole('heading', { level: 3 })
     .map((heading) => heading.textContent?.trim() ?? '');
+}
+
+const adaUser = { id: 'user-ada', name: 'Ada', username: 'ada' };
+
+function ownerShareMember(): ShareMember {
+  return {
+    id: 'user-owner',
+    membershipId: 'mem-owner',
+    name: 'Owner',
+    username: 'owner',
+    role: 'OWNER',
+    access: 'EDIT',
+  };
+}
+
+function adaShareMember(role: ShareMember['role'], access: BoardAccess): ShareMember {
+  return {
+    ...adaUser,
+    membershipId: 'mem-ada',
+    role,
+    access,
+  };
+}
+
+function addCardToDo() {
+  return within(desktopColumn('To do')).getByRole('button', { name: 'Add card to To do' });
+}
+
+function renderAdaBoard(
+  props: {
+    shareMembers?: ShareMember[];
+    boardAccess?: BoardAccess;
+    teamRole?: ShareMember['role'];
+  } = {},
+) {
+  return renderBoard(
+    <ProjectBoard
+      title="Sprint board"
+      projectId="project-1"
+      currentUser={adaUser}
+      labels={[]}
+      columns={columns}
+      members={[]}
+      boardAccess="EDIT"
+      teamRole="ADMIN"
+      shareMembers={[adaShareMember('ADMIN', 'EDIT'), ownerShareMember()]}
+      {...props}
+    />,
+  );
+}
+
+async function confirmSelfDemote(user: ReturnType<typeof userEvent.setup>, access: BoardAccess) {
+  updateMembershipRole.mockResolvedValue({ data: { role: 'MEMBER', access } });
+  await user.click(screen.getByRole('button', { name: 'Share' }));
+  await user.click(
+    screen
+      .getAllByRole('button', { name: 'Change permission' })
+      .find((button) => button.textContent?.includes('Admin'))!,
+  );
+  await user.click(screen.getByRole('menuitem', { name: 'Remove admin' }));
+  await user.click(screen.getByRole('button', { name: 'Remove admin' }));
+  await waitFor(() => {
+    expect(updateMembershipRole).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      membershipId: 'mem-ada',
+      role: 'MEMBER',
+    });
+  });
+  await user.click(screen.getByRole('button', { name: 'Close' }));
 }
 
 describe('ProjectBoard', () => {
@@ -991,5 +1070,95 @@ describe('ProjectBoard', () => {
       'aria-busy',
       'false',
     );
+  });
+
+  it('drops editing controls and keeps commenting after a self-demote to COMMENT', async () => {
+    const user = userEvent.setup();
+    renderAdaBoard();
+
+    await confirmSelfDemote(user, 'COMMENT');
+
+    expect(addCardToDo()).toBeDisabled();
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.getByRole('textbox', { name: 'Write a comment' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
+  });
+
+  it('drops editing and commenting after a self-demote to VIEW', async () => {
+    const user = userEvent.setup();
+    renderAdaBoard();
+
+    await confirmSelfDemote(user, 'VIEW');
+
+    expect(addCardToDo()).toBeDisabled();
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.queryByRole('textbox', { name: 'Write a comment' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
+  });
+
+  it('keeps EDIT controls after a self-demote with nothing stored', async () => {
+    const user = userEvent.setup();
+    renderAdaBoard();
+
+    await confirmSelfDemote(user, 'EDIT');
+
+    expect(addCardToDo()).not.toBeDisabled();
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.getByRole('textbox', { name: 'Write a comment' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Archive task' }).length).toBeGreaterThan(0);
+  });
+
+  it("follows the viewer's share row even when boardAccess stays EDIT", async () => {
+    const user = userEvent.setup();
+
+    function Board({ shareMembers }: { shareMembers: ShareMember[] }) {
+      return (
+        <ProjectBoard
+          title="Sprint board"
+          projectId="project-1"
+          currentUser={adaUser}
+          labels={[]}
+          columns={columns}
+          members={[]}
+          boardAccess="EDIT"
+          teamRole="ADMIN"
+          shareMembers={shareMembers}
+        />
+      );
+    }
+
+    const { rerender } = renderBoard(
+      <Board shareMembers={[adaShareMember('ADMIN', 'EDIT'), ownerShareMember()]} />,
+    );
+    expect(addCardToDo()).not.toBeDisabled();
+
+    rerender(<Board shareMembers={[adaShareMember('MEMBER', 'COMMENT'), ownerShareMember()]} />);
+    expect(addCardToDo()).toBeDisabled();
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.getByRole('textbox', { name: 'Write a comment' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to the boardAccess prop when the viewer row is absent', async () => {
+    const user = userEvent.setup();
+    renderAdaBoard({
+      shareMembers: [ownerShareMember()],
+      boardAccess: 'VIEW',
+      teamRole: 'MEMBER',
+    });
+
+    expect(addCardToDo()).toBeDisabled();
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(screen.queryByRole('textbox', { name: 'Write a comment' })).not.toBeInTheDocument();
+  });
+
+  it('keeps EDIT controls when the viewer row is absent and boardAccess is EDIT', () => {
+    renderAdaBoard({
+      shareMembers: [ownerShareMember()],
+      boardAccess: 'EDIT',
+      teamRole: 'OWNER',
+    });
+
+    expect(addCardToDo()).not.toBeDisabled();
   });
 });

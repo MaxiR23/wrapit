@@ -6,6 +6,8 @@
 // - canEditBoard is true only for EDIT
 // - canCommentOnBoard is true for EDIT and COMMENT
 // - canAdministerProject is true for OWNER and ADMIN
+// - viewerProjectCapabilities uses the membership row for both axes
+// - viewerProjectCapabilities falls back only when that row is missing
 // - Access and owner labels are English and shared
 // - publicBoardUrl is origin plus the project path
 //
@@ -27,6 +29,7 @@ import {
   membershipsAfterOwnershipTransfer,
   publicBoardUrl,
   shareMemberControlLabel,
+  viewerProjectCapabilities,
 } from '@/lib/boardAccess';
 
 describe('board access helpers', () => {
@@ -48,12 +51,47 @@ describe('board access helpers', () => {
     expect(canAdministerProject('MEMBER')).toBe(false);
   });
 
+  it('uses the membership row for edit, comment, and administer', () => {
+    expect(
+      viewerProjectCapabilities(
+        { role: 'MEMBER', access: 'COMMENT' },
+        { role: 'ADMIN', access: 'EDIT' },
+      ),
+    ).toEqual({ canEdit: false, canComment: true, canAdminister: false });
+    expect(
+      viewerProjectCapabilities(
+        { role: 'MEMBER', access: 'VIEW' },
+        { role: 'ADMIN', access: 'EDIT' },
+      ),
+    ).toEqual({ canEdit: false, canComment: false, canAdminister: false });
+    expect(
+      viewerProjectCapabilities(
+        { role: 'MEMBER', access: 'EDIT' },
+        { role: 'ADMIN', access: 'VIEW' },
+      ),
+    ).toEqual({ canEdit: true, canComment: true, canAdminister: false });
+  });
+
+  it('falls back to the props only when the membership row is missing', () => {
+    expect(viewerProjectCapabilities(undefined, { role: 'ADMIN', access: 'EDIT' })).toEqual({
+      canEdit: true,
+      canComment: true,
+      canAdminister: true,
+    });
+    expect(viewerProjectCapabilities(null, { role: 'MEMBER', access: 'VIEW' })).toEqual({
+      canEdit: false,
+      canComment: false,
+      canAdminister: false,
+    });
+  });
+
   it('labels access levels and the owner row from one source', () => {
     expect(boardAccessLabel('EDIT')).toBe('Can edit');
     expect(boardAccessLabel('COMMENT')).toBe('Can comment');
     expect(boardAccessLabel('VIEW')).toBe('View only');
     expect(shareMemberControlLabel({ role: 'OWNER', access: 'EDIT' })).toBe('Owner');
-    expect(shareMemberControlLabel({ role: 'ADMIN', access: 'EDIT' })).toBe('Can edit');
+    expect(shareMemberControlLabel({ role: 'ADMIN', access: 'EDIT' })).toBe('Admin');
+    expect(shareMemberControlLabel({ role: 'MEMBER', access: 'EDIT' })).toBe('Can edit');
     expect(BOARD_ACCESS_OPTIONS.map((option) => option.value)).toEqual(['EDIT', 'COMMENT', 'VIEW']);
   });
 

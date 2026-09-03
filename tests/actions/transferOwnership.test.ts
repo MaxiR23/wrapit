@@ -7,6 +7,7 @@
 // - A VIEW member is promoted with EDIT access
 // - An ADMIN or MEMBER cannot transfer
 // - Transferring to self, a missing row, or another project rolls back
+// - Becoming OWNER clears accessBeforeAdmin so a later demote lands on EDIT
 // - Concurrent transfers to two members leave exactly one OWNER
 // - Invalid ids are rejected without a lookup
 // - OWNERSHIP_TRANSFERRED is recorded
@@ -113,6 +114,30 @@ describe('transferOwnership', () => {
     expect(result).toEqual({ data: { membershipId: member.id } });
     expect(db.membership.rows.find((row) => row.id === member.id)).toEqual(
       expect.objectContaining({ role: 'OWNER', access: 'EDIT' }),
+    );
+  });
+
+  it('clears accessBeforeAdmin when the target becomes OWNER', async () => {
+    const { project, member } = await seedOwnerAndMember('VIEW');
+    const row = db.membership.rows.find((item) => item.id === member.id);
+    if (row) {
+      row.role = 'ADMIN';
+      row.access = 'EDIT';
+      row.accessBeforeAdmin = 'VIEW';
+    }
+
+    const result = await transferOwnership({
+      projectId: project.id,
+      membershipId: member.id,
+    });
+
+    expect(result).toEqual({ data: { membershipId: member.id } });
+    expect(db.membership.rows.find((item) => item.id === member.id)).toEqual(
+      expect.objectContaining({
+        role: 'OWNER',
+        access: 'EDIT',
+        accessBeforeAdmin: null,
+      }),
     );
   });
 

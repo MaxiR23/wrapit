@@ -22,6 +22,7 @@ import {
   removeMemberSchema,
   transferOwnershipSchema,
   updateMembershipAccessSchema,
+  updateMembershipRoleSchema,
   updatePublicLinkSchema,
 } from '@/lib/validation/membership';
 
@@ -63,6 +64,39 @@ describe('updateMembershipAccessSchema', () => {
         projectId: 'project-1',
         membershipId: 'mem-1',
         access: 'OWNER',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('updateMembershipRoleSchema', () => {
+  it('accepts bounded ids and ADMIN or MEMBER', () => {
+    expect(
+      updateMembershipRoleSchema.parse({
+        projectId: 'project-1',
+        membershipId: 'mem-1',
+        role: 'ADMIN',
+      }),
+    ).toEqual({
+      projectId: 'project-1',
+      membershipId: 'mem-1',
+      role: 'ADMIN',
+    });
+  });
+
+  it('rejects OWNER and an empty id', () => {
+    expect(
+      updateMembershipRoleSchema.safeParse({
+        projectId: 'project-1',
+        membershipId: 'mem-1',
+        role: 'OWNER',
+      }).success,
+    ).toBe(false);
+    expect(
+      updateMembershipRoleSchema.safeParse({
+        projectId: '',
+        membershipId: 'mem-1',
+        role: 'ADMIN',
       }).success,
     ).toBe(false);
   });

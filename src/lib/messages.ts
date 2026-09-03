@@ -77,3 +77,11 @@ export const MISSING_COLUMN_BATCH_MESSAGE =
 
 /** Occupancy miss: another write already committed on this comment. */
 export const COMMENT_CHANGED_ELSEWHERE_MESSAGE = 'This comment changed somewhere else.';
+
+/** Occupancy miss: another write already committed on this membership role. */
+export const MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE =
+  "This person's role changed somewhere else.";
+
+/** Confirm copy before an admin demotes themselves. */
+export const REMOVE_ADMIN_SELF_DESCRIPTION =
+  'You will no longer be able to invite people, change access, or manage the project. Another admin would have to promote you again.';

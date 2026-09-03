@@ -104,6 +104,18 @@ const validPayloads = {
   MEMBER_LEFT: {
     ...actor,
   },
+  MEMBER_PROMOTED: {
+    ...actor,
+    memberId: 'user-max',
+    memberName: 'Maxi',
+    memberUsername: 'maxi',
+  },
+  MEMBER_DEMOTED: {
+    ...actor,
+    memberId: 'user-max',
+    memberName: 'Maxi',
+    memberUsername: 'maxi',
+  },
   PROJECT_CREATED: {
     ...actor,
     projectTitle: 'Sprint board',

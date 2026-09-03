@@ -17,6 +17,8 @@ export const ACTIVITY_EVENT_TYPES = [
   'MEMBER_REMOVED',
   'OWNERSHIP_TRANSFERRED',
   'MEMBER_LEFT',
+  'MEMBER_PROMOTED',
+  'MEMBER_DEMOTED',
   'PROJECT_ARCHIVED',
   'PROJECT_RESTORED',
   'PROJECT_DELETED',
@@ -133,6 +135,18 @@ export const activityPayloadSchemas = {
   }),
   MEMBER_LEFT: z.object({
     ...actorFields,
+  }),
+  MEMBER_PROMOTED: z.object({
+    ...actorFields,
+    memberId: idSchema,
+    memberName: z.string().min(1),
+    memberUsername: z.string(),
+  }),
+  MEMBER_DEMOTED: z.object({
+    ...actorFields,
+    memberId: idSchema,
+    memberName: z.string().min(1),
+    memberUsername: z.string(),
   }),
   PROJECT_ARCHIVED: z.object({
     ...actorFields,

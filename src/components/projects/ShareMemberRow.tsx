@@ -1,25 +1,33 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import { removeMember } from '@/actions/removeMember';
 import { updateMembershipAccess } from '@/actions/updateMembershipAccess';
+import { updateMembershipRole } from '@/actions/updateMembershipRole';
 import { useProfileAutosave } from '@/components/account/useProfileAutosave';
 import ShareConfirm from '@/components/projects/ShareConfirm';
-import type { ShareMember } from '@/components/projects/boardTypes';
+import type { ShareMember, ShareMemberRoleState } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { initials } from '@/lib/initials';
 import {
   BOARD_ACCESS_OPTIONS,
+  MAKE_ADMIN_LABEL,
   REMOVE_ACCESS_LABEL,
+  REMOVE_ADMIN_LABEL,
   TRANSFER_OWNERSHIP_LABEL,
   shareMemberControlLabel,
   type MembershipRole,
   type ShareAccessValue,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
-import { TRANSFER_OWNERSHIP_DESCRIPTION } from '@/lib/messages';
+import {
+  GENERIC_ERROR_MESSAGE,
+  MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
+  REMOVE_ADMIN_SELF_DESCRIPTION,
+  TRANSFER_OWNERSHIP_DESCRIPTION,
+} from '@/lib/messages';
 import { cn } from '@/lib/utils';
 
 export default function ShareMemberRow({
@@ -32,6 +40,7 @@ export default function ShareMemberRow({
   transferPending,
   transferError,
   onAccessChange,
+  onRoleChange,
   onRemoved,
   onRequestTransfer,
   onCancelTransfer,
@@ -46,6 +55,7 @@ export default function ShareMemberRow({
   transferPending: boolean;
   transferError: string | null;
   onAccessChange: (membershipId: string, access: BoardAccess) => void;
+  onRoleChange: (membershipId: string, next: ShareMemberRoleState) => void;
   onRemoved: (membershipId: string) => void;
   onRequestTransfer: (membershipId: string) => void;
   onCancelTransfer: () => void;
@@ -54,14 +64,21 @@ export default function ShareMemberRow({
   const isOwner = member.role === 'OWNER';
   const isSelf = member.id === currentUserId;
   const canChangeAccess = canAdminister && member.role === 'MEMBER';
+  const canChangeRole =
+    canAdminister && !isOwner && (member.role === 'MEMBER' || member.role === 'ADMIN');
   const canRemove = canAdminister && !isOwner && !isSelf;
   const canTransfer = viewerRole === 'OWNER' && !isSelf && !isOwner;
-  const showMenu = canChangeAccess || canRemove || canTransfer;
+  const showMenu = canChangeAccess || canChangeRole || canRemove || canTransfer;
   const label = shareMemberControlLabel({ role: member.role, access: member.access });
+
+  const [confirmingDemote, setConfirmingDemote] = useState(false);
+  const [demoteError, setDemoteError] = useState<string | null>(null);
+  const [demotePending, startDemote] = useTransition();
 
   const persist = useProfileAutosave<ShareAccessValue>({
     initial: member.access,
     debounceMs: 0,
+    resetKey: `${member.membershipId}:${member.role}:${member.access}`,
     save: async (value) => {
       if (value === 'REMOVED') {
         const result = await removeMember({
@@ -96,6 +113,68 @@ export default function ShareMemberRow({
 
   const accessValue = persist.value;
 
+  function applyRoleResult(
+    requested: 'ADMIN' | 'MEMBER',
+    result:
+      | { data: { role: 'ADMIN' | 'MEMBER'; access: BoardAccess } }
+      | { error: string; current?: ShareMemberRoleState },
+  ) {
+    if ('error' in result) {
+      if (result.error === MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE) {
+        setConfirmingDemote(false);
+        if (result.current) {
+          onRoleChange(member.membershipId, result.current);
+        }
+        setDemoteError(result.current?.role === requested ? null : result.error);
+        return;
+      }
+      setDemoteError(result.error === 'Unauthorized' ? result.error : GENERIC_ERROR_MESSAGE);
+      return;
+    }
+    setConfirmingDemote(false);
+    setDemoteError(null);
+    onRoleChange(member.membershipId, result.data);
+  }
+
+  function onMakeAdmin() {
+    startDemote(async () => {
+      const result = await updateMembershipRole({
+        projectId,
+        membershipId: member.membershipId,
+        role: 'ADMIN',
+      });
+      applyRoleResult('ADMIN', result);
+    });
+  }
+
+  function onRemoveAdmin() {
+    if (isSelf) {
+      setDemoteError(null);
+      setConfirmingDemote(true);
+      return;
+    }
+    startDemote(async () => {
+      const result = await updateMembershipRole({
+        projectId,
+        membershipId: member.membershipId,
+        role: 'MEMBER',
+      });
+      applyRoleResult('MEMBER', result);
+    });
+  }
+
+  function onConfirmDemote() {
+    setDemoteError(null);
+    startDemote(async () => {
+      const result = await updateMembershipRole({
+        projectId,
+        membershipId: member.membershipId,
+        role: 'MEMBER',
+      });
+      applyRoleResult('MEMBER', result);
+    });
+  }
+
   return (
     <div className="flex flex-col border-b border-border">
       <div className="flex items-center gap-[11px] py-2.5 tablet:py-[9px]">
@@ -119,11 +198,15 @@ export default function ShareMemberRow({
                 : shareMemberControlLabel({ role: member.role, access: accessValue })
             }
             access={accessValue}
+            memberRole={member.role}
             canChangeAccess={canChangeAccess}
+            canChangeRole={canChangeRole}
             canTransfer={canTransfer}
             canRemove={canRemove}
             error={persist.error}
             onPickAccess={(access) => persist.setValue(access)}
+            onMakeAdmin={onMakeAdmin}
+            onRemoveAdmin={onRemoveAdmin}
             onTransfer={() => onRequestTransfer(member.membershipId)}
             onRemove={() => persist.setValue('REMOVED')}
           />
@@ -152,6 +235,27 @@ export default function ShareMemberRow({
           />
         </div>
       ) : null}
+      {confirmingDemote ? (
+        <div className="pb-2.5">
+          <ShareConfirm
+            title={REMOVE_ADMIN_LABEL}
+            description={REMOVE_ADMIN_SELF_DESCRIPTION}
+            confirmLabel={REMOVE_ADMIN_LABEL}
+            pendingLabel="Saving..."
+            pending={demotePending}
+            error={demoteError}
+            onCancel={() => {
+              setConfirmingDemote(false);
+              setDemoteError(null);
+            }}
+            onConfirm={onConfirmDemote}
+          />
+        </div>
+      ) : demoteError ? (
+        <p role="alert" className="pb-2.5 text-sm text-destructive">
+          {demoteError}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -159,21 +263,29 @@ export default function ShareMemberRow({
 function ShareAccessMenu({
   label,
   access,
+  memberRole,
   canChangeAccess,
+  canChangeRole,
   canTransfer,
   canRemove,
   error,
   onPickAccess,
+  onMakeAdmin,
+  onRemoveAdmin,
   onTransfer,
   onRemove,
 }: {
   label: string;
   access: BoardAccess;
+  memberRole: MembershipRole;
   canChangeAccess: boolean;
+  canChangeRole: boolean;
   canTransfer: boolean;
   canRemove: boolean;
   error: string | null;
   onPickAccess: (access: BoardAccess) => void;
+  onMakeAdmin: () => void;
+  onRemoveAdmin: () => void;
   onTransfer: () => void;
   onRemove: () => void;
 }) {
@@ -244,6 +356,42 @@ function ShareAccessMenu({
                 </li>
               ))
             : null}
+          {canChangeRole && memberRole === 'MEMBER' ? (
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onMakeAdmin();
+                }}
+                className={cn(
+                  shellFocusClassName,
+                  'flex w-full rounded-sm px-2.5 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-card',
+                )}
+              >
+                {MAKE_ADMIN_LABEL}
+              </button>
+            </li>
+          ) : null}
+          {canChangeRole && memberRole === 'ADMIN' ? (
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onRemoveAdmin();
+                }}
+                className={cn(
+                  shellFocusClassName,
+                  'flex w-full rounded-sm px-2.5 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-card',
+                )}
+              >
+                {REMOVE_ADMIN_LABEL}
+              </button>
+            </li>
+          ) : null}
           {canTransfer ? (
             <li role="none">
               <button
