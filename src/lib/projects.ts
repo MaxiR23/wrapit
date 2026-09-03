@@ -118,6 +118,7 @@ export async function getProjectForUser(projectId: string, userId: string) {
       id: string;
       body: string;
       createdAt: Date;
+      editedAt: Date | null;
       author: { id: string; name: string; username: string };
     }>
   >();
@@ -133,6 +134,7 @@ export async function getProjectForUser(projectId: string, userId: string) {
       id: row.id,
       body: row.body,
       createdAt: row.createdAt,
+      editedAt: row.editedAt ?? null,
       author: {
         id: row.authorId,
         name: author?.name ?? '',

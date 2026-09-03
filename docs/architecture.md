@@ -104,7 +104,7 @@ rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
 `deleteArchivedProject`,
 `updateCardAssignees`, `updateCardLabel`, due-date `updateCardField`,
 `createComment`, `acceptInvitation`, and `removeMember` do the same for their
-types. Title and description writes, subtasks, column/label CRUD, and
+types. Title and description writes, subtasks, comment edits, column/label CRUD, and
 invitations are not logged. `createProject` writes `PROJECT_CREATED` in the
 same transaction as the project and owner membership. `listActivityEvents`
 is membership-gated (VIEW+) and pages with a createdAt+id keyset.
@@ -125,6 +125,9 @@ cannot commit out of order; subtask done uses one in-flight write per
 subtask and reverts that row only. `archiveCard` claims
 `archivedAt: null` and writes `archivedById`. `createSubtask` appends
 `(max order)+1`; subtask and comment mutations walk the card ownership chain.
+Comment edits also require `comment.authorId === session.user.id` after that
+lookup, so OWNER and ADMIN cannot edit someone else's comment. Editing a
+comment does not write an activity event or a notification.
 `deleteCard` is `deleteMany` with a count guard on live cards (`archivedAt: null`);
 comments and subtasks cascade. `restoreArchivedCards` clears archive fields in
 one OWNER/ADMIN transaction and logs `CARD_RESTORED`; it refuses the batch when
@@ -199,7 +202,9 @@ refuse without confirming whether the row exists for another user.
 access, and toggling the public link. OWNER and ADMIN always have `EDIT` board
 access (schema default plus a check constraint). `Membership.access` governs
 the board: EDIT can create, edit, move, archive and delete cards, edit labels,
-and comment; COMMENT can comment and check subtasks; VIEW is read only.
+and comment; COMMENT can comment, edit their own comments, and check subtasks;
+VIEW is read only. Only the author can edit a comment, including when the
+caller is OWNER or ADMIN. Comment edits are not logged.
 Existing memberships backfill to EDIT.
 
 A project must keep at least one OWNER membership. `createProject` inserts the
@@ -284,7 +289,7 @@ in `docs/kanban.md`.
     src/lib/localTime.ts                12-hour local time with a GMT offset
     src/lib/projectGrid.ts              progress, members, count, Done/inbox column helpers, title filter, recents summary map, optimistic starred reducer
     src/lib/initials.ts                 two-letter initials from name / username (derived at render, not snapshotted)
-    src/lib/ownership.ts                column/card/label/subtask access chain (membership)
+    src/lib/ownership.ts                column/card/label/subtask/comment access chain (membership)
     src/lib/messages.ts                 generic user-facing error strings
     src/lib/order.ts                    Float order between neighbors
     src/lib/kanbanItems.ts              column→card id lists; append to a column
@@ -317,7 +322,7 @@ in `docs/kanban.md`.
     src/lib/validation/column.ts        column title rules; create/delete action ids
     src/lib/validation/card.ts          card title, optional description/due date+time+zone/label/assignees; create/update/delete/archive/field action ids
     src/lib/validation/subtask.ts       subtask text and done; create/update/delete ids
-    src/lib/validation/comment.ts       comment body; create cardId
+    src/lib/validation/comment.ts       comment body; create cardId; edit commentId
     src/lib/validation/moveCard.ts      moveCard card, source, and target ids
     src/lib/validation/completeCard.ts  setCardCompleted cardId + completed
     src/lib/validation/viewMode.ts      projects grid/list viewMode
@@ -377,6 +382,7 @@ in `docs/kanban.md`.
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
     src/actions/createComment.ts        append a comment as the session user
+    src/actions/updateComment.ts        author edits own comment (COMMENT+; occupancy on body)
     src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
     src/actions/listMyActivityEvents.ts  session user's events across current memberships
     src/actions/deleteCard.ts           delete a live card (occupancy on archivedAt null)

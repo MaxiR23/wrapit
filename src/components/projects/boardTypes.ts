@@ -23,6 +23,7 @@ export type BoardComment = {
   id: string;
   body: string;
   createdAt: Date;
+  editedAt: Date | null;
   author: BoardMember;
 };
 

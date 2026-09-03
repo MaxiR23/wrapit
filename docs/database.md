@@ -91,7 +91,10 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `NULL` and are calendar days, which is what they always were. Wall time is
   resolved to an instant server-side, never in the browser. `Subtask` belongs to a `Card`
   (`text`, `done`, `Float` `order`); creates append `(max order)+1`. `Comment`
-  belongs to a `Card` and a `User` as author (`body`, `createdAt`). Deleting a
+  belongs to a `Card` and a `User` as author (`body`, `createdAt`, optional
+  `editedAt`). `createdAt` is set at insert and never rewritten. `editedAt` is
+  null until the author edits the body; existing rows read NULL because they
+  were never edited. Deleting a
   card cascades both. Board footer counters are derived from these lists, not
   stored on `Card`.
 - `CardAssignee` joins a `Card` and a `User`. One row per `(cardId, userId)`.
@@ -115,7 +118,7 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `createProject` writes `PROJECT_CREATED` next to the owner membership.
   Transferring ownership writes `OWNERSHIP_TRANSFERRED`; leaving writes
   `MEMBER_LEFT`. Title and
-  description edits, subtasks, column/label CRUD, and invitations are not
+  description edits, subtasks, comment edits, column/label CRUD, and invitations are not
   logged. Indexed on `(projectId, createdAt)` for the board log and
   `(actorId, createdAt)` for the account timeline.
 - `RestoreUndoToken` belongs to a `User` and a `Project`. Its `id` is the

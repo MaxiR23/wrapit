@@ -16,7 +16,12 @@
 import { describe, it, expect } from 'vitest';
 
 import { MAX_ID_LENGTH } from '@/lib/validation/id';
-import { createCommentSchema, validateCreateComment } from '@/lib/validation/comment';
+import {
+  createCommentSchema,
+  updateCommentSchema,
+  validateCreateComment,
+  validateUpdateComment,
+} from '@/lib/validation/comment';
 
 describe('validateCreateComment', () => {
   it('reports no errors for a non-empty body', () => {
@@ -49,6 +54,45 @@ describe('createCommentSchema', () => {
     expect(
       createCommentSchema.safeParse({
         cardId: 'a'.repeat(MAX_ID_LENGTH + 1),
+        body: 'Looks good',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('validateUpdateComment', () => {
+  it('reports no errors for a non-empty body', () => {
+    expect(validateUpdateComment({ commentId: 'comment-1', body: 'Looks good' })).toEqual({});
+  });
+
+  it('reports an error when the body is empty or whitespace', () => {
+    expect(validateUpdateComment({ commentId: 'comment-1', body: '' }).body).toBe(
+      'Comment is required',
+    );
+    expect(validateUpdateComment({ commentId: 'comment-1', body: '   ' }).body).toBe(
+      'Comment is required',
+    );
+  });
+});
+
+describe('updateCommentSchema', () => {
+  it('reuses the create body rules', () => {
+    expect(updateCommentSchema.safeParse({ commentId: 'comment-1', body: '' }).success).toBe(false);
+    expect(updateCommentSchema.safeParse({ commentId: 'comment-1', body: '   ' }).success).toBe(
+      false,
+    );
+    expect(
+      updateCommentSchema.safeParse({ commentId: 'comment-1', body: 'Looks **good**' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an invalid comment id', () => {
+    expect(updateCommentSchema.safeParse({ commentId: '', body: 'Looks good' }).success).toBe(
+      false,
+    );
+    expect(
+      updateCommentSchema.safeParse({
+        commentId: 'a'.repeat(MAX_ID_LENGTH + 1),
         body: 'Looks good',
       }).success,
     ).toBe(false);

@@ -36,6 +36,7 @@ const card: ArchivedTask = {
       id: 'c1',
       body: 'Looks **good**',
       createdAt: new Date('2026-08-20T10:00:00.000Z'),
+      editedAt: null,
       author: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     },
   ],

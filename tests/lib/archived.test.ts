@@ -257,6 +257,7 @@ describe('archived helpers', () => {
         id: `c${index}`,
         body: 'note',
         createdAt: now,
+        editedAt: null,
         author: { id: 'u1', name: 'Ada', username: 'ada' },
       })),
     };

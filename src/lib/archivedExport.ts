@@ -75,6 +75,7 @@ export function archivedTasksJson(
           id: comment.id,
           body: comment.body,
           createdAt: comment.createdAt.toISOString(),
+          editedAt: comment.editedAt ? comment.editedAt.toISOString() : null,
           author: comment.author,
         })),
         assignees: card.assignees,

@@ -198,7 +198,12 @@ export default function CardDetailBody({
             onChange={(next) => onCardPatch({ subtasks: next })}
           />
           <div className="tablet:hidden">{properties}</div>
-          <CardCommentThread comments={comments} />
+          <CardCommentThread
+            comments={comments}
+            currentUser={currentUser}
+            canComment={canComment}
+            onChange={(next) => onCardPatch({ comments: next })}
+          />
         </div>
         {canComment ? (
           <div className="flex-none border-t border-border bg-surface px-4 py-[11px] pb-3.5 tablet:border-0 tablet:px-[22px] tablet:pt-0 tablet:pb-[22px]">

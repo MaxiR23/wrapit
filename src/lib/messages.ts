@@ -74,3 +74,6 @@ export const MISSING_COLUMN_MESSAGE =
 /** Batch restore when any selected card's stored column is gone. Nothing is written. */
 export const MISSING_COLUMN_BATCH_MESSAGE =
   "A selected task's original column no longer exists, so nothing was restored.";
+
+/** Occupancy miss: another write already committed on this comment. */
+export const COMMENT_CHANGED_ELSEWHERE_MESSAGE = 'This comment changed somewhere else.';

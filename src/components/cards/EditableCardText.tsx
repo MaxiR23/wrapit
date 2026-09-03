@@ -30,8 +30,15 @@ export default function EditableCardText({
   className,
   displayClassName,
   variant = 'full',
+  editing: editingProp,
+  onEditingChange,
+  activateOnDisplay = true,
+  saveOnBlur = true,
+  saveDisabled = false,
   onChange,
   onBlur,
+  onSave,
+  onCancel,
 }: {
   value: string;
   ariaLabel: string;
@@ -41,11 +48,25 @@ export default function EditableCardText({
   className?: string;
   displayClassName?: string;
   variant?: 'inline' | 'full';
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
+  activateOnDisplay?: boolean;
+  saveOnBlur?: boolean;
+  saveDisabled?: boolean;
   onChange: (value: string) => void;
-  onBlur: () => void;
+  onBlur?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [uncontrolledEditing, setUncontrolledEditing] = useState(false);
+  const isControlled = editingProp !== undefined;
+  const editing = isControlled ? editingProp : uncontrolledEditing;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function setEditing(next: boolean) {
+    if (!isControlled) setUncontrolledEditing(next);
+    onEditingChange?.(next);
+  }
 
   useEffect(() => {
     if (!editing) return;
@@ -57,7 +78,7 @@ export default function EditableCardText({
   }, [editing]);
 
   function startEditing() {
-    if (!canEdit) return;
+    if (!canEdit || !activateOnDisplay) return;
     setEditing(true);
   }
 
@@ -74,15 +95,16 @@ export default function EditableCardText({
   }
 
   function handleWrapperBlur(event: FocusEvent<HTMLElement>) {
+    if (!saveOnBlur) return;
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
-    onBlur();
+    onBlur?.();
     setEditing(false);
   }
 
   if (canEdit && editing) {
     return (
-      <div className="flex flex-col gap-1.5" onBlur={handleWrapperBlur}>
+      <div className="flex flex-col gap-1.5" onBlur={saveOnBlur ? handleWrapperBlur : undefined}>
         <MarkdownToolbar
           variant={variant}
           fieldRef={textareaRef}
@@ -95,10 +117,15 @@ export default function EditableCardText({
           rows={rows}
           value={value}
           placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange(event.currentTarget.value)}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
-              event.currentTarget.blur();
+              if (saveOnBlur) {
+                event.currentTarget.blur();
+              } else {
+                event.preventDefault();
+                onCancel?.();
+              }
               return;
             }
             const action = markdownHotkey(event, variant);
@@ -108,20 +135,46 @@ export default function EditableCardText({
           }}
           className={className}
         />
+        {saveOnBlur ? null : (
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onCancel?.()}
+              className={cn(
+                shellFocusClassName,
+                'h-8 rounded-md px-3 text-[12.5px] font-semibold text-muted-foreground',
+              )}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saveDisabled}
+              onClick={() => onSave?.()}
+              className={cn(
+                shellFocusClassName,
+                'h-8 rounded-md bg-primary px-3.5 text-[12.5px] font-semibold text-primary-foreground disabled:opacity-45',
+              )}
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
   const showPlaceholder = value === '' && Boolean(placeholder);
+  const displayInteractive = canEdit && activateOnDisplay;
 
   return (
     <div
-      tabIndex={canEdit ? 0 : undefined}
+      tabIndex={displayInteractive ? 0 : undefined}
       aria-label={ariaLabel}
-      onClick={canEdit ? handleDisplayClick : undefined}
-      onKeyDown={canEdit ? handleDisplayKeyDown : undefined}
+      onClick={displayInteractive ? handleDisplayClick : undefined}
+      onKeyDown={displayInteractive ? handleDisplayKeyDown : undefined}
       className={cn(
-        canEdit && shellFocusClassName,
+        displayInteractive && shellFocusClassName,
         displayClassName,
         showPlaceholder && 'text-muted-foreground',
       )}
