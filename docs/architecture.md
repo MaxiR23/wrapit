@@ -199,13 +199,35 @@ weak. That is deliberate: pages hide existence with `notFound()`; mutations
 refuse without confirming whether the row exists for another user.
 
 `Membership.role` governs the team: inviting, removing people, changing board
-access, and toggling the public link. OWNER and ADMIN always have `EDIT` board
-access (schema default plus a check constraint). `Membership.access` governs
-the board: EDIT can create, edit, move, archive and delete cards, edit labels,
-and comment; COMMENT can comment, edit their own comments, and check subtasks;
-VIEW is read only. Only the author can edit a comment, including when the
-caller is OWNER or ADMIN. Comment edits are not logged.
-Existing memberships backfill to EDIT.
+access, changing MEMBER/ADMIN roles, and toggling the public link. OWNER and
+ADMIN always have `EDIT` board access (schema default plus a check constraint).
+`Membership.access` governs the board: EDIT can create, edit, move, archive and
+delete cards, edit labels, and comment; COMMENT can comment, edit their own
+comments, and check subtasks; VIEW is read only. Only the author can edit a
+comment, including when the caller is OWNER or ADMIN. Comment edits are not
+logged. Existing memberships backfill to EDIT.
+
+On the live board, what the viewer can do comes from their row in the share
+member list (`viewerProjectCapabilities`): role for administer, access for
+edit and comment. `boardAccess` and `teamRole` are the fallback when that row
+is missing, not a second source after the list has updated. The Share modal
+uses the same helper.
+
+OWNER and ADMIN promote a MEMBER to ADMIN, and demote an ADMIN to MEMBER,
+through `updateMembershipRole`. The target cannot be OWNER; ownership still
+moves only through `transferOwnership`. Promoting stores the current access in
+`Membership.accessBeforeAdmin` and sets access to EDIT. Demoting restores that
+value (EDIT when nothing is stored) and clears the column. Role and access are
+one occupancy `updateMany`; a miss returns
+`MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE` plus the committed `role` and
+`access`, not Unauthorized. The Share row updates from that snapshot. If the
+committed role is already the role the caller asked for (two administrators
+made the same change), the row updates silently and the message is not shown.
+A same-role request that never writes is a no-op. An admin may demote
+themselves. The check sits after the
+caller-administers check so a MEMBER targeting an OWNER is Unauthorized for
+lack of administration, not a distinct owner-target path.
+`assertNotLastOwner` is not used: this action never writes OWNER.
 
 A project must keep at least one OWNER membership. `createProject` inserts the
 creator's OWNER row in the same transaction as the project. `assertNotLastOwner`
@@ -219,10 +241,12 @@ cards (`unassignUserFromProject`); the cards stay.
 
 Ownership moves only through `transferOwnership`. The actor must be OWNER.
 The action demotes them to ADMIN (`EDIT`) then promotes the target to OWNER
-(`EDIT`) in one transaction, each write a `updateMany` with `count === 1`. A
-failed promote rolls the demote back, so a committed project never has zero
-or two owners. Concurrent transfers serialize on the project row; the second
-demote sees `count === 0`. `Project.ownerId` stays creator metadata.
+(`EDIT`, `accessBeforeAdmin` cleared) in one transaction, each write a
+`updateMany` with `count === 1`. Becoming OWNER resets stored access history
+so a later admin demotion lands on EDIT. A failed promote rolls the demote
+back, so a committed project never has zero or two owners. Concurrent
+transfers serialize on the project row; the second demote sees `count === 0`.
+`Project.ownerId` stays creator metadata.
 `backfillOwnerMemberships` skips a project that already has an OWNER.
 
 `leaveProject` deletes the session user's membership when `role` is not OWNER.
@@ -276,7 +300,7 @@ in `docs/kanban.md`.
     src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
     src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, archived counterparts, last-OWNER guard, unassign, owner backfill
-    src/lib/boardAccess.ts              access labels, canEdit/canComment/canAdminister, ownership display, public board URL
+    src/lib/boardAccess.ts              access labels, viewer capabilities, ownership display, public board URL
     src/lib/invitations.ts              invite-by-username checks, notification copy
     src/lib/notifications.ts            list/mark-read for the session user's notifications
     src/lib/relativeTime.ts             relative English time without a leading verb
@@ -338,12 +362,13 @@ in `docs/kanban.md`.
     src/actions/createUserStatus.ts     append a custom status (cap 20)
     src/actions/deleteUserStatus.ts     delete an owned status; lock the user; refuse the last remaining
     src/actions/createProject.ts        create a project, OWNER membership, optional column list, optional featured star, optional invitees after commit
-    src/lib/validation/membership.ts    update access, remove member, transfer, leave, public-link flag
+    src/lib/validation/membership.ts    update access, update role, remove member, transfer, leave, public-link flag
     src/actions/createInvitation.ts     invite a user by username (OWNER/ADMIN only; generic deny)
     src/actions/acceptInvitation.ts     invitee accepts: MEMBER + COMMENT access + notify inviter
     src/actions/updateMembershipAccess.ts  OWNER/ADMIN set a MEMBER's board access
+    src/actions/updateMembershipRole.ts OWNER/ADMIN promote MEMBER to ADMIN or demote ADMIN to MEMBER
     src/actions/removeMember.ts         OWNER/ADMIN remove a person; last-OWNER guarded; unassign
-    src/actions/transferOwnership.ts    OWNER hands the project to another member; demote then promote
+    src/actions/transferOwnership.ts    OWNER hands the project to another member; demote then promote; clears accessBeforeAdmin
     src/actions/leaveProject.ts         non-OWNER deletes own membership; unassign; drop recents
     src/actions/updatePublicLink.ts     OWNER/ADMIN persist Project.publicLinkEnabled
     src/actions/rejectInvitation.ts     invitee declines and notifies the inviter

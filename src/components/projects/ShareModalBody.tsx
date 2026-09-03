@@ -10,13 +10,14 @@ import { updatePublicLink } from '@/actions/updatePublicLink';
 import { useProfileAutosave } from '@/components/account/useProfileAutosave';
 import BoardCheckRow from '@/components/projects/BoardCheckRow';
 import ShareConfirm from '@/components/projects/ShareConfirm';
-import type { ShareMember } from '@/components/projects/boardTypes';
+import type { ShareMember, ShareMemberRoleState } from '@/components/projects/boardTypes';
 import ShareMemberRow from '@/components/projects/ShareMemberRow';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
   LEAVE_PROJECT_LABEL,
   membershipsAfterOwnershipTransfer,
   publicBoardUrl,
+  viewerProjectCapabilities,
   type MembershipRole,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
@@ -39,6 +40,7 @@ export default function ShareModalBody({
   copied,
   onCopied,
   onAccessChange,
+  onRoleChange,
   onRemoved,
   onOwnershipChange,
   onPublicLinkChange,
@@ -52,6 +54,7 @@ export default function ShareModalBody({
   copied: boolean;
   onCopied: () => void;
   onAccessChange: (membershipId: string, access: BoardAccess) => void;
+  onRoleChange: (membershipId: string, next: ShareMemberRoleState) => void;
   onRemoved: (membershipId: string) => void;
   onOwnershipChange: (ownerMembershipId: string) => void;
   onPublicLinkChange: (enabled: boolean) => void;
@@ -64,7 +67,6 @@ export default function ShareModalBody({
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [leavePending, startLeave] = useTransition();
-  const canInvite = canAdminister && username.trim().length > 0 && !inviting;
 
   const ownerMembershipId = members.find((member) => member.role === 'OWNER')?.membershipId ?? '';
 
@@ -92,8 +94,13 @@ export default function ShareModalBody({
   const displayedMembers = membershipsAfterOwnershipTransfer(members, ownership.value);
   const viewer = displayedMembers.find((member) => member.id === currentUserId);
   const viewerRole: MembershipRole = viewer?.role ?? 'MEMBER';
+  const { canAdminister: viewerCanAdminister } = viewerProjectCapabilities(viewer, {
+    role: canAdminister ? 'ADMIN' : 'MEMBER',
+    access: 'VIEW',
+  });
   const viewerIsOwner = viewerRole === 'OWNER';
   const transferPending = ownership.value !== ownerMembershipId;
+  const canInvite = viewerCanAdminister && username.trim().length > 0 && !inviting;
 
   const publicLink = useProfileAutosave({
     initial: publicLinkEnabled,
@@ -110,7 +117,7 @@ export default function ShareModalBody({
   async function onInvite(event: FormEvent) {
     event.preventDefault();
     const trimmed = username.trim();
-    if (!canAdminister || !trimmed || inviting) return;
+    if (!viewerCanAdminister || !trimmed || inviting) return;
     setInviting(true);
     setInviteError(null);
     const result = await createInvitation({ projectId, username: trimmed });
@@ -158,7 +165,7 @@ export default function ShareModalBody({
           }}
           placeholder="Username"
           autoComplete="off"
-          disabled={!canAdminister}
+          disabled={!viewerCanAdminister}
           aria-label="Username"
           aria-invalid={Boolean(inviteError)}
           aria-describedby={inviteError ? 'share-invite-error' : undefined}
@@ -198,11 +205,12 @@ export default function ShareModalBody({
               member={member}
               currentUserId={currentUserId}
               viewerRole={viewerRole}
-              canAdminister={canAdminister}
+              canAdminister={viewerCanAdminister}
               confirmingTransfer={transferConfirmId === member.membershipId}
               transferPending={transferPending}
               transferError={ownership.error}
               onAccessChange={onAccessChange}
+              onRoleChange={onRoleChange}
               onRemoved={onRemoved}
               onRequestTransfer={setTransferConfirmId}
               onCancelTransfer={() => setTransferConfirmId(null)}
@@ -219,14 +227,14 @@ export default function ShareModalBody({
         <BoardCheckRow
           checked={publicLink.value}
           onToggle={() => {
-            if (!canAdminister) return;
+            if (!viewerCanAdminister) return;
             const next = !publicLink.value;
             publicLink.setValue(next);
             onPublicLinkChange(next);
           }}
           className={cn(
             'gap-3 py-1.5 text-[13.5px] tablet:gap-[11px] tablet:py-0 tablet:text-[13px]',
-            canAdminister ? '' : 'cursor-default opacity-70',
+            viewerCanAdminister ? '' : 'cursor-default opacity-70',
           )}
           boxClassName="size-5 rounded-md text-[11px] tablet:size-4 tablet:rounded-[5px] tablet:text-[9px]"
         >

@@ -38,6 +38,8 @@ export type ActivityCopy = {
   memberRemoved: (input: { actorName: string; memberName: string }) => string;
   ownershipTransferred: (input: { actorName: string; memberName: string }) => string;
   memberLeft: (input: { actorName: string }) => string;
+  memberPromoted: (input: { actorName: string; memberName: string }) => string;
+  memberDemoted: (input: { actorName: string; memberName: string }) => string;
   projectArchived: (input: { actorName: string; projectTitle: string }) => string;
   projectRestored: (input: { actorName: string; projectTitle: string }) => string;
   projectDeleted: (input: { actorName: string; projectTitle: string }) => string;
@@ -98,6 +100,8 @@ export const activityCopy: ActivityCopy = {
   ownershipTransferred: ({ actorName, memberName }) =>
     `${actorName} transferred ownership to ${memberName}.`,
   memberLeft: ({ actorName }) => `${actorName} left the project.`,
+  memberPromoted: ({ actorName, memberName }) => `${actorName} made ${memberName} an admin.`,
+  memberDemoted: ({ actorName, memberName }) => `${actorName} removed ${memberName} as an admin.`,
   projectArchived: ({ actorName, projectTitle }) => `${actorName} archived "${projectTitle}".`,
   projectRestored: ({ actorName, projectTitle }) => `${actorName} restored "${projectTitle}".`,
   projectDeleted: ({ actorName, projectTitle }) =>

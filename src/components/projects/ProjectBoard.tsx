@@ -46,10 +46,8 @@ import {
 } from '@/lib/kanbanPersist';
 import { syncCardLabels, type LabelView } from '@/lib/labels';
 import {
-  canAdministerProject,
-  canCommentOnBoard,
-  canEditBoard,
   membershipsAfterOwnershipTransfer,
+  viewerProjectCapabilities,
   type MembershipRole,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
@@ -278,9 +276,11 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     totalCount: progress.taskCount,
     visibleCount: visibleCards.length,
   });
-  const canEdit = canEditBoard(boardAccess);
-  const canComment = canCommentOnBoard(boardAccess);
-  const canAdminister = canAdministerProject(teamRole);
+  const viewerShare = shareMembers.find((member) => member.id === currentUser.id);
+  const { canEdit, canComment, canAdminister } = viewerProjectCapabilities(viewerShare, {
+    role: teamRole,
+    access: boardAccess,
+  });
 
   const commitMove = useCallback(
     async (cardId: string, targetColumnId: string) => {
@@ -638,6 +638,15 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
             setShareMembers((current) =>
               current.map((member) =>
                 member.membershipId === membershipId ? { ...member, access } : member,
+              ),
+            );
+          }}
+          onRoleChange={(membershipId, next) => {
+            setShareMembers((current) =>
+              current.map((member) =>
+                member.membershipId === membershipId
+                  ? { ...member, role: next.role, access: next.access }
+                  : member,
               ),
             );
           }}

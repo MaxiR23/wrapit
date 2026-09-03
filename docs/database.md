@@ -46,8 +46,11 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   An optional `archivedAt` hides the project from live lists and board reads.
   An optional `archivedById` points at the user who archived it (`onDelete: SetNull`).
 - `Membership` belongs to a `User` and a `Project`. One row per `(userId, projectId)`.
-  It holds `role`, `access` (default `EDIT`), and `starred`. OWNER and ADMIN
-  are constrained to `EDIT`. Every project must have at least one OWNER.
+  It holds `role`, `access` (default `EDIT`), optional `accessBeforeAdmin`, and
+  `starred`. OWNER and ADMIN are constrained to `EDIT`. Promoting a MEMBER
+  stores the current access in `accessBeforeAdmin` and sets `EDIT`; demoting
+  restores it (EDIT when null) and clears the column. Becoming OWNER clears
+  `accessBeforeAdmin`. Every project must have at least one OWNER.
 - `Invitation` belongs to a `Project`, an inviter `User`, and an invitee `User`.
   One row per `(projectId, inviteeId)`. Status is `PENDING`, `ACCEPTED`, or
   `REJECTED`. Invites always write role `MEMBER`. A `REJECTED` row is reused

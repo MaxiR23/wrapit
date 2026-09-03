@@ -105,6 +105,7 @@ vi.mock('@/actions/updateBoardVisibility', () => ({
 }));
 vi.mock('@/actions/createInvitation', () => ({ createInvitation: vi.fn() }));
 vi.mock('@/actions/updateMembershipAccess', () => ({ updateMembershipAccess: vi.fn() }));
+vi.mock('@/actions/updateMembershipRole', () => ({ updateMembershipRole: vi.fn() }));
 vi.mock('@/actions/removeMember', () => ({ removeMember: vi.fn() }));
 vi.mock('@/actions/updatePublicLink', () => ({ updatePublicLink: vi.fn() }));
 vi.mock('@/actions/transferOwnership', () => ({ transferOwnership: vi.fn() }));

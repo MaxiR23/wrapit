@@ -64,6 +64,8 @@ enum ActivityEventType {
   MEMBER_REMOVED
   OWNERSHIP_TRANSFERRED
   MEMBER_LEFT
+  MEMBER_PROMOTED
+  MEMBER_DEMOTED
   PROJECT_ARCHIVED
   PROJECT_RESTORED
   PROJECT_DELETED
@@ -271,11 +273,12 @@ model Label {
 }
 
 model Membership {
-  id        String   @id @default(cuid())
-  role      Role     @default(MEMBER)
-  access    Access   @default(EDIT)
-  starred   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  role              Role     @default(MEMBER)
+  access            Access   @default(EDIT)
+  accessBeforeAdmin Access?
+  starred           Boolean  @default(false)
+  createdAt         DateTime @default(now())
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)

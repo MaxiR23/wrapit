@@ -17,6 +17,28 @@ export function canAdministerProject(role: MembershipRole): boolean {
   return role === 'OWNER' || role === 'ADMIN';
 }
 
+export type ViewerMembership = {
+  role: MembershipRole;
+  access: BoardAccess;
+};
+
+/** Role and access from the viewer's membership, or `fallback` when that row is missing. */
+export function viewerProjectCapabilities(
+  membership: ViewerMembership | null | undefined,
+  fallback: ViewerMembership,
+): {
+  canEdit: boolean;
+  canComment: boolean;
+  canAdminister: boolean;
+} {
+  const source = membership ?? fallback;
+  return {
+    canEdit: canEditBoard(source.access),
+    canComment: canCommentOnBoard(source.access),
+    canAdminister: canAdministerProject(source.role),
+  };
+}
+
 export function boardAccessLabel(access: BoardAccess): string {
   switch (access) {
     case 'EDIT':
@@ -33,6 +55,7 @@ export function shareMemberControlLabel(input: {
   access: BoardAccess;
 }): string {
   if (input.role === 'OWNER') return 'Owner';
+  if (input.role === 'ADMIN') return 'Admin';
   return boardAccessLabel(input.access);
 }
 
@@ -45,6 +68,10 @@ export const BOARD_ACCESS_OPTIONS: ReadonlyArray<{ value: BoardAccess; label: st
 export const REMOVE_ACCESS_LABEL = 'Remove access';
 
 export const TRANSFER_OWNERSHIP_LABEL = 'Transfer ownership';
+
+export const MAKE_ADMIN_LABEL = 'Make admin';
+
+export const REMOVE_ADMIN_LABEL = 'Remove admin';
 
 export const LEAVE_PROJECT_LABEL = 'Leave project';
 

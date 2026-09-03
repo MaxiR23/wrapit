@@ -10,6 +10,12 @@
 // - Copy confirms with Copied
 // - Transfer ownership is only on other rows for the OWNER
 // - Transfer confirms first; cancel does not write
+// - Make admin and Remove admin are in the permission menu
+// - Self-demote confirms first; cancel does not write
+// - After a self-demote the modal no longer lets the viewer administer
+// - An occupancy miss shows the conflict and refreshes the row from the server
+// - A miss that already matches the requested role updates silently
+// - A self-demote that lost a race does not leave administer controls enabled
 // - Optimistic transfer moves both labels; a failure rolls back
 // - Owner leave is disabled with the transfer explanation
 // - An admin or member can confirm leaving
@@ -25,16 +31,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 
 import {
   CANT_INVITE_USER_MESSAGE,
+  MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
   OWNER_MUST_TRANSFER_MESSAGE,
+  REMOVE_ADMIN_SELF_DESCRIPTION,
   TRANSFER_OWNERSHIP_DESCRIPTION,
 } from '@/lib/messages';
 import type { ShareMember } from '@/components/projects/boardTypes';
 
 const createInvitation = vi.fn();
 const updateMembershipAccess = vi.fn();
+const updateMembershipRole = vi.fn();
 const removeMember = vi.fn();
 const updatePublicLink = vi.fn();
 const transferOwnership = vi.fn();
@@ -47,6 +57,9 @@ vi.mock('@/actions/createInvitation', () => ({
 }));
 vi.mock('@/actions/updateMembershipAccess', () => ({
   updateMembershipAccess,
+}));
+vi.mock('@/actions/updateMembershipRole', () => ({
+  updateMembershipRole,
 }));
 vi.mock('@/actions/removeMember', () => ({
   removeMember,
@@ -99,6 +112,7 @@ function renderBody(
       copied={false}
       onCopied={() => {}}
       onAccessChange={() => {}}
+      onRoleChange={() => {}}
       onRemoved={() => {}}
       onOwnershipChange={() => {}}
       onPublicLinkChange={() => {}}
@@ -107,11 +121,47 @@ function renderBody(
   );
 }
 
+function StatefulBody({
+  initialMembers,
+  currentUserId = 'user-ada',
+}: {
+  initialMembers: ShareMember[];
+  currentUserId?: string;
+}) {
+  const [shareMembers, setShareMembers] = useState(initialMembers);
+  return (
+    <ShareModalBody
+      projectId="project-1"
+      members={shareMembers}
+      currentUserId={currentUserId}
+      canAdminister
+      publicLinkEnabled={false}
+      shareUrl="https://wrapit.example/projects/project-1"
+      copied={false}
+      onCopied={() => {}}
+      onAccessChange={() => {}}
+      onRoleChange={(membershipId, next) => {
+        setShareMembers((current) =>
+          current.map((member) =>
+            member.membershipId === membershipId
+              ? { ...member, role: next.role, access: next.access }
+              : member,
+          ),
+        );
+      }}
+      onRemoved={() => {}}
+      onOwnershipChange={() => {}}
+      onPublicLinkChange={() => {}}
+    />
+  );
+}
+
 describe('ShareModalBody', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createInvitation.mockResolvedValue({ data: { id: 'invite-1' } });
     updateMembershipAccess.mockResolvedValue({ data: { access: 'VIEW' } });
+    updateMembershipRole.mockResolvedValue({ data: { role: 'ADMIN', access: 'EDIT' } });
     transferOwnership.mockResolvedValue({ data: { membershipId: 'mem-max' } });
     leaveProject.mockResolvedValue({ data: { projectId: 'project-1' } });
     Object.defineProperty(navigator, 'clipboard', {
@@ -221,9 +271,12 @@ describe('ShareModalBody', () => {
       ],
     });
 
-    const controls = screen.getAllByRole('button', { name: 'Change permission' });
-    await events.click(controls[0]!);
+    const memberControl = screen
+      .getAllByRole('button', { name: 'Change permission' })
+      .find((button) => button.textContent?.includes('Can comment'));
+    await events.click(memberControl!);
     expect(screen.queryByRole('menuitem', { name: 'Transfer ownership' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Make admin' })).toBeInTheDocument();
   });
 
   it('confirms transfer before writing and cancel does not call the action', async () => {
@@ -265,8 +318,10 @@ describe('ShareModalBody', () => {
       expect(screen.getByText('Ada Lovelace').closest('div')?.parentElement).toHaveTextContent(
         'Owner',
       );
+      expect(screen.getByText('Maxi').closest('div')?.parentElement).toHaveTextContent(
+        'Can comment',
+      );
     });
-    expect(screen.getByText('Maxi').closest('div')?.parentElement).toHaveTextContent('Can comment');
   });
 
   it('disables Leave project for the owner and shows the transfer explanation', () => {
@@ -288,5 +343,194 @@ describe('ShareModalBody', () => {
       expect(routerPush).toHaveBeenCalledWith('/projects');
       expect(routerRefresh).toHaveBeenCalled();
     });
+  });
+
+  it('offers Make admin on a member row', async () => {
+    const events = userEvent.setup();
+    renderBody();
+
+    await events.click(screen.getByRole('button', { name: 'Change permission' }));
+    await events.click(screen.getByRole('menuitem', { name: 'Make admin' }));
+
+    expect(updateMembershipRole).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      membershipId: 'mem-max',
+      role: 'ADMIN',
+    });
+  });
+
+  it('confirms self-demote first and cancel does not call the action', async () => {
+    const events = userEvent.setup();
+    renderBody({
+      currentUserId: 'user-ada',
+      members: [
+        { ...members[0]!, role: 'ADMIN' },
+        {
+          id: 'user-owner',
+          membershipId: 'mem-owner',
+          name: 'Owner',
+          username: 'owner',
+          role: 'OWNER',
+          access: 'EDIT',
+        },
+        members[1]!,
+      ],
+    });
+
+    await events.click(
+      screen
+        .getAllByRole('button', { name: 'Change permission' })
+        .find((button) => button.textContent?.includes('Admin'))!,
+    );
+    await events.click(screen.getByRole('menuitem', { name: 'Remove admin' }));
+
+    expect(screen.getByText(REMOVE_ADMIN_SELF_DESCRIPTION)).toBeInTheDocument();
+    await events.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(updateMembershipRole).not.toHaveBeenCalled();
+    expect(screen.queryByText(REMOVE_ADMIN_SELF_DESCRIPTION)).not.toBeInTheDocument();
+  });
+
+  it('stops administering the modal after a confirmed self-demote', async () => {
+    const events = userEvent.setup();
+    updateMembershipRole.mockResolvedValue({ data: { role: 'MEMBER', access: 'EDIT' } });
+
+    function Body() {
+      const [shareMembers, setShareMembers] = useState([
+        { ...members[0]!, role: 'ADMIN' as const },
+        {
+          id: 'user-owner',
+          membershipId: 'mem-owner',
+          name: 'Owner',
+          username: 'owner',
+          role: 'OWNER' as const,
+          access: 'EDIT' as const,
+        },
+        members[1]!,
+      ]);
+      return (
+        <ShareModalBody
+          projectId="project-1"
+          members={shareMembers}
+          currentUserId="user-ada"
+          canAdminister
+          publicLinkEnabled={false}
+          shareUrl="https://wrapit.example/projects/project-1"
+          copied={false}
+          onCopied={() => {}}
+          onAccessChange={() => {}}
+          onRoleChange={(membershipId, next) => {
+            setShareMembers((current) =>
+              current.map((member) =>
+                member.membershipId === membershipId
+                  ? { ...member, role: next.role, access: next.access }
+                  : member,
+              ),
+            );
+          }}
+          onRemoved={() => {}}
+          onOwnershipChange={() => {}}
+          onPublicLinkChange={() => {}}
+        />
+      );
+    }
+
+    render(<Body />);
+
+    await events.click(
+      screen
+        .getAllByRole('button', { name: 'Change permission' })
+        .find((button) => button.textContent?.includes('Admin'))!,
+    );
+    await events.click(screen.getByRole('menuitem', { name: 'Remove admin' }));
+    await events.click(screen.getByRole('button', { name: 'Remove admin' }));
+
+    expect(updateMembershipRole).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      membershipId: 'mem-ada',
+      role: 'MEMBER',
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Username')).toBeDisabled();
+    });
+    expect(screen.getByRole('button', { name: 'Invite' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Change permission' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the conflict message visible and refreshes the row after an occupancy miss', async () => {
+    const events = userEvent.setup();
+    updateMembershipRole.mockResolvedValue({
+      error: MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
+      current: { role: 'MEMBER', access: 'VIEW' },
+    });
+    render(<StatefulBody initialMembers={members} />);
+
+    await events.click(screen.getByRole('button', { name: 'Change permission' }));
+    await events.click(screen.getByRole('menuitem', { name: 'Make admin' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
+    );
+    expect(screen.getByText('Maxi').closest('div')?.parentElement).toHaveTextContent('View only');
+    expect(screen.getByText('Maxi').closest('div')?.parentElement).not.toHaveTextContent('Admin');
+    expect(screen.getByText('Maxi').closest('div')?.parentElement).not.toHaveTextContent(
+      'Can comment',
+    );
+  });
+
+  it('updates the row silently when occupancy already holds the requested role', async () => {
+    const events = userEvent.setup();
+    updateMembershipRole.mockResolvedValue({
+      error: MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
+      current: { role: 'ADMIN', access: 'EDIT' },
+    });
+    render(<StatefulBody initialMembers={members} />);
+
+    await events.click(screen.getByRole('button', { name: 'Change permission' }));
+    await events.click(screen.getByRole('menuitem', { name: 'Make admin' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Maxi').closest('div')?.parentElement).toHaveTextContent('Admin');
+    });
+    expect(screen.queryByText(MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE)).not.toBeInTheDocument();
+  });
+
+  it('does not re-enable administer controls after a self-demote occupancy miss', async () => {
+    const events = userEvent.setup();
+    updateMembershipRole.mockResolvedValue({
+      error: MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE,
+      current: { role: 'MEMBER', access: 'EDIT' },
+    });
+    render(
+      <StatefulBody
+        initialMembers={[
+          { ...members[0]!, role: 'ADMIN' },
+          {
+            id: 'user-owner',
+            membershipId: 'mem-owner',
+            name: 'Owner',
+            username: 'owner',
+            role: 'OWNER',
+            access: 'EDIT',
+          },
+          members[1]!,
+        ]}
+      />,
+    );
+
+    await events.click(
+      screen
+        .getAllByRole('button', { name: 'Change permission' })
+        .find((button) => button.textContent?.includes('Admin'))!,
+    );
+    await events.click(screen.getByRole('menuitem', { name: 'Remove admin' }));
+    await events.click(screen.getByRole('button', { name: 'Remove admin' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Username')).toBeDisabled();
+    });
+    expect(screen.getByRole('button', { name: 'Invite' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Change permission' })).not.toBeInTheDocument();
+    expect(screen.queryByText(MEMBERSHIP_ROLE_CHANGED_ELSEWHERE_MESSAGE)).not.toBeInTheDocument();
   });
 });

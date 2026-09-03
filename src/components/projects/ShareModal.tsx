@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-import type { ShareMember } from '@/components/projects/boardTypes';
+import type { ShareMember, ShareMemberRoleState } from '@/components/projects/boardTypes';
 import ShareModalBody, { shareUrlFromWindow } from '@/components/projects/ShareModalBody';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
@@ -26,6 +26,7 @@ export default function ShareModal({
   canAdminister,
   publicLinkEnabled,
   onAccessChange,
+  onRoleChange,
   onRemoved,
   onOwnershipChange,
   onPublicLinkChange,
@@ -39,6 +40,7 @@ export default function ShareModal({
   canAdminister: boolean;
   publicLinkEnabled: boolean;
   onAccessChange: (membershipId: string, access: BoardAccess) => void;
+  onRoleChange: (membershipId: string, next: ShareMemberRoleState) => void;
   onRemoved: (membershipId: string) => void;
   onOwnershipChange: (ownerMembershipId: string) => void;
   onPublicLinkChange: (enabled: boolean) => void;
@@ -101,6 +103,7 @@ export default function ShareModal({
           copied={copied}
           onCopied={() => setCopied(true)}
           onAccessChange={onAccessChange}
+          onRoleChange={onRoleChange}
           onRemoved={onRemoved}
           onOwnershipChange={onOwnershipChange}
           onPublicLinkChange={onPublicLinkChange}

@@ -55,7 +55,7 @@ export async function transferOwnership(input: {
           userId: { not: session.user.id },
           role: { not: 'OWNER' },
         },
-        data: { role: 'OWNER', access: 'EDIT' },
+        data: { role: 'OWNER', access: 'EDIT', accessBeforeAdmin: null },
       });
       if (promoted.count !== 1) {
         throw new UnauthorizedWriteError();

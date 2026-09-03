@@ -12,6 +12,16 @@ export const updateMembershipAccessSchema = z.object({
 
 export type UpdateMembershipAccessInput = z.infer<typeof updateMembershipAccessSchema>;
 
+export const MEMBERSHIP_ROLE_VALUES = ['ADMIN', 'MEMBER'] as const;
+
+export const updateMembershipRoleSchema = z.object({
+  projectId: idSchema,
+  membershipId: idSchema,
+  role: z.enum(MEMBERSHIP_ROLE_VALUES),
+});
+
+export type UpdateMembershipRoleInput = z.infer<typeof updateMembershipRoleSchema>;
+
 export const removeMemberSchema = z.object({
   projectId: idSchema,
   membershipId: idSchema,

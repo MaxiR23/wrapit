@@ -12,6 +12,8 @@ export type ShareMember = BoardMember & {
   access: 'EDIT' | 'COMMENT' | 'VIEW';
 };
 
+export type ShareMemberRoleState = Pick<ShareMember, 'role' | 'access'>;
+
 export type BoardSubtask = {
   id: string;
   text: string;
