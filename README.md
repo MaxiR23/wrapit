@@ -54,7 +54,7 @@ could not already open themselves.
 ## Commands
 
     pnpm dev              dev server at :3000
-    pnpm build            production build
+    pnpm build            apply pending migrations, generate client, production build
     pnpm start            serve the production build
     pnpm lint             ESLint
     pnpm format           Prettier (write)
@@ -63,7 +63,8 @@ could not already open themselves.
     pnpm test:run         run all tests once
     pnpm db:up            start Postgres in Docker
     pnpm db:down          stop the container
-    pnpm db:migrate       create and apply a migration
+    pnpm db:migrate       create and apply a migration (local/dev)
+    pnpm db:deploy        apply pending migrations (production / CI)
     pnpm db:generate      regenerate the Prisma Client
     pnpm db:studio        open Prisma Studio
     pnpm db:reset         drop and recreate the database
