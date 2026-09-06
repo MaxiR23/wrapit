@@ -4,11 +4,12 @@
 //
 // Tested:
 // - Renders the page form in the layout slot
-// - Shows a mobile back link to / whose wrapper is hidden from 600px up
+// - Shows a mobile brand bar without a Back control, hidden from 600px up
+// - Does not render the landing hero
 // - Wraps the form column in the light island
 //
 // What is covered:
-// - Form slot, mobile back affordance, light island
+// - Form slot, mobile brand bar without hero navigation, no hero, light island
 //
 // Run with: pnpm test:run tests/app/auth-layout.test.tsx
 //
@@ -30,17 +31,28 @@ describe('AuthLayout', () => {
     expect(screen.getByText('Form slot')).toBeInTheDocument();
   });
 
-  it('shows a mobile-only back link to the landing page', () => {
-    render(
+  it('shows a mobile-only brand bar without a Back control', () => {
+    const { container } = render(
       <AuthLayout>
         <p>Form slot</p>
       </AuthLayout>,
     );
 
-    const back = screen.getByRole('link', { name: 'Back' });
+    const bar = container.querySelector('header');
 
-    expect(back).toHaveAttribute('href', '/');
-    expect(back.closest('header')).toHaveClass('fixed', 'auth-sm:hidden');
+    expect(bar).toHaveClass('fixed', 'auth-sm:hidden');
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument();
+  });
+
+  it('does not render the landing hero', () => {
+    const { container } = render(
+      <AuthLayout>
+        <p>Form slot</p>
+      </AuthLayout>,
+    );
+
+    expect(container.querySelector('#landing-hero')).not.toBeInTheDocument();
+    expect(container.querySelector('.brand-hero-surface')).not.toBeInTheDocument();
   });
 
   it('wraps the form column in the light island', () => {

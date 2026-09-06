@@ -12,7 +12,6 @@ import {
   MOBILE_AUTH_BAR_FADE_DISTANCE_PX,
   mobileAuthBarOpacity,
 } from '@/components/auth/mobileAuthBarOpacity';
-import { HOME_PATH } from '@/lib/routes';
 
 const backClassName =
   'ml-auto -mr-2 inline-flex size-11 items-center justify-center text-brand-icon hover:text-foreground';
@@ -37,15 +36,15 @@ function reducedMotionServer() {
   return false;
 }
 
-export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
-  const coverId = href.startsWith('#') ? href.slice(1) : undefined;
+export default function MobileAuthBar({ href }: { href?: string }) {
+  const coverId = href?.startsWith('#') ? href.slice(1) : undefined;
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
     reducedMotionMatches,
     reducedMotionServer,
   );
   const [opacity, setOpacity] = useState(coverId && !reducedMotion ? 0 : 1);
-  const icon = <ChevronUp size={18} strokeWidth={1.7} />;
+  const icon = href ? <ChevronUp size={18} strokeWidth={1.7} /> : null;
 
   useEffect(() => {
     if (!coverId) {
@@ -73,7 +72,7 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
   const unavailable = opacity === 0;
 
   function onHashBackClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (!coverId) {
+    if (!href || !coverId) {
       return;
     }
 
@@ -101,7 +100,7 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
       }
     >
       <BrandMark />
-      {href.startsWith('#') ? (
+      {href?.startsWith('#') ? (
         <a
           href={href}
           aria-label="Back"
@@ -111,7 +110,7 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
         >
           {icon}
         </a>
-      ) : (
+      ) : href ? (
         <Link
           href={href}
           aria-label="Back"
@@ -120,7 +119,7 @@ export default function MobileAuthBar({ href = HOME_PATH }: { href?: string }) {
         >
           {icon}
         </Link>
-      )}
+      ) : null}
     </header>
   );
 }

@@ -3,7 +3,8 @@
 // Tests for the mobile auth header shared by sign-up and sign-in.
 //
 // Tested:
-// - Default Back control goes to /
+// - Back is omitted when no href is passed
+// - A non-hash href is used when one is passed
 // - A hash href is used when one is passed
 // - The bar is fixed to the top below auth-sm
 // - The fade distance is exposed for the scroll-linked CSS
@@ -13,7 +14,7 @@
 // - Tapping Back eases to the hero instead of jumping via the hash
 //
 // What is covered:
-// - Default landing link, in-page hero target, fixed placement, fade token, a11y, fallback hide
+// - Optional Back, in-page hero target, fixed placement, fade token, a11y, fallback hide
 //
 // Run with: pnpm test:run tests/components/auth/MobileAuthBar.test.tsx
 //
@@ -62,10 +63,16 @@ describe('MobileAuthBar', () => {
     vi.restoreAllMocks();
   });
 
-  it('sends Back to the landing page by default', () => {
+  it('omits Back when no href is passed', () => {
     render(<MobileAuthBar />);
 
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/');
+    expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument();
+  });
+
+  it('uses a passed href that is not a hash', () => {
+    render(<MobileAuthBar href="/sign-in" />);
+
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('uses a hash href when one is passed', () => {
