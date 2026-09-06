@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Renders the username, full name, email and password fields
+// - Offers a Sign in link to /sign-in
 // - Signs the user up with the typed values and redirects to check-email
 // - Shows a clear message when the username is already taken
 // - Shows the username-taken message when create fails with FAILED_TO_CREATE_USER
@@ -78,6 +79,7 @@ describe('SignUpForm', () => {
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
   });
 
   it('signs the user up with the typed values and redirects to check-email', async () => {

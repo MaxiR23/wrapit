@@ -175,12 +175,13 @@ over the hero where they are not. While the bar
 is fully transparent it is out of the tab order and hidden from assistive
 technology (`visibility: hidden` and `inert`); it becomes available again as
 soon as the fade starts.
-Reduced motion skips the fade; the bar is simply there. Its Back control
-eases to that target over the full distance (native hash navigation would
+Reduced motion skips the fade; the bar is simply there. On `/sign-in` its Back
+control eases to the hero over the full distance (native hash navigation would
 jump); wheel, touch or keys cancel the tween and keep the viewport where the
 person left it. `html` has `data-scroll-behavior="smooth"` so CSS `scroll-behavior:
 smooth` on `/sign-in` stays for in-page anchors and Next.js does not animate
-route changes. Pages without a hero show the bar fully. Sign-up, forgot-password and
+route changes. Pages without a hero show the bar fully and omit Back; each form
+already links to `/sign-in`. Sign-up, forgot-password and
 reset-password keep the shared layout and do not show the hero. Why the hero
 lives here: `docs/adr/0001-landing-hero-in-signin.md`.
 
@@ -449,6 +450,8 @@ cover their own behavior (validation, error mapping, redirect) without a server:
 `tests/components/projects/ProjectsMobileHeader.test.tsx`.
 `tests/home.test.tsx` covers the redirect-only `/`;
 `tests/app/sign-in-layout.test.tsx` covers the CSS hero/split on `/sign-in`.
+`tests/app/auth-layout.test.tsx` covers the shared auth shell without the hero
+or a Back control.
 
 The server-side rules are covered in `tests/lib/auth.test.ts` (sign up, sign in,
 unverified sign in, duplicate email, taken username, verify),
