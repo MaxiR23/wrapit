@@ -10,9 +10,11 @@
 // - View-only access hides archive, delete, and the comment composer
 //   and does not expose a title editor
 // - Comment access keeps the composer and hides archive/delete
+// - Phone cover layout is composed on DialogContent until tablet, not h-dvh
 //
 // What is covered:
-// - Chrome, composer disabled state, inline delete confirm, archive/delete
+// - Chrome, composer disabled state, inline delete confirm, archive/delete,
+//   phone cover class and tablet centering classes
 //
 // Run with: pnpm test:run tests/components/cards/CardDetailDialog.test.tsx
 //
@@ -161,5 +163,19 @@ describe('CardDetailDialog', () => {
     expect(screen.getAllByRole('button', { name: 'Comment' })[0]).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Archive task' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
+  });
+
+  it('composes phone cover and keeps the tablet centering classes', () => {
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog).toHaveClass('max-tablet:dialog-phone-cover');
+    expect(dialog).toHaveClass('tablet:top-1/2', 'tablet:left-1/2');
+    expect(dialog).toHaveClass('tablet:h-[calc(100dvh-5.5rem)]');
+    expect(dialog.className).not.toMatch(/\bh-dvh\b/);
+    expect(dialog.className).not.toMatch(/\btop-0\b/);
+    expect(dialog.className).not.toMatch(/safe-area-inset/);
+    expect(dialog).not.toHaveClass('max-md:dialog-phone-cover');
   });
 });

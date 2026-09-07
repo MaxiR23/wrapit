@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 
 import { shellFocusClassName } from '@/components/projects/shell';
 import { archivedCopy } from '@/lib/archivedCopy';
+import { getSafeFixedRoot } from '@/lib/safeFixedRoot';
 import { cn } from '@/lib/utils';
 
 const TOAST_MS = 5000;
@@ -32,13 +34,13 @@ export default function BoardToast({
 
   if (!toast) return null;
 
-  return (
+  const node = (
     <div
       role={toast.role}
       className={cn(
         'fixed z-[90] flex items-center gap-3.5 rounded-md border border-border-strong bg-card',
         'px-4 py-[11px] pr-3.5 text-[13.5px] text-foreground shadow-[0_18px_44px_oklch(0_0_0/0.55)]',
-        'inset-x-4 bottom-24 tablet:inset-x-auto tablet:bottom-[26px] tablet:left-1/2 tablet:w-max tablet:-translate-x-1/2 tablet:text-[13px]',
+        'inset-x-4 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+1.5rem)] tablet:inset-x-auto tablet:bottom-[26px] tablet:left-1/2 tablet:w-max tablet:-translate-x-1/2 tablet:text-[13px]',
       )}
     >
       <span>{toast.message}</span>
@@ -81,4 +83,7 @@ export default function BoardToast({
       </button>
     </div>
   );
+
+  const root = getSafeFixedRoot();
+  return root ? createPortal(node, root) : node;
 }

@@ -11,11 +11,12 @@
 // - Creating after a pick sends that template's columns to createProject
 // - Mobile demo board is in the tree (md:hidden, aria-hidden)
 // - Reduced motion disables the demo animation and rests the card in To do
+// - The templates dialog uses cover until md, the same mechanism as the card dialogs
 //
 // What is covered:
 // - Empty copy, template list, single selection, CTA label, back preserves
 //   pick, Escape closes and restores focus, create payload columns, demo
-//   board presence and reduced-motion rest position
+//   board presence and reduced-motion rest position, cover until md
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsEmptyState.test.tsx
 //
@@ -78,6 +79,23 @@ describe('ProjectsEmptyState', () => {
       ).toBeInTheDocument();
     }
     expect(templateNames).toHaveLength(9);
+  });
+
+  it('composes cover until md so the templates screen is the safe rect while it is full-screen', async () => {
+    const user = userEvent.setup();
+    render(<ProjectsEmptyState />);
+
+    await user.click(screen.getByRole('button', { name: 'View templates' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Templates' });
+
+    expect(dialog).toHaveClass('max-md:dialog-phone-cover', 'md:hidden');
+    expect(dialog).not.toHaveClass('max-tablet:dialog-phone-cover');
+    expect(dialog.className).not.toMatch(/\bh-full\b/);
+    expect(dialog.className).not.toMatch(/\bh-dvh\b/);
+    expect(dialog.className).not.toMatch(/\btop-0\b/);
+    expect(dialog.className).not.toMatch(/safe-area-inset/);
+    expect(dialog.className).not.toMatch(/safe-inset/);
   });
 
   it('selects a single template and switches the CTA to Create with that name', async () => {

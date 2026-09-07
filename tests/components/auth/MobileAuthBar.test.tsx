@@ -89,7 +89,7 @@ describe('MobileAuthBar', () => {
 
     const bar = screen.getByRole('banner');
 
-    expect(bar).toHaveClass('fixed', 'inset-x-0', 'top-0', 'z-50', 'auth-sm:hidden');
+    expect(bar).toHaveClass('fixed', 'safe-inset-x', 'safe-inset-t', 'z-50', 'auth-sm:hidden');
   });
 
   it('exposes the fade distance for the scroll-linked CSS', () => {

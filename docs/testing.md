@@ -35,6 +35,11 @@ The name should be enough to know what broke when it fails.
   (for example unauthorized or DB failure).
 - Components: renders what is expected, and responds to user interaction
   (click, typing) where it applies.
+- CSS `env(safe-area-inset-*)` is not computed in jsdom. Assert the canvas
+  rules in `globals.css`, that portaled chrome mounts in `#safe-fixed-root`,
+  and that in-tree pins compose `layout="cover"` with a declared `coverUntil`,
+  or `safe-inset-*`. Do not assert computed inset pixels; that test would pass
+  without proving the inset.
 
 ## File header
 

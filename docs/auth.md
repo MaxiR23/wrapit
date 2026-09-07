@@ -78,9 +78,8 @@ Auth-related paths only. The full app map is in `docs/architecture.md`.
 The auth form column is a **light island** (`.form-island` in
 `src/app/globals.css`): light surface and dark text even though `html` is
 `dark`. `--form-*` tokens remap the island; `dark:` utilities do not apply
-inside it. Below `auth-sm` the island is at least one small viewport tall
-(`min-h-svh`, with `min-h-screen` as a `vh` fallback) so short forms still
-fill the screen; content stays centred. Shared visual classes live in
+inside it. Below `auth-sm` the island fills the padded canvas (`min-h-full`)
+so short forms still fill the screen; content stays centred. Shared visual classes live in
 `src/components/auth/formClasses.ts`.
 Input, button and band measurements follow the login handoff; copy and auth
 logic stay as they are.
@@ -163,7 +162,8 @@ verification is missing and offers an explicit resend, rather than showing
 
 The sign-in route has its own layout (`src/app/(sign-in)/sign-in/layout.tsx`),
 not the shared `(auth)` split. It is one page with two CSS presentations of the
-same form: below `auth-sm` the `LandingHero` sits above the form island; from
+same form: below `auth-sm` the `LandingHero` sits above the form island and
+fills one dynamic viewport (`min-h-dvh`, not `min-h-full` or `100vh`); from
 `auth-sm` up the existing brand panel and form split is used. Breakpoints only —
 no `matchMedia`, no user-agent. Below `auth-sm` the same `MobileAuthBar` as
 sign-up is fixed to the top and fades in as the landing-hero scroll cue

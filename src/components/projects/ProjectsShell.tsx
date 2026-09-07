@@ -15,6 +15,11 @@ import { cn } from '@/lib/utils';
 const defaultContentClassName =
   'projects-content-wash flex min-h-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 pb-6 md:gap-[22px] md:px-5 md:pt-[22px] md:pb-[30px] lg:gap-[26px] lg:px-7 lg:pt-[26px] lg:pb-9';
 
+const mobileTabBarOffsetClassName = 'max-tablet:pb-[var(--spacing-mobile-tab-bar)]';
+
+const defaultMobileTabBarPadClassName =
+  'max-tablet:pb-[calc(var(--spacing-mobile-tab-bar)+1.5rem)]';
+
 export default function ProjectsShell({
   user,
   initialNotifications = [],
@@ -43,7 +48,7 @@ export default function ProjectsShell({
       <OpenPanelProvider>
         <NotificationsProvider initialItems={initialNotifications}>
           <ProjectsSearchProvider>
-            <div className="flex h-svh flex-1 overflow-hidden bg-background">
+            <div className="flex h-full min-h-0 flex-1 overflow-hidden bg-background">
               <ProjectsSidebar activeNav={activeNav} openTaskCount={openTaskCount} />
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <ProjectsMobileHeader
@@ -65,7 +70,16 @@ export default function ProjectsShell({
                   searchPlaceholder={searchPlaceholder}
                   searchAriaLabel={searchAriaLabel}
                 />
-                <div className={cn(contentClassName ?? defaultContentClassName)}>{children}</div>
+                <div
+                  className={cn(
+                    contentClassName ?? defaultContentClassName,
+                    contentClassName
+                      ? mobileTabBarOffsetClassName
+                      : defaultMobileTabBarPadClassName,
+                  )}
+                >
+                  {children}
+                </div>
                 <ProjectsMobileTabBar activeNav={activeNav} />
               </div>
             </div>

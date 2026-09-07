@@ -103,7 +103,7 @@ export default function BoardFiltersPopover({
               role="dialog"
               aria-modal="true"
               aria-label="Filters"
-              className="relative z-10 flex max-h-[78%] flex-col gap-5 rounded-t-[22px] border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)]"
+              className="fixed z-10 flex max-h-[78%] flex-col gap-5 rounded-t-[22px] border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)] safe-inset-x safe-inset-b"
             >
               <div className="flex items-center px-1 pt-2">
                 <span className="mr-auto text-[15px] font-semibold">Filters</span>

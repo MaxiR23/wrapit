@@ -72,8 +72,8 @@ export default function ArchivedDetail({
         aria-labelledby="archived-detail-title"
         className={cn(
           'fixed z-[60] flex flex-col bg-surface',
-          'inset-x-0 bottom-0 max-h-[86%] rounded-t-[16px] border-t border-border-strong',
-          'tablet:inset-y-0 tablet:right-0 tablet:left-auto tablet:max-h-none tablet:w-[340px] tablet:rounded-none tablet:border-t-0 tablet:border-l',
+          'max-h-[86%] rounded-t-[16px] border-t border-border-strong safe-inset-x safe-inset-b',
+          'tablet:left-auto tablet:max-h-none tablet:w-[340px] tablet:rounded-none tablet:border-t-0 tablet:border-l tablet:safe-inset-y tablet:safe-inset-r',
           'lg:w-[392px]',
           'shadow-[0_-12px_40px_oklch(0_0_0/0.35)] tablet:shadow-[-24px_0_60px_oklch(0_0_0/0.45)]',
         )}

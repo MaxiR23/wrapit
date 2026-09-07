@@ -44,8 +44,10 @@ describe('SignInLayout', () => {
     const hero = container.querySelector('.brand-hero-surface');
 
     expect(hero).toBeInTheDocument();
+    expect(hero).toHaveClass('min-h-dvh');
     expect(hero?.parentElement).toHaveClass('auth-sm:hidden');
     expect(hero?.parentElement).toHaveAttribute('id', 'landing-hero');
+    expect(container.firstChild).toHaveClass('min-h-full');
   });
 
   it('shows the mobile auth bar after the hero, linking back to it', () => {
@@ -61,7 +63,8 @@ describe('SignInLayout', () => {
 
     expect(heroWrap?.nextElementSibling).toBe(bar);
     expect(back).toHaveAttribute('href', '#landing-hero');
-    expect(bar).toHaveClass('fixed', 'auth-sm:hidden');
+    expect(bar).toHaveClass('fixed', 'safe-inset-x', 'safe-inset-t', 'auth-sm:hidden');
+    expect(bar?.className).not.toMatch(/safe-area-inset/);
   });
 
   it('keeps the brand panel for the split layout', () => {

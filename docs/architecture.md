@@ -298,10 +298,60 @@ in `docs/kanban.md`.
   `docs/kanban.md`.
 - **Tests** — under `tests/`, mirroring `src/`. Conventions: `docs/testing.md`.
 
+## Projects shell on the phone
+
+Below `tablet` (600px) `ProjectsShell` pins the tab bar with `position: fixed`
+to the bottom of the viewport. `--spacing-mobile-tab-bar` is the bar height
+used as in-flow clearance on the canvas (the body already consumed the bottom
+inset). Portaled overlays that sit in `#safe-fixed-root` use that token, not
+`--spacing-mobile-tab-bar-offset`: the root already consumed the bottom inset.
+`--spacing-mobile-tab-bar-offset` is bar height plus `safe-area-inset-bottom`,
+for in-tree viewport-fixed overlays that are not descendants of the root.
+Desktop and tablet are unchanged (`tablet:hidden`). Layout does not measure
+the viewport in JavaScript.
+
+## Safe-area canvas
+
+`viewport-fit: cover` extends the document into the notch and home indicator.
+
+- `body` padding on all four `env(safe-area-inset-*)` edges. In-flow chrome
+  (the phone header, auth pages) sits inside that box. New in-flow UI picks
+  this up by being a descendant of `body` and filling it with `h-full` /
+  `min-h-full`, not `svh` / `dvh`.
+- Portaled chrome mounts in `#safe-fixed-root`. That node is `position: fixed`
+  to the four insets and `transform: translate(0)`, so it is the containing
+  block for `position: fixed` descendants. `top-1/2` / `max-h-full` /
+  `inset-x-4` / `bottom-0` are then relative to the safe rect, not the
+  physical viewport. `DialogPortal` and `getSafeFixedRoot()` use that node.
+  Overlay/scrim is the exception: mark it `data-safe-scrim` so it expands
+  back to the physical viewport and the dim still paints into the notch.
+- Full-screen phone dialogs pass `layout="cover"` and `coverUntil` on
+  `DialogContent`. `coverUntil` is the theme breakpoint at which full-screen
+  ends (`tablet` for the card dialogs, `md` for the templates dialog). Below
+  that range, `dialog-phone-cover` fills the portal root (`inset: 0`,
+  `height: auto`). It does not set `env()`: the root already consumed the
+  insets. Above the range, the caller's own classes apply. The utility itself
+  has no breakpoint. `coverUntil` is a theme breakpoint name, mapped to a
+  complete `max-*` class so Tailwind can emit it; a later cover dialog
+  declares an existing theme breakpoint. Do not pair `top-0` with `h-dvh`.
+- In-tree edge-pinned `fixed` chrome (tab bar, auth bar, sheets that are not
+  portaled) still composes `safe-inset-t` / `r` / `b` / `l` (and `x` / `y`)
+  at the breakpoint it already uses. Pointer-positioned `fixed` (board drag
+  ghost) stays viewport-relative so `clientX` / `clientY` match the box.
+
+Enable `viewportFit: 'cover'` only with the body padding present. Land that
+canvas in the same commit as cover, or in the commit before it.
+
+jsdom does not compute `env()` and cannot prove the visual inset. Tests
+assert the CSS contract, that portaled chrome mounts in `#safe-fixed-root`,
+and that in-tree pins compose `layout="cover"` with a declared `coverUntil`,
+or `safe-inset-*`. They do not prove pixel size on a notched device.
+
 ## File map
 
     src/proxy.ts                        route protection (cookie check only)
     src/lib/routes.ts                   public routes; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
+    src/lib/safeFixedRoot.ts            #safe-fixed-root id; portaled chrome container
     src/lib/auth.ts                     Better Auth instance (server)
     src/lib/skipEmailVerification.ts    SKIP_EMAIL_VERIFICATION predicate (test-only)
     src/lib/authClient.ts               Better Auth client (browser)

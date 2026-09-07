@@ -105,7 +105,9 @@ export default function ProjectsEmptyState() {
               showCloseButton={false}
               aria-modal="true"
               overlayClassName="z-[70] bg-background md:hidden"
-              className="fixed inset-0 top-0 left-0 z-[70] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 text-foreground shadow-none sm:max-w-none md:hidden"
+              layout="cover"
+              coverUntil="md"
+              className="z-[70] flex max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 text-foreground shadow-none sm:max-w-none md:hidden"
             >
               <DialogHeader className="h-14 shrink-0 flex-row items-center gap-1.5 border-b border-border bg-surface p-0 pr-2.5 pl-1.5">
                 <DialogClose asChild>

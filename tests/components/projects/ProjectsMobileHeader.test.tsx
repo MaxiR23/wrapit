@@ -6,9 +6,10 @@
 // - Account opens the menu and does not sign out on the first click
 // - Sign out from the menu redirects to the sign in page
 // - Opening Account closes notifications, and opening the bell closes Account
+// - The header stays in document flow so the body canvas insets it
 //
 // What is covered:
-// - Account menu wiring, OpenPanel exclusion both ways
+// - Account menu wiring, OpenPanel exclusion both ways, in-flow header
 //
 // Run with: pnpm test:run tests/components/projects/ProjectsMobileHeader.test.tsx
 //
@@ -97,5 +98,13 @@ describe('ProjectsMobileHeader', () => {
     await events.click(screen.getByRole('button', { name: 'Notifications' }));
     expect(screen.queryByRole('dialog', { name: 'Account' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('dialog', { name: 'Notifications' }).length).toBeGreaterThan(0);
+  });
+
+  it('stays in document flow so the body canvas insets it', () => {
+    renderHeader(<ProjectsMobileHeader user={user} />);
+
+    const header = screen.getByText('Projects').closest('header');
+    expect(header).not.toHaveClass('fixed');
+    expect(header?.className).not.toMatch(/safe-area-inset/);
   });
 });

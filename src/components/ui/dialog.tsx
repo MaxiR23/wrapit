@@ -6,6 +6,22 @@ import { Dialog as DialogPrimitive } from 'radix-ui';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getSafeFixedRoot } from '@/lib/safeFixedRoot';
+
+// Complete class names so Tailwind emits each max-* variant. coverUntil is
+// a theme breakpoint; the utility itself has no range.
+const COVER_UNTIL_CLASS = {
+  sm: 'max-sm:dialog-phone-cover',
+  md: 'max-md:dialog-phone-cover',
+  lg: 'max-lg:dialog-phone-cover',
+  xl: 'max-xl:dialog-phone-cover',
+  '2xl': 'max-2xl:dialog-phone-cover',
+  tablet: 'max-tablet:dialog-phone-cover',
+  'auth-sm': 'max-auth-sm:dialog-phone-cover',
+  'auth-lg': 'max-auth-lg:dialog-phone-cover',
+} as const;
+
+export type DialogCoverUntil = keyof typeof COVER_UNTIL_CLASS;
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -16,7 +32,13 @@ function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive
 }
 
 function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+  return (
+    <DialogPrimitive.Portal
+      data-slot="dialog-portal"
+      container={getSafeFixedRoot() ?? undefined}
+      {...props}
+    />
+  );
 }
 
 function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) {
@@ -30,6 +52,7 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
+      data-safe-scrim=""
       className={cn(
         'fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
         className,
@@ -44,18 +67,24 @@ function DialogContent({
   overlayClassName,
   children,
   showCloseButton = true,
+  layout = 'center',
+  coverUntil,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
   overlayClassName?: string;
-}) {
+} & (
+    { layout?: 'center'; coverUntil?: never } | { layout: 'cover'; coverUntil: DialogCoverUntil }
+  )) {
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          'fixed z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          layout === 'center' && 'top-1/2 left-1/2 max-h-full -translate-x-1/2 -translate-y-1/2',
+          layout === 'cover' && coverUntil && COVER_UNTIL_CLASS[coverUntil],
           className,
         )}
         {...props}
