@@ -76,6 +76,10 @@
   --spacing-auth-bar: 4.5rem;
   --mobile-auth-bar-fade-distance: 96px;
   --spacing-mobile-search: 46px;
+  --spacing-mobile-tab-bar: 4rem;
+  --spacing-mobile-tab-bar-offset: calc(
+    var(--spacing-mobile-tab-bar) + env(safe-area-inset-bottom, 0px)
+  );
   --color-form-bg: var(--form-bg);
   --color-form-fg: var(--form-fg);
   --color-form-muted: var(--form-muted);
@@ -456,11 +460,24 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /*
+     * Safe-area canvas. viewport-fit: cover extends the document into the
+     * notch and home indicator; these paddings keep in-flow layout (shell
+     * header, auth pages) inside the safe rect. Fill this box with h-full /
+     * min-h-full, not svh/dvh, or the child overflows back into the inset.
+     * Portaled chrome mounts in #safe-fixed-root (the safe rect). In-tree
+     * edge-pinned chrome still composes safe-inset-*. Overlay/scrim is the
+     * exception and expands to the physical viewport.
+     */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
   }
 }
 
@@ -531,4 +548,63 @@
 .form-island :focus-visible {
   outline: 2px solid var(--form-ring);
   outline-offset: 2px;
+}
+
+@utility safe-inset-t {
+  top: env(safe-area-inset-top, 0px);
+}
+@utility safe-inset-r {
+  right: env(safe-area-inset-right, 0px);
+}
+@utility safe-inset-b {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility safe-inset-l {
+  left: env(safe-area-inset-left, 0px);
+}
+@utility safe-inset-x {
+  left: env(safe-area-inset-left, 0px);
+  right: env(safe-area-inset-right, 0px);
+}
+@utility safe-inset-y {
+  top: env(safe-area-inset-top, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility dialog-phone-cover {
+  inset: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  transform: none;
+  border-radius: 0;
+}
+
+/*
+ * Portaled and fixed non-scrim UI is a descendant of this node, so
+ * position:fixed is relative to the safe rect. pointer-events none lets
+ * clicks reach the page; children re-enable them. Overlay/scrim is the
+ * exception: it expands back to the physical viewport.
+ */
+.safe-fixed-root {
+  pointer-events: none;
+  position: fixed;
+  z-index: 90;
+  top: env(safe-area-inset-top, 0px);
+  right: env(safe-area-inset-right, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: env(safe-area-inset-left, 0px);
+  transform: translate(0);
+}
+
+.safe-fixed-root > * {
+  pointer-events: auto;
+}
+
+.safe-fixed-root [data-safe-scrim] {
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  right: calc(-1 * env(safe-area-inset-right, 0px));
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  left: calc(-1 * env(safe-area-inset-left, 0px));
 }

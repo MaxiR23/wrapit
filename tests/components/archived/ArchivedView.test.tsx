@@ -5,6 +5,7 @@
 // Tested:
 // - Empty copy when the project has no archived tasks
 // - No-results empty state when filters match nothing
+// - Phone selection chrome sits above the tab bar via the shared offset token
 // - Search, date range, and sort clear the current selection
 // - MEMBER restore and delete controls are disabled; export stays available
 // - Export opens a CSV/JSON dialog
@@ -13,8 +14,8 @@
 // - A failed first restore puts its own rows back after a second restore started
 //
 // What is covered:
-// - Empty states, filter-clears-selection, MEMBER permissions, export dialog,
-//   restore undo timing, stale-failure rollback
+// - Empty states, filter-clears-selection, tab-bar offset on sticky chrome,
+//   MEMBER permissions, export dialog, restore undo timing, stale-failure rollback
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedView.test.tsx
 //
@@ -156,6 +157,10 @@ describe('ArchivedView', () => {
 
     await user.click(screen.getAllByLabelText('Select Write tests')[0]!);
     expect(screen.getAllByText('1 task selected').length).toBeGreaterThan(0);
+
+    const sticky = document.querySelector('.sticky');
+    expect(sticky).toHaveClass('max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+0.5rem)]');
+    expect(sticky).toHaveClass('bottom-2');
 
     await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
     expect(screen.queryByText('1 task selected')).not.toBeInTheDocument();

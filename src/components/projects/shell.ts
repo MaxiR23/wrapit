@@ -29,5 +29,8 @@ export function shellPanelClassName(kind: 'popover' | 'sheet', width: ShellPanel
     );
   }
 
-  return cn('tablet:hidden', 'fixed inset-0 z-50 flex flex-col bg-surface');
+  return cn(
+    'tablet:hidden',
+    'fixed z-50 flex flex-col bg-surface safe-inset-t safe-inset-r safe-inset-b safe-inset-l',
+  );
 }

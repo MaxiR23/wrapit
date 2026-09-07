@@ -6,9 +6,10 @@
 // - An archived card title renders inline markdown
 // - A comment body renders markdown
 // - A project title stays plain text
+// - The phone sheet composes safe-inset-x and safe-inset-b
 //
 // What is covered:
-// - Card title, comment body, project title unchanged
+// - Card title, comment body, project title unchanged, sheet pin
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedDetail.test.tsx
 //
@@ -76,6 +77,23 @@ describe('ArchivedDetail', () => {
       screen.getByRole('heading', { name: 'Write tests' }).querySelector('strong'),
     ).toHaveTextContent('Write tests');
     expect(screen.getByText('good').tagName).toBe('STRONG');
+  });
+
+  it('composes safe-inset-x and safe-inset-b on the phone sheet', () => {
+    render(
+      <ArchivedDetail
+        card={card}
+        canAdminister
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+        onExport={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const sheet = screen.getByRole('dialog', { name: 'Write tests' });
+    expect(sheet).toHaveClass('fixed', 'safe-inset-x', 'safe-inset-b');
+    expect(sheet.className).not.toMatch(/safe-area-inset/);
   });
 
   it('leaves a project title as plain text', () => {

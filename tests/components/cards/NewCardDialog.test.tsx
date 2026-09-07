@@ -11,9 +11,11 @@
 // - Closing discards the draft
 // - Escape closes the dialog
 // - The pencil opens the label editor
+// - Phone cover layout is composed on DialogContent until tablet, not h-dvh
 //
 // What is covered:
-// - Chrome, disabled create, submit payload, discard, Escape, inline labels
+// - Chrome, disabled create, submit payload, discard, Escape, inline labels,
+//   phone cover class and tablet centering classes
 //
 // Run with: pnpm test:run tests/components/cards/NewCardDialog.test.tsx
 //
@@ -278,5 +280,18 @@ describe('NewCardDialog', () => {
         expect.objectContaining({ title: 'Write tests', description: '**Cover**' }),
       );
     });
+  });
+
+  it('composes phone cover and keeps the tablet centering classes', () => {
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog).toHaveClass('max-tablet:dialog-phone-cover');
+    expect(dialog).toHaveClass('tablet:top-1/2', 'tablet:left-1/2', 'tablet:h-auto');
+    expect(dialog.className).not.toMatch(/\bh-dvh\b/);
+    expect(dialog.className).not.toMatch(/\btop-0\b/);
+    expect(dialog.className).not.toMatch(/safe-area-inset/);
+    expect(dialog).not.toHaveClass('max-md:dialog-phone-cover');
   });
 });

@@ -40,8 +40,10 @@ describe('AuthLayout', () => {
 
     const bar = container.querySelector('header');
 
-    expect(bar).toHaveClass('fixed', 'auth-sm:hidden');
+    expect(bar).toHaveClass('fixed', 'safe-inset-x', 'safe-inset-t', 'auth-sm:hidden');
+    expect(bar?.className).not.toMatch(/safe-area-inset/);
     expect(screen.queryByRole('link', { name: 'Back' })).not.toBeInTheDocument();
+    expect(container.firstChild).toHaveClass('min-h-full');
   });
 
   it('does not render the landing hero', () => {

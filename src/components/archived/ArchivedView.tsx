@@ -668,7 +668,7 @@ export default function ArchivedView({
       ) : null}
 
       {selectedIds.length > 0 ? (
-        <div className="sticky bottom-2 z-20 flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 lg:hidden">
+        <div className="sticky bottom-2 z-20 flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+0.5rem)] lg:hidden">
           <p className="mr-auto text-[13px]">{selectedLabel}</p>
           <button
             type="button"

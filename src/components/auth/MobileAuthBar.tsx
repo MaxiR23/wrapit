@@ -91,7 +91,7 @@ export default function MobileAuthBar({ href }: { href?: string }) {
     <header
       aria-hidden={unavailable || undefined}
       inert={unavailable || undefined}
-      className="brand-bar-surface fixed inset-x-0 top-0 z-50 flex items-center gap-3 px-4 py-3.5 auth-sm:hidden"
+      className="brand-bar-surface fixed z-50 flex items-center gap-3 px-4 py-3.5 safe-inset-x safe-inset-t auth-sm:hidden"
       style={
         {
           '--mobile-auth-bar-fade-distance': `${MOBILE_AUTH_BAR_FADE_DISTANCE_PX}px`,

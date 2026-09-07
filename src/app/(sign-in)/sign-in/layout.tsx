@@ -5,7 +5,7 @@ import MobileAuthBar from '@/components/auth/MobileAuthBar';
 
 export default function SignInLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col auth-lg:flex-row">
+    <div className="flex min-h-full flex-col auth-lg:flex-row">
       <div id="landing-hero" className="auth-sm:hidden">
         <LandingHero />
       </div>

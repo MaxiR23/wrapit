@@ -21,56 +21,58 @@ export default function ProjectsMobileTabBar({
   return (
     <nav
       aria-label="Main"
-      className="grid h-16 shrink-0 grid-cols-4 border-t border-border bg-surface tablet:hidden"
+      className="fixed z-30 border-t border-border bg-surface safe-inset-x safe-inset-b tablet:hidden"
     >
-      <Link
-        href={PROJECTS_PATH}
-        aria-current={projectsActive ? 'page' : undefined}
-        className={cn(
-          shellFocusClassName,
-          tabClassName,
-          projectsActive ? 'font-medium text-foreground' : 'text-subtle',
-        )}
-      >
-        <LayoutGrid className="size-5" strokeWidth={1.6} />
-        Projects
-      </Link>
-      <Link
-        href={MY_TASKS_PATH}
-        aria-current={tasksActive ? 'page' : undefined}
-        className={cn(
-          shellFocusClassName,
-          tabClassName,
-          tasksActive ? 'font-medium text-foreground' : 'text-subtle',
-        )}
-      >
-        <ListChecks className="size-5" strokeWidth={1.5} />
-        My tasks
-      </Link>
-      <Link
-        href={ARCHIVED_PATH}
-        aria-current={archivedActive ? 'page' : undefined}
-        className={cn(
-          shellFocusClassName,
-          tabClassName,
-          archivedActive ? 'font-medium text-foreground' : 'text-subtle',
-        )}
-      >
-        <Archive className="size-5" strokeWidth={1.5} />
-        Archived
-      </Link>
-      <Link
-        href={ACCOUNT_PATH}
-        aria-current={accountActive ? 'page' : undefined}
-        className={cn(
-          shellFocusClassName,
-          tabClassName,
-          accountActive ? 'font-medium text-foreground' : 'text-subtle',
-        )}
-      >
-        <User className="size-5" strokeWidth={1.5} />
-        Account
-      </Link>
+      <div className="grid h-16 grid-cols-4">
+        <Link
+          href={PROJECTS_PATH}
+          aria-current={projectsActive ? 'page' : undefined}
+          className={cn(
+            shellFocusClassName,
+            tabClassName,
+            projectsActive ? 'font-medium text-foreground' : 'text-subtle',
+          )}
+        >
+          <LayoutGrid className="size-5" strokeWidth={1.6} />
+          Projects
+        </Link>
+        <Link
+          href={MY_TASKS_PATH}
+          aria-current={tasksActive ? 'page' : undefined}
+          className={cn(
+            shellFocusClassName,
+            tabClassName,
+            tasksActive ? 'font-medium text-foreground' : 'text-subtle',
+          )}
+        >
+          <ListChecks className="size-5" strokeWidth={1.5} />
+          My tasks
+        </Link>
+        <Link
+          href={ARCHIVED_PATH}
+          aria-current={archivedActive ? 'page' : undefined}
+          className={cn(
+            shellFocusClassName,
+            tabClassName,
+            archivedActive ? 'font-medium text-foreground' : 'text-subtle',
+          )}
+        >
+          <Archive className="size-5" strokeWidth={1.5} />
+          Archived
+        </Link>
+        <Link
+          href={ACCOUNT_PATH}
+          aria-current={accountActive ? 'page' : undefined}
+          className={cn(
+            shellFocusClassName,
+            tabClassName,
+            accountActive ? 'font-medium text-foreground' : 'text-subtle',
+          )}
+        >
+          <User className="size-5" strokeWidth={1.5} />
+          Account
+        </Link>
+      </div>
     </nav>
   );
 }

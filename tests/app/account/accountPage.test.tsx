@@ -7,9 +7,11 @@
 // - Redirects an unknown tab to ?tab=profile
 // - Redirects when there is no session
 // - Hides the projects search input
+// - Reserves the phone tab bar offset on the shell content
 //
 // What is covered:
-// - Default tab, unknown-tab redirect, unauthenticated redirect, no search
+// - Default tab, unknown-tab redirect, unauthenticated redirect, no search,
+//   tab-bar offset
 //
 // Run with: pnpm test:run tests/app/account/accountPage.test.tsx
 //
@@ -128,6 +130,15 @@ describe('Account page', () => {
     expect(screen.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Full name')).toBeInTheDocument();
     expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
+  });
+
+  it('reserves the phone tab bar offset on the shell content', async () => {
+    render(await AccountPage({ searchParams: Promise.resolve({}) } as never));
+
+    const tabBar = screen.getByRole('link', { name: 'Account' }).closest('nav');
+    const content = tabBar?.previousElementSibling;
+
+    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar)]');
   });
 
   it('redirects an unknown tab to ?tab=profile', async () => {

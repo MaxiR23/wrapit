@@ -178,7 +178,9 @@ faster and works with ESM and TypeScript out of the box.
 - `globals: true` — allows using `describe`, `it`, `expect` without importing
   them in every file.
 - `setupFiles: ['./vitest.setup.ts']` — runs before the tests. It loads the
-  `@testing-library/jest-dom` matchers (for example `toBeInTheDocument`).
+  `@testing-library/jest-dom` matchers (for example `toBeInTheDocument`) and
+  mounts `#safe-fixed-root` so jsdom matches production portal targeting.
+  Node-environment tests skip that mount.
 - `resolve.alias` — maps `@/` to the project root, matching the Next.js alias.
 
 `pnpm test` runs in watch mode and re-runs on every file change, which is the
