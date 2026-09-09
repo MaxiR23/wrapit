@@ -9,9 +9,12 @@
 // - Activity renders the projects and timeline regions
 // - Tab hrefs are shareable /account?tab= URLs
 // - A public-name change updates the header initials without a reload
+// - The body under the tabs is overflow-auto and flex-1 only from tablet
 //
 // What is covered:
-// - Header, tablist semantics, Activity tab, hrefs
+// - Header, tablist semantics, Activity tab, hrefs, body overflow contract.
+//   jsdom cannot prove the body actually scrolls or that a short profile
+//   does not bounce.
 //
 // Run with: pnpm test:run tests/components/account/AccountScreen.test.tsx
 //
@@ -88,6 +91,16 @@ describe('AccountScreen', () => {
     );
     const header = screen.getByRole('heading', { name: 'Ada Lovelace' }).closest('header');
     expect(header).toHaveTextContent('Active');
+  });
+
+  it('scrolls the body under the tabs without stretching it on the phone', () => {
+    renderScreen('profile');
+
+    const header = screen.getByRole('heading', { name: 'Ada Lovelace' }).closest('header');
+    const body = header?.nextElementSibling;
+
+    expect(body).toHaveClass('min-h-0', 'overflow-auto', 'tablet:flex-1');
+    expect(body).not.toHaveClass('flex-1');
   });
 
   it('shows the Visibility tab instead of a placeholder', () => {

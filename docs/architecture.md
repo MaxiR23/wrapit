@@ -310,6 +310,18 @@ for in-tree viewport-fixed overlays that are not descendants of the root.
 Desktop and tablet are unchanged (`tablet:hidden`). Layout does not measure
 the viewport in JavaScript.
 
+The phone column is `min-h-0` so a descendant `overflow-auto` can become a
+scrollport. Default list content (projects grid, my tasks, archived) is
+`overflow-auto` and `flex-1` only from `tablet`: below that it sizes to its
+content and shrinks when long, so a short screen does not gain a scrollport.
+The mobile search row on `/projects` is a child of that scroller, in flow
+with the grid; it is not pinned. Board and account keep `overflow-hidden` on
+the shell content (tab-bar padding there is clearance). The board's vertical
+scroller is the column card list (and the activity log); the carousel item
+wrapper is a bounded flex column (`h-full min-h-0 flex-col`) so
+`BoardColumn`'s `flex-1 min-h-0` applies. Account scrolls the body under the
+pinned tabs (`overflow-auto`, `flex-1` from `tablet` only).
+
 ## Safe-area canvas
 
 `viewport-fit: cover` extends the document into the notch and home indicator.

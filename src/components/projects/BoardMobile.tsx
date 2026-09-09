@@ -272,7 +272,7 @@ export default function BoardMobile({
           <div
             key={column.id}
             data-drop={column.id}
-            className={cn('shrink-0', !liftedId && 'snap-center')}
+            className={cn('flex h-full min-h-0 shrink-0 flex-col', !liftedId && 'snap-center')}
             style={{ width: BOARD_COLUMN_WIDTH_PX }}
           >
             <BoardColumn
