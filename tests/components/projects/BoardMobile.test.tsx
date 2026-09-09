@@ -9,9 +9,11 @@
 // - Cancelling a drag after the lift drops nothing and clears the lift
 // - Releasing outside every column after passing over one moves nothing
 // - Cards reserve vertical pan so a hold is not a carousel gesture
+// - Each carousel item is a bounded flex column so BoardColumn can shrink
 //
 // What is covered:
-// - Carousel dots, long-press drag drop, cancelled lift, card touch-action
+// - Carousel dots, long-press drag drop, cancelled lift, card touch-action,
+//   column-wrapper height chain. jsdom cannot prove the card list scrolls.
 //
 // Run with: pnpm test:run tests/components/projects/BoardMobile.test.tsx
 //
@@ -74,6 +76,16 @@ describe('BoardMobile', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('sizes each carousel item as a bounded flex column so BoardColumn can shrink', () => {
+    renderBoard();
+
+    const column = screen.getByRole('heading', { name: 'To do' }).closest('section');
+    const item = column?.parentElement;
+
+    expect(item).toHaveClass('flex', 'h-full', 'min-h-0', 'shrink-0', 'flex-col');
+    expect(column).toHaveClass('min-h-0', 'flex-1', 'overflow-hidden');
   });
 
   it('reserves vertical pan on cards and leaves the rail scrollable', () => {

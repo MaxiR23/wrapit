@@ -55,7 +55,7 @@ export default function AccountScreen({
           </div>
           <AccountTabs tab={tab} />
         </header>
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 overflow-auto tablet:flex-1">
           {tab === 'profile' ? (
             <AccountProfile profile={profile} />
           ) : tab === 'visibility' ? (
