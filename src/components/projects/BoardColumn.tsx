@@ -43,7 +43,7 @@ export default function BoardColumn({
         className,
       )}
     >
-      <header className="flex items-center gap-[9px] border-b border-border px-1 pt-0.5 pb-2">
+      <header className="flex shrink-0 items-center gap-[9px] border-b border-border px-1 pt-0.5 pb-2">
         <h2 className="text-[11.5px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           {title}
         </h2>
@@ -52,10 +52,12 @@ export default function BoardColumn({
           type="button"
           disabled={!onAddCard}
           aria-label={`Add card to ${title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
           onClick={(event) => onAddCard?.(columnId, event.currentTarget)}
           className={cn(
             shellFocusClassName,
-            'ml-auto inline-flex size-[30px] items-center justify-center rounded-md text-[16px] leading-none text-muted-foreground lg:size-6 lg:text-[15px]',
+            'touch-manipulation ml-auto inline-flex size-[30px] items-center justify-center rounded-md text-[16px] leading-none text-muted-foreground lg:size-6 lg:text-[15px]',
             onAddCard ? 'hover:bg-card hover:text-foreground' : 'disabled:opacity-50',
           )}
         >
