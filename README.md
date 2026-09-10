@@ -61,6 +61,7 @@ could not already open themselves.
     pnpm format:check     Prettier (check only)
     pnpm test             run tests in watch mode
     pnpm test:run         run all tests once
+    pnpm verify           lint, format check, tsc, tests, then build; stops at first failure
     pnpm db:up            start Postgres in Docker
     pnpm db:down          stop the container
     pnpm db:migrate       create and apply a migration (local/dev)
@@ -78,6 +79,7 @@ could not already open themselves.
     src/generated/  generated Prisma Client (gitignored)
     src/proxy.ts    route protection (Next 16's renamed middleware)
     prisma/         schema and migrations
+    scripts/        repo tooling (pnpm verify)
     tests/          tests, mirroring the source structure
     docs/           architecture, auth, kanban, tooling and related docs
 
@@ -85,9 +87,13 @@ What belongs in each directory: `AGENTS.md`.
 
 ## Checks
 
-Run `pnpm lint`, `pnpm format` and `pnpm test:run` before committing. A
-pre-commit hook runs lint-staged (ESLint and Prettier on staged files) and can
-be skipped. See `docs/tooling.md`.
+`pnpm verify` is the local gate: lint, format check, `tsc --noEmit`, tests,
+then the production build, stopping at the first failure. A pre-push hook
+refuses the push unless the updated ref is the clean checked-out HEAD, then
+runs `pnpm verify` and blocks the push if any step fails, including when a
+step cannot run because of the environment (for example Postgres is down). A
+pre-commit hook runs lint-staged (ESLint and Prettier on staged files) and
+can be skipped. See `docs/tooling.md` and `docs/workflow.md`.
 
 ## Documentation
 

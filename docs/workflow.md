@@ -26,8 +26,11 @@ Flow for every feature, fix or non-trivial change in this repo.
    - Definition of done: AGENTS.md
 
 5. **Verify locally**
+   - Run `pnpm verify`. That is the gate: lint, format check, `tsc --noEmit`,
+     tests, then production build, stopping at the first failure.
+   - A step that cannot run because of the environment (for example Postgres
+     is down) is a failure, not a skip.
    - Commands and the usual pre-commit checks: `README.md` (Commands, Checks).
-   - Also run `pnpm build` before opening the PR.
 
 6. **Review before committing**
    - Review the diff before committing (`git diff`).
@@ -39,6 +42,9 @@ Flow for every feature, fix or non-trivial change in this repo.
    - The pre-commit hook runs lint-staged automatically.
 
 8. **Push and open the PR**
+   - The pre-push hook refuses the push unless the updated ref is the
+     clean checked-out HEAD, then runs `pnpm verify` and blocks the push
+     if any step fails.
    - Body: what it does, decisions taken, how to test, `Closes #N`.
 
 9. **Merge and later could delete the branch**

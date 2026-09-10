@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/tests/.tmp-pre-push-*
 
 # next.js
 /.next/
@@ -39,6 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# machine-local Claude Code settings
+.claude/settings.local.json
 
 /src/generated/prisma
 .pnpm-store/
