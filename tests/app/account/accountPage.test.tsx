@@ -1,21 +1,20 @@
 // tests/app/account/accountPage.test.tsx
 //
-// Tests for the /account page tab routing and shell.
+// Tests for the /account page tab routing.
 //
 // Tested:
 // - Renders Profile for a missing tab query
 // - Redirects an unknown tab to ?tab=profile
 // - Redirects when there is no session
-// - Hides the projects search input
-// - Reserves the phone tab bar offset on the shell content
+// - Does not wrap the page in the projects shell
 //
 // What is covered:
-// - Default tab, unknown-tab redirect, unauthenticated redirect, no search,
-//   tab-bar offset
+// - Default tab, unknown-tab redirect, unauthenticated redirect. Search
+//   visibility and tab-bar offset live in the authenticated layout.
 //
 // Run with: pnpm test:run tests/app/account/accountPage.test.tsx
 //
-// SEE: src/app/account/page.tsx
+// SEE: src/app/(app)/account/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -41,14 +40,6 @@ vi.mock('@/lib/userStatuses', () => ({
   getUserStatusesForUser,
 }));
 
-vi.mock('@/lib/notifications', () => ({
-  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
-}));
-
-vi.mock('@/lib/myTasks', () => ({
-  countOpenMyTasksForUser: vi.fn(async () => 0),
-}));
-
 vi.mock('@/lib/accountActivity', () => ({
   getAccountActivityForUser: vi.fn(async () => ({
     projects: [],
@@ -59,13 +50,6 @@ vi.mock('@/lib/accountActivity', () => ({
 
 vi.mock('@/actions/updateProfileField', () => ({ updateProfileField: vi.fn() }));
 vi.mock('@/actions/updateProfileVisibility', () => ({ updateProfileVisibility: vi.fn() }));
-vi.mock('@/actions/listNotifications', () => ({
-  listNotifications: vi.fn(async () => ({ data: { items: [], unreadCount: 0 } })),
-}));
-vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
-vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
-vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
-vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
 vi.mock('@/actions/setActiveStatus', () => ({ setActiveStatus: vi.fn() }));
 vi.mock('@/actions/updateUserStatusField', () => ({ updateUserStatusField: vi.fn() }));
 vi.mock('@/actions/createUserStatus', () => ({ createUserStatus: vi.fn() }));
@@ -83,7 +67,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const { default: AccountPage } = await import('@/app/account/page');
+const { default: AccountPage } = await import('@/app/(app)/account/page');
 
 const profile = {
   name: 'Ada Lovelace',
@@ -125,20 +109,9 @@ describe('Account page', () => {
     render(await AccountPage({ searchParams: Promise.resolve({}) } as never));
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account');
-    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Full name')).toBeInTheDocument();
-    expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
-  });
-
-  it('reserves the phone tab bar offset on the shell content', async () => {
-    render(await AccountPage({ searchParams: Promise.resolve({}) } as never));
-
-    const tabBar = screen.getByRole('link', { name: 'Account' }).closest('nav');
-    const content = tabBar?.previousElementSibling;
-
-    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar)]');
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
   it('redirects an unknown tab to ?tab=profile', async () => {

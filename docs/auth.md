@@ -383,9 +383,10 @@ gets past the proxy.
 
 This is the approach Better Auth recommends, and it is safe only because the
 proxy is a redirect, not the authorization check. Anything that reads or writes
-user data must still load the real session on the server with
-`auth.api.getSession({ headers: await headers() })` and act on it. Treat the
-proxy as navigation, not as a guard.
+user data must still load the real session on the server and act on it. Treat
+the proxy as navigation, not as a guard. Authenticated Server Components load
+that session through `getSession` in `src/lib/session.ts` (`React.cache`, one
+lookup per request).
 
 There is no `?redirect=` parameter yet: a visitor bounced from a private route
 lands on `/sign-in` and then on `/projects`, not on the page they asked for.

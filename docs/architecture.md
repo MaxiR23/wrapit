@@ -31,8 +31,15 @@ with relative paths.
 
 Reads and writes take different paths on purpose.
 
-**Reads** happen in Server Components. A page loads the session with
-`auth.api.getSession({ headers: await headers() })`, then calls a lib helper
+**Reads** happen in Server Components. Authenticated routes load the session
+through `getSession` in `src/lib/session.ts`, a `React.cache` wrapper around
+`auth.api.getSession({ headers: await headers() })`. The authenticated layout
+and the page both call it; one request validates once. `React.cache` is
+request-scoped and does not survive to the next navigation. Server actions
+still call `auth.api.getSession` themselves — they are a different request.
+Any other read that the layout and a page would both do on one request goes
+through `React.cache` the same way. Then the page (and the layout, for shell
+data) call a lib helper
 that scopes Prisma to that user — for example `listProjectsForUser` /
 `listProjectSummariesForUser` / `listRecentProjectsForUser` /
 `getProjectForUser` in `src/lib/projects.ts`,
@@ -161,14 +168,25 @@ upserts `openedAt` when the session user has a membership on the project and no-
 so opening a project cannot fail navigation. Failures that should not leak internals
 return a fixed generic message (`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
-Notification reads load in the projects page Server Component via
+Notification reads load in the authenticated layout (`src/app/(app)/layout.tsx`) via
 `getNotificationsForUser` (session recipient only) so the bell badge is correct
-on first paint. The panel refetches through `listNotifications` when opened.
-Accepting an invitation from the panel calls `router.refresh()` so the
+on first paint of the shell. The panel refetches through `listNotifications`
+when opened. Accepting an invitation from the panel calls `router.refresh()` so the
 mounted `/projects` grid picks up the new membership. Reject does not
 refresh. Mark-read writes (`markNotificationRead`, `markAllNotificationsRead`) only
 touch the session user's rows: `markNotificationRead` is one `updateMany` on
 `id` + `recipientId`. There is no polling and no websocket.
+
+Those layout reads (notifications and the open-task badge) run when the
+authenticated shell first mounts. They stay stale until a full refresh or an
+existing client `router.refresh()`. `NotificationsProvider` keeps that list in
+client state, so a refresh must replace `items` when `initialItems` changes;
+the useState initializer does not run again on a mounted provider. The bell
+does not update as you navigate.
+The open-task badge still uses `countOpenMyTasksForUser`; on `/tasks` that
+count shares `loadAssignedContext` with `listMyTasksForUser` through
+`React.cache` so the membership, project, column, and card queries run once
+on that request. The memo does not keep the badge fresh across navigations.
 
 **Auth in the browser** is the exception: sign up, sign in and sign out call
 `authClient` against `/api/auth/*`. Everything else that changes domain data uses
@@ -359,12 +377,40 @@ assert the CSS contract, that portaled chrome mounts in `#safe-fixed-root`,
 and that in-tree pins compose `layout="cover"` with a declared `coverUntil`,
 or `safe-inset-*`. They do not prove pixel size on a notched device.
 
+## Authenticated layout and loading
+
+Signed-in routes sit in `src/app/(app)/`. That layout loads the session
+through `getSession`, then notifications and the open-task count, then
+renders `ProjectsShell` around `{children}`. Path-dependent chrome (active nav,
+search copy, content pane)
+comes from `shellChromeForPath` inside a client `ShellFrame` that reads
+`usePathname`, so it updates on navigation without remounting the shell.
+`ProjectsSidebar` and `ProjectsMobileTabBar` sit under that client frame, so
+they join the client bundle; screen `children` stay Server Components.
+
+Each querying page has a `loading.tsx` sibling. Next.js uses that as the
+Suspense fallback for the page slot only. Sidebar, topbar, phone header, and
+tab bar stay mounted. The fallback is a `RouteSkeleton` (delayed CSS reveal,
+no JS measurement) that mirrors the screen in that slot. `RouteSkeleton` is
+`flex min-h-0 flex-1 flex-col` so it joins the same height chain as the page
+it replaces; a block wrapper leaves `flex-1` on BoardLoading with nothing to
+resolve against.
+
+Search query is keyed by screen (`searchScopeForPath`), not one string on the
+shell. `ShellFrame` passes that scope into `ProjectsSearchProvider`. The
+provider stays mounted with the chrome, so a single query would leak from
+`/projects` onto a board, `/tasks`, and `/archived`, and would stick on
+`/account` where the input is hidden. Clearing on every pathname change
+would also drop the query when opening a project from the filtered grid and
+coming back. Account has no scope: the query is always empty.
+
 ## File map
 
     src/proxy.ts                        route protection (cookie check only)
     src/lib/routes.ts                   public routes; PROJECTS_PATH, MY_TASKS_PATH, projectPath, projectCardPath, ACCOUNT_PATH, accountPath
     src/lib/safeFixedRoot.ts            #safe-fixed-root id; portaled chrome container
     src/lib/auth.ts                     Better Auth instance (server)
+    src/lib/session.ts                  request-memoized getSession for Server Components
     src/lib/skipEmailVerification.ts    SKIP_EMAIL_VERIFICATION predicate (test-only)
     src/lib/authClient.ts               Better Auth client (browser)
     src/lib/email.ts                    Resend helpers (password-reset and verification emails)
@@ -397,7 +443,7 @@ or `safe-inset-*`. They do not prove pixel size on a notched device.
     src/lib/cardMarkdown.ts             closed markdown subset for card titles, descriptions, comments
     src/lib/markdownToolbar.ts          wrap a text selection with markdown markers
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
-    src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count
+    src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count; loadAssignedContext is React.cache
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/accountActivity.ts          account Activity tab projects + assigned counts
@@ -491,12 +537,19 @@ or `safe-inset-*`. They do not prove pixel size on a notched device.
     src/actions/deleteLabel.ts          delete a label; reassign cards; refuse the last remaining
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
-    src/app/projects/page.tsx           projects shell, recents, starred, grid/list, empty state
-    src/app/tasks/page.tsx              My tasks shell: assigned cards across projects
-    src/app/account/page.tsx            account shell, tab routing, profile, visibility, activity
-    src/app/projects/[projectId]/page.tsx  project board in ProjectsShell (member only; archived project redirects to /archived; else 404; records recent; ?card= opens detail)
-    src/app/projects/[projectId]/archived/page.tsx  archived tasks in ProjectsShell (member only; archived project redirects)
-    src/app/archived/page.tsx           archived projects in ProjectsShell
+    src/app/(app)/layout.tsx            authenticated shell: session, notifications, open-task count
+    src/app/(app)/projects/page.tsx     recents, starred, grid/list, empty state
+    src/app/(app)/projects/loading.tsx  projects-grid slot fallback
+    src/app/(app)/tasks/page.tsx        My tasks: assigned cards across projects
+    src/app/(app)/tasks/loading.tsx     my-tasks slot fallback
+    src/app/(app)/account/page.tsx      account tab routing, profile, visibility, activity
+    src/app/(app)/account/loading.tsx   account slot fallback
+    src/app/(app)/projects/[projectId]/page.tsx  project board (member only; archived project redirects to /archived; else 404; records recent; ?card= opens detail)
+    src/app/(app)/projects/[projectId]/loading.tsx  board slot fallback
+    src/app/(app)/projects/[projectId]/archived/page.tsx  archived tasks (member only; archived project redirects)
+    src/app/(app)/projects/[projectId]/archived/loading.tsx  archived-tasks slot fallback
+    src/app/(app)/archived/page.tsx     archived projects
+    src/app/(app)/archived/loading.tsx  archived-projects slot fallback
     src/app/(auth)/layout.tsx           auth split for sign-up, forgot, reset, check-email, verify-email
     src/app/(auth)/sign-up/page.tsx     /sign-up
     src/app/(sign-in)/sign-in/layout.tsx  /sign-in: mobile hero, split from auth-sm
@@ -508,14 +561,23 @@ or `safe-inset-*`. They do not prove pixel size on a notched device.
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/auth/                sign up, sign in, check-email, verify-email, password reset, sign-in hero
     src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
-    src/components/projects/ProjectsSearch.tsx  client search query for the projects list
+    src/components/projects/searchScope.ts  pathname to per-screen search key; account has none
+    src/components/projects/ProjectsSearch.tsx  client search queries keyed by screen
     src/components/projects/            projects shell, grid, list, empty state, template picker, NewProjectDialog, ProjectBoard, activity log, Share modal, board filters/visibility, archive confirm, viewer time zone, OpenPanel exclusion, shellPanelClassName
     src/components/notifications/       bell, panel content, popover/sheet via shellPanelClassName, notifications provider
     src/components/labels/              label editor and row (inline in new task)
     src/components/cards/               board cards, new-task dialog, card detail, due date+time control, markdown and service-link text
     src/components/tasks/               My tasks list, rows, detail panel/sheet, two-step create
     src/components/archived/            archived list, row, detail, empty state, delete/export dialogs
-    src/components/ui/                  shadcn/ui primitives
+    src/components/ui/                  shadcn/ui primitives, including skeleton
+    src/components/projects/searchScope.ts  pathname to per-screen search key; account has none
+    src/components/projects/shellChrome.ts  pathname to shell chrome props
+    src/components/projects/ShellFrame.tsx  client frame: usePathname plus sidebar, header, topbar, tab bar
+    src/components/projects/ProjectsLoading.tsx  projects-grid slot skeleton
+    src/components/projects/BoardLoading.tsx  board slot skeleton
+    src/components/tasks/MyTasksLoading.tsx  my-tasks slot skeleton
+    src/components/archived/ArchivedLoading.tsx  archived slot skeleton
+    src/components/account/AccountLoading.tsx  account slot skeleton
 
 ## SEE
 

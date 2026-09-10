@@ -1,26 +1,31 @@
 // tests/app/projects/projectDetail.test.tsx
 //
-// Tests for the project detail page access gates and shell.
+// Tests for the project detail page access gates.
 //
 // Tested:
 // - Renders the project title for a member
 // - A project with no columns still renders the board header and can open Share
-// - Wraps the page in the projects shell with Projects as the active nav
-// - Shows the board search input, not Search projects
+// - Does not wrap the page in the projects shell
+// - Shows the board search input on the board header
 // - Does not render the Members heading
 // - Mounts the recents recorder after access is confirmed
 // - Calls notFound when getProjectForUser returns null
 //
 // What is covered:
-// - Member happy path, empty-column Share, shell chrome, missing project as 404
+// - Member happy path, empty-column Share, missing project as 404. Shell
+//   chrome (sidebar, topbar, tab bar) lives in the authenticated layout.
 //
 // Run with: pnpm test:run tests/app/projects/projectDetail.test.tsx
 //
-// SEE: src/app/projects/[projectId]/page.tsx
+// SEE: src/app/(app)/projects/[projectId]/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+
+import { OpenPanelProvider } from '@/components/projects/OpenPanel';
+import { ProjectsSearchProvider } from '@/components/projects/ProjectsSearch';
 
 const getSession = vi.fn();
 const getProjectForUser = vi.fn();
@@ -52,14 +57,6 @@ vi.mock('@/lib/projectLabels', () => ({
 
 vi.mock('@/lib/userPreferences', () => ({
   getUserPreferences,
-}));
-
-vi.mock('@/lib/notifications', () => ({
-  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
-}));
-
-vi.mock('@/lib/myTasks', () => ({
-  countOpenMyTasksForUser: vi.fn(async () => 0),
 }));
 
 vi.mock('@/actions/recordRecentProject', () => ({
@@ -122,13 +119,21 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const { default: ProjectDetailPage } = await import('@/app/projects/[projectId]/page');
+const { default: ProjectDetailPage } = await import('@/app/(app)/projects/[projectId]/page');
 
 function pageProps(projectId: string, search: Record<string, string | string[]> = {}) {
   return {
     params: Promise.resolve({ projectId }),
     searchParams: Promise.resolve(search),
   };
+}
+
+function renderPage(node: ReactNode) {
+  return render(
+    <OpenPanelProvider>
+      <ProjectsSearchProvider>{node}</ProjectsSearchProvider>
+    </OpenPanelProvider>,
+  );
 }
 
 describe('Project detail page', () => {
@@ -176,7 +181,7 @@ describe('Project detail page', () => {
     });
 
     const page = await ProjectDetailPage(pageProps('project-1'));
-    render(page);
+    renderPage(page);
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(
@@ -186,9 +191,7 @@ describe('Project detail page', () => {
     expect(screen.getAllByRole('searchbox', { name: 'Search the board' }).length).toBeGreaterThan(
       0,
     );
-    expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
-    const projectLinks = screen.getAllByRole('link', { name: 'Projects' });
-    expect(projectLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
     expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(listProjectMembersForUser).toHaveBeenCalledWith('project-1', 'user-ada');
     expect(getProjectLabelsForUser).toHaveBeenCalledWith('project-1', 'user-ada');
@@ -209,7 +212,7 @@ describe('Project detail page', () => {
       columns: [{ id: 'column-todo', title: 'To do', order: 0, cards: [] }],
     });
 
-    render(await ProjectDetailPage(pageProps('project-1')));
+    renderPage(await ProjectDetailPage(pageProps('project-1')));
 
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Members' })).not.toBeInTheDocument();

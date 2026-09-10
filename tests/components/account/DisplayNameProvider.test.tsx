@@ -29,6 +29,7 @@ vi.mock('@/lib/authClient', () => ({
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => '/account',
 }));
 
 vi.mock('@/actions/updateProfileField', () => ({
@@ -95,7 +96,7 @@ describe('live display name in the shell', () => {
   it('updates initials in the topbar, mobile header, account header, and profile card at once', async () => {
     const events = userEvent.setup();
     render(
-      <ProjectsShell user={shellUser} showSearch={false}>
+      <ProjectsShell user={shellUser}>
         <AccountScreen tab="profile" profile={profile} statuses={accountStatusesFixture} />
       </ProjectsShell>,
     );

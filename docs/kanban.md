@@ -166,7 +166,8 @@ zone to the card face, the detail, and the activity log. It reads empty on the
 server, where consumers fall back to the card's own zone, so nothing mismatches
 on hydration.
 
-The page sits in `ProjectsShell` with Projects as the active nav. The topbar
+The board sits in the authenticated `ProjectsShell` with Projects as the active
+nav. The topbar
 search on this screen filters the board live by title and label
 (case-insensitive includes), combined with the header filters; it is not the
 projects-list search. Filters (label chips as OR, plus only-mine and
