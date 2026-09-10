@@ -24,6 +24,7 @@
 //
 // SEE: src/components/projects/BoardMobile.tsx
 
+import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -31,6 +32,11 @@ import userEvent from '@testing-library/user-event';
 import BoardMobile from '@/components/projects/BoardMobile';
 import type { BoardCardData, BoardColumnData } from '@/components/projects/boardTypes';
 import { carouselScrollLeftForIndex } from '@/lib/board';
+
+type BoardMobileProps = ComponentProps<typeof BoardMobile>;
+type MoveToColumn = BoardMobileProps['onMoveToColumn'];
+type AddCard = NonNullable<BoardMobileProps['onAddCard']>;
+type OpenCard = BoardMobileProps['onOpenCard'];
 
 const cardA: BoardCardData = { id: 'card-a', title: 'Card A', code: 'CA-1', dueDate: null };
 const cardC: BoardCardData = { id: 'card-c', title: 'Card C', code: 'CC-3', dueDate: null };
@@ -44,11 +50,11 @@ const cardsById = { 'card-a': cardA, 'card-c': cardC };
 const itemsByColumn = { 'column-todo': ['card-a'], 'column-doing': ['card-c'] };
 
 function renderBoard({
-  onMoveToColumn = vi.fn(),
-  onAddCard = vi.fn(),
+  onMoveToColumn = vi.fn<MoveToColumn>(),
+  onAddCard = vi.fn<AddCard>(),
 }: {
-  onMoveToColumn?: ReturnType<typeof vi.fn>;
-  onAddCard?: ReturnType<typeof vi.fn>;
+  onMoveToColumn?: MoveToColumn;
+  onAddCard?: AddCard;
 } = {}) {
   return render(
     <BoardMobile
@@ -58,7 +64,7 @@ function renderBoard({
       jumpToColumnId={null}
       onMoveToColumn={onMoveToColumn}
       onAddCard={onAddCard}
-      onOpenCard={vi.fn()}
+      onOpenCard={vi.fn<OpenCard>()}
     />,
   );
 }
@@ -154,7 +160,7 @@ describe('BoardMobile', () => {
 
   it('opens add-card from the plus and marks it as a tap target', async () => {
     const user = userEvent.setup();
-    const onAddCard = vi.fn();
+    const onAddCard = vi.fn<AddCard>();
     renderBoard({ onAddCard });
 
     const plus = screen.getByRole('button', { name: 'Add card to To do' });
@@ -177,7 +183,7 @@ describe('BoardMobile', () => {
 
   it('moves a card when a long press is dragged onto another column', async () => {
     vi.useFakeTimers();
-    const onMoveToColumn = vi.fn();
+    const onMoveToColumn = vi.fn<MoveToColumn>();
     renderBoard({ onMoveToColumn });
 
     const card = cardArticle('Card A');
@@ -202,7 +208,7 @@ describe('BoardMobile', () => {
 
   it('clears the lift when a long press is released without a new column', async () => {
     vi.useFakeTimers();
-    const onMoveToColumn = vi.fn();
+    const onMoveToColumn = vi.fn<MoveToColumn>();
     renderBoard({ onMoveToColumn });
 
     const card = cardArticle('Card A');
@@ -224,7 +230,7 @@ describe('BoardMobile', () => {
 
   it('drops nothing and clears the lift when a drag is cancelled', async () => {
     vi.useFakeTimers();
-    const onMoveToColumn = vi.fn();
+    const onMoveToColumn = vi.fn<MoveToColumn>();
     renderBoard({ onMoveToColumn });
 
     const card = cardArticle('Card A');
@@ -246,7 +252,7 @@ describe('BoardMobile', () => {
 
   it('drops nothing when a drag passes over a column and releases outside every column', async () => {
     vi.useFakeTimers();
-    const onMoveToColumn = vi.fn();
+    const onMoveToColumn = vi.fn<MoveToColumn>();
     renderBoard({ onMoveToColumn });
 
     const card = cardArticle('Card A');
