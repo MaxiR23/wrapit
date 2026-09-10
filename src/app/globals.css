@@ -126,6 +126,16 @@
   --animate-empty-demo-slot: empty-demo-slot 6s ease-in-out infinite;
   --animate-empty-demo-ring: empty-demo-ring 6s ease-out infinite;
   --animate-empty-demo-check: empty-demo-check 6s ease-out infinite;
+  --animate-route-skeleton-in: route-skeleton-in 150ms ease 200ms both;
+}
+
+@keyframes route-skeleton-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadebob {
@@ -548,6 +558,20 @@
 .form-island :focus-visible {
   outline: 2px solid var(--form-ring);
   outline-offset: 2px;
+}
+
+.route-skeleton {
+  animation: route-skeleton-in 150ms ease 200ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-skeleton {
+    animation: none;
+  }
+
+  .route-skeleton [data-slot='skeleton'] {
+    animation: none;
+  }
 }
 
 @utility safe-inset-t {

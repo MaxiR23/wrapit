@@ -1,18 +1,12 @@
-import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import type { BoardCardData } from '@/components/projects/boardTypes';
 import RecordRecentProject from '@/components/projects/RecordRecentProject';
-import ProjectsShell from '@/components/projects/ProjectsShell';
-import { auth } from '@/lib/auth';
 import type { MembershipRole } from '@/lib/boardAccess';
 import { cardLabelFromRow, type LabelView } from '@/lib/labels';
 import type { BoardAccess } from '@/lib/membership';
-import { countOpenMyTasksForUser } from '@/lib/myTasks';
-import { getNotificationsForUser } from '@/lib/notifications';
-import { prisma } from '@/lib/prisma';
 import { getProjectLabelsForUser } from '@/lib/projectLabels';
 import {
   getArchivedProjectForUser,
@@ -20,6 +14,7 @@ import {
   listProjectMembersForUser,
 } from '@/lib/projects';
 import { ARCHIVED_PATH, parseProjectCardId, SIGN_IN_PATH } from '@/lib/routes';
+import { getSession } from '@/lib/session';
 import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
@@ -64,7 +59,7 @@ export default async function ProjectDetailPage({
   params,
   searchParams,
 }: PageProps<'/projects/[projectId]'>) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session) {
     redirect(SIGN_IN_PATH);
   }
@@ -81,12 +76,10 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const [members, notifications, labels, preferences, openTaskCount] = await Promise.all([
+  const [members, labels, preferences] = await Promise.all([
     listProjectMembersForUser(project.id, session.user.id),
-    getNotificationsForUser(session.user.id),
     getProjectLabelsForUser(project.id, session.user.id),
     getUserPreferences(session.user.id),
-    countOpenMyTasksForUser(prisma, session.user.id),
   ]);
   const username = sessionUsername(session.user);
   const projectLabels = labels ?? [];
@@ -96,19 +89,7 @@ export default async function ProjectDetailPage({
   const teamRole: MembershipRole = viewer?.role ?? 'MEMBER';
 
   return (
-    <ProjectsShell
-      user={{
-        name: session.user.name,
-        username,
-      }}
-      initialNotifications={notifications.items}
-      activeNav="projects"
-      openTaskCount={openTaskCount}
-      showSearch
-      searchPlaceholder="Search the board"
-      searchAriaLabel="Search the board"
-      contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
-    >
+    <>
       <RecordRecentProject projectId={project.id} />
       <ProjectBoard
         title={project.title}
@@ -144,6 +125,6 @@ export default async function ProjectDetailPage({
           cards: column.cards.map((card) => asCard(card, projectLabels)),
         }))}
       />
-    </ProjectsShell>
+    </>
   );
 }

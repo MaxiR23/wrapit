@@ -1,3 +1,5 @@
+import { cache } from 'react';
+
 import { dueDeltaDays, isCardDueLate } from '@/lib/cardDue';
 import { cardLabelFromRow, type CardLabelView } from '@/lib/labels';
 import type { BoardAccess } from '@/lib/membership';
@@ -311,7 +313,12 @@ type AssignedContext = {
 
 const EMPTY_LIST: MyTasksList = { tasks: [], createProjects: [], openCount: 0 };
 
-async function loadAssignedContext(db: MyTasksDb, userId: string): Promise<AssignedContext | null> {
+/** Memberships, live projects, columns, and assigned cards. React.cache so /tasks
+ * list and the shell badge share one load on the same request. */
+const loadAssignedContext = cache(async function loadAssignedContext(
+  db: MyTasksDb,
+  userId: string,
+): Promise<AssignedContext | null> {
   const memberships = await db.membership.findMany({ where: { userId } });
   if (memberships.length === 0) return null;
 
@@ -390,7 +397,7 @@ async function loadAssignedContext(db: MyTasksDb, userId: string): Promise<Assig
     accessByProjectId,
     projectIdByColumnId,
   };
-}
+});
 
 function createProjectsFrom(
   projects: Array<Record<string, unknown>>,

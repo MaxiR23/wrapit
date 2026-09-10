@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 type ProjectsSearchContextValue = {
   query: string;
@@ -9,9 +9,26 @@ type ProjectsSearchContextValue = {
 
 const ProjectsSearchContext = createContext<ProjectsSearchContextValue | null>(null);
 
-export function ProjectsSearchProvider({ children }: { children: ReactNode }) {
-  const [query, setQuery] = useState('');
-  const value = useMemo(() => ({ query, setQuery }), [query]);
+export function ProjectsSearchProvider({
+  children,
+  scope = 'projects',
+}: {
+  children: ReactNode;
+  /** Screen key from searchScopeForPath. Null on /account: no query, setQuery is a no-op. */
+  scope?: string | null;
+}) {
+  const [queries, setQueries] = useState<Record<string, string>>({});
+  const query = scope === null ? '' : (queries[scope] ?? '');
+
+  const setQuery = useCallback(
+    (next: string) => {
+      if (scope === null) return;
+      setQueries((current) => (current[scope] === next ? current : { ...current, [scope]: next }));
+    },
+    [scope],
+  );
+
+  const value = useMemo(() => ({ query, setQuery }), [query, setQuery]);
 
   return <ProjectsSearchContext.Provider value={value}>{children}</ProjectsSearchContext.Provider>;
 }

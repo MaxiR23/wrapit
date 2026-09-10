@@ -16,10 +16,14 @@
 //
 // Run with: pnpm test:run tests/app/projects/projectsPage.test.tsx
 //
-// SEE: src/app/projects/page.tsx
+// SEE: src/app/(app)/projects/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+
+import { OpenPanelProvider } from '@/components/projects/OpenPanel';
+import { ProjectsSearchProvider } from '@/components/projects/ProjectsSearch';
 
 const getSession = vi.fn();
 const listProjectSummariesForUser = vi.fn();
@@ -40,14 +44,6 @@ vi.mock('@/lib/projects', () => ({
 
 vi.mock('@/lib/userPreferences', () => ({
   getUserPreferences,
-}));
-
-vi.mock('@/lib/notifications', () => ({
-  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
-}));
-
-vi.mock('@/lib/myTasks', () => ({
-  countOpenMyTasksForUser: vi.fn(async () => 0),
 }));
 
 vi.mock('@/actions/createProject', () => ({
@@ -83,7 +79,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const { default: ProjectsPage } = await import('@/app/projects/page');
+const { default: ProjectsPage } = await import('@/app/(app)/projects/page');
 
 const sprintBoard = {
   id: 'project-1',
@@ -98,6 +94,14 @@ const sprintBoard = {
   canAdminister: true,
   members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
 };
+
+function renderPage(node: ReactNode) {
+  return render(
+    <OpenPanelProvider>
+      <ProjectsSearchProvider>{node}</ProjectsSearchProvider>
+    </OpenPanelProvider>,
+  );
+}
 
 describe('Projects page', () => {
   beforeEach(() => {
@@ -127,7 +131,7 @@ describe('Projects page', () => {
       },
     ]);
 
-    render(await ProjectsPage());
+    renderPage(await ProjectsPage());
 
     expect(listProjectSummariesForUser).toHaveBeenCalledWith('user-ada');
     expect(getUserPreferences).toHaveBeenCalledWith('user-ada');
@@ -140,6 +144,7 @@ describe('Projects page', () => {
       '/projects/project-2',
     );
     expect(screen.getByText('2 projects')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
     expect(screen.getByText('0 of 0 tasks')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -148,7 +153,7 @@ describe('Projects page', () => {
     getUserPreferences.mockResolvedValue({ viewMode: 'list' });
     listProjectSummariesForUser.mockResolvedValue([sprintBoard]);
 
-    render(await ProjectsPage());
+    renderPage(await ProjectsPage());
 
     expect(getUserPreferences).toHaveBeenCalledWith('user-ada');
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
@@ -184,7 +189,7 @@ describe('Projects page', () => {
       { projectId: 'project-1' },
     ]);
 
-    render(await ProjectsPage());
+    renderPage(await ProjectsPage());
 
     expect(listRecentProjectsForUser).toHaveBeenCalledWith('user-ada');
     const recents = screen.getByText('Recents').parentElement;
@@ -209,7 +214,7 @@ describe('Projects page', () => {
       { projectId: 'project-2' },
     ]);
 
-    render(await ProjectsPage());
+    renderPage(await ProjectsPage());
 
     const recents = screen.getByText('Recents').parentElement;
     const chips = recents?.querySelectorAll('a') ?? [];
@@ -239,7 +244,7 @@ describe('Projects page', () => {
       { projectId: 'project-1' },
     ]);
 
-    render(await ProjectsPage());
+    renderPage(await ProjectsPage());
 
     const recents = screen.getByText('Recents').parentElement;
     const chips = recents?.querySelectorAll('a') ?? [];

@@ -1,20 +1,27 @@
 // tests/app/archived/archivedPage.test.tsx
 //
-// Tests for the /archived page shell and projects list.
+// Tests for the /archived page projects list.
 //
 // Tested:
-// - Renders Archived and the archived-projects search for a signed-in user
+// - Renders Archived for a signed-in user
+// - Does not wrap the page in the projects shell
 // - Redirects when there is no session
 //
 // What is covered:
-// - Authenticated render, unauthenticated redirect
+// - Authenticated render, unauthenticated redirect. Topbar search lives in
+//   the authenticated layout; the phone search on the list remains on the
+//   page.
 //
 // Run with: pnpm test:run tests/app/archived/archivedPage.test.tsx
 //
-// SEE: src/app/archived/page.tsx
+// SEE: src/app/(app)/archived/page.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
+
+import { OpenPanelProvider } from '@/components/projects/OpenPanel';
+import { ProjectsSearchProvider } from '@/components/projects/ProjectsSearch';
 
 const getSession = vi.fn();
 const listArchivedProjectsForUser = vi.fn();
@@ -30,27 +37,12 @@ vi.mock('@/lib/archivedProjectsQuery', () => ({
   listArchivedProjectsForUser,
 }));
 
-vi.mock('@/lib/myTasks', () => ({
-  countOpenMyTasksForUser: vi.fn(async () => 0),
-}));
-
-vi.mock('@/lib/notifications', () => ({
-  getNotificationsForUser: vi.fn(async () => ({ items: [], unreadCount: 0 })),
-}));
-
 vi.mock('@/actions/restoreArchivedCards', () => ({ restoreArchivedCards: vi.fn() }));
 vi.mock('@/actions/rearchiveArchivedCards', () => ({ rearchiveArchivedCards: vi.fn() }));
 vi.mock('@/actions/deleteArchivedCards', () => ({ deleteArchivedCards: vi.fn() }));
 vi.mock('@/actions/restoreArchivedProjects', () => ({ restoreArchivedProjects: vi.fn() }));
 vi.mock('@/actions/rearchiveArchivedProjects', () => ({ rearchiveArchivedProjects: vi.fn() }));
 vi.mock('@/actions/deleteArchivedProject', () => ({ deleteArchivedProject: vi.fn() }));
-vi.mock('@/actions/listNotifications', () => ({
-  listNotifications: vi.fn(async () => ({ data: { items: [], unreadCount: 0 } })),
-}));
-vi.mock('@/actions/markNotificationRead', () => ({ markNotificationRead: vi.fn() }));
-vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
-vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation: vi.fn() }));
-vi.mock('@/actions/rejectInvitation', () => ({ rejectInvitation: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -61,7 +53,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const { default: ArchivedProjectsPage } = await import('@/app/archived/page');
+const { default: ArchivedProjectsPage } = await import('@/app/(app)/archived/page');
+
+function renderPage(node: ReactNode) {
+  return render(
+    <OpenPanelProvider>
+      <ProjectsSearchProvider>{node}</ProjectsSearchProvider>
+    </OpenPanelProvider>,
+  );
+}
 
 describe('Archived projects page', () => {
   beforeEach(() => {
@@ -72,8 +72,8 @@ describe('Archived projects page', () => {
     listArchivedProjectsForUser.mockResolvedValue([]);
   });
 
-  it('renders Archived and the archived-projects search for a signed-in user', async () => {
-    render(await ArchivedProjectsPage());
+  it('renders Archived for a signed-in user', async () => {
+    renderPage(await ArchivedProjectsPage());
 
     expect(listArchivedProjectsForUser).toHaveBeenCalledWith('user-ada');
     expect(screen.getByRole('heading', { name: 'Archived' })).toBeInTheDocument();
@@ -81,8 +81,7 @@ describe('Archived projects page', () => {
       screen.getAllByRole('searchbox', { name: 'Search archived projects' }).length,
     ).toBeGreaterThan(0);
     expect(screen.getByText('No archived projects')).toBeInTheDocument();
-    const archivedLinks = screen.getAllByRole('link', { name: 'Archived' });
-    expect(archivedLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
   it('redirects when there is no session', async () => {

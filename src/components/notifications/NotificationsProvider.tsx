@@ -22,15 +22,22 @@ type NotificationsContextValue = {
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
+const EMPTY_ITEMS: NotificationListItem[] = [];
+
 export function NotificationsProvider({
   children,
-  initialItems = [],
+  initialItems = EMPTY_ITEMS,
 }: {
   children: ReactNode;
   initialItems?: NotificationListItem[];
 }) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationListItem[]>(initialItems);
+  const [seededFrom, setSeededFrom] = useState(initialItems);
+  if (initialItems !== seededFrom) {
+    setSeededFrom(initialItems);
+    setItems(initialItems);
+  }
 
   const unreadCount = items.filter((item) => !item.read).length;
 
