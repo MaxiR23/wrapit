@@ -128,13 +128,14 @@ See: https://github.com/lint-staged/lint-staged
 ### What it is
 
 Husky manages git hooks. A git hook is a script that git runs automatically at
-certain points, such as before a commit. We use it to run checks before every
-commit.
+certain points, such as before a commit or a push. We use it to run checks
+before every commit and the full `pnpm verify` gate before every push.
 
 ### Why we use it
 
 - It blocks commits that do not pass linting and formatting, keeping the repo
   clean without relying on people remembering to run the tools.
+- It blocks pushes that have not passed `pnpm verify`.
 - The `prepare` script in package.json installs the hooks automatically after a
   fresh `pnpm install`, so every contributor gets them.
 
@@ -153,6 +154,17 @@ loaded and `pnpm` can be missing. The hook resolves this by:
 
 Machine-specific setup that should not live in the repo can be placed in
 `~/.config/husky/init.sh`, which Husky sources before running any hook.
+
+### The pre-push hook (.husky/pre-push)
+
+The hook refuses the push unless every updated ref is the checked-out HEAD
+and the working tree is clean (no staged, unstaged, or untracked files). That
+way `pnpm verify` cannot pass on uncommitted work while a broken commit is
+pushed. A delete-only push skips verify and does not require pnpm.
+
+If the tree is the clean HEAD being pushed, the hook locates `pnpm` with the
+same PATH bootstrap as pre-commit, then runs `pnpm verify`. If any step fails,
+the push is aborted. The guard lives in `scripts/assert-pushing-clean-head.sh`.
 
 See: https://typicode.github.io/husky/
 
@@ -188,3 +200,21 @@ loop to work in. `pnpm test:run` runs once and exits, for a final check and for
 CI. Test conventions live in `docs/testing.md`.
 
 See: https://vitest.dev/
+
+## Verify
+
+`pnpm verify` is the local quality gate. It runs, in this order, and stops at
+the first failure:
+
+1. `pnpm lint`
+2. `pnpm format:check`
+3. `pnpm exec tsc --noEmit`
+4. `pnpm test:run`
+5. `pnpm build`
+
+Type checking is its own step so a type error is caught even when `pnpm build`
+cannot run (for example when Postgres is down). An environmental failure is
+still a failure: the command exits non-zero and later steps are reported as
+never ran, not skipped. The pre-push hook runs this command.
+
+The runner lives in `scripts/verify.mjs`.
