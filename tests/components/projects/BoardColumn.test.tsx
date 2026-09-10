@@ -6,9 +6,10 @@
 // - Renders the uppercase title, card count, and cards
 // - Leaves an empty column blank (no placeholder copy)
 // - Enables the add-card control and reports the column
+// - Marks the plus as a tap target and keeps the header from shrinking
 //
 // What is covered:
-// - Title, count, empty state, plus button
+// - Title, count, empty state, plus button, touch-manipulation, shrink-0 header
 //
 // Run with: pnpm test:run tests/components/projects/BoardColumn.test.tsx
 //
@@ -50,6 +51,10 @@ describe('BoardColumn', () => {
 
     const plus = screen.getByRole('button', { name: 'Add card to To do' });
     expect(plus).toBeEnabled();
+    expect(plus).toHaveClass('touch-manipulation');
+    expect(screen.getByRole('heading', { name: 'To do' }).closest('header')).toHaveClass(
+      'shrink-0',
+    );
     await user.click(plus);
     expect(onAddCard).toHaveBeenCalledWith('column-todo', plus);
   });

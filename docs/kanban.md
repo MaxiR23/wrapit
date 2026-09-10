@@ -295,12 +295,19 @@ target → `1`.
 
 Cards move on desktop with HTML5 drag-and-drop (pointer only) plus a keyboard
 **Move** menu, and on mobile with a 420ms long press that lifts the card and
-follows the finger across a 330px carousel. Cards use `touch-pan-y` from
-pointer-down so a hold-then-drag is not claimed as a carousel pan (`touch-action`
-is fixed for the gesture at pointer-down; toggling `touch-none` after the lift
-is too late). The rail stays freely scrollable outside the cards: swipe the
-column header, empty column body, or padding, or tap the dots. A vertical
-swipe on a card still scrolls the list. While lifted, snap is off and the
+follows the finger across a 330px carousel. A swipe that starts on a card
+scrolls natively (the rail horizontally, the column list vertically); a tap
+opens the card. The detector waits those 420ms (8px slop) rather than claiming
+the pointer on contact. Cards do not use `touch-pan-y`: that rule blocked a
+plain horizontal swipe from a card so a hold-then-drag would not become a
+carousel pan, and it is not restored. `touch-action` is fixed for the gesture
+at pointer-down, so toggling `touch-none` after the lift is too late and is
+not used. After the lift, a non-passive `touchmove` listener on the rail calls
+`preventDefault` only while the card is lifted, which is what stops the rail
+from panning under the drag. Do not retune 420ms or the 8px slop if a device
+still pans; freeze `overflow-x` on the existing rail while lifted instead.
+The column plus uses `touch-manipulation` and stops pointer propagation so
+the snap rail does not eat the tap. While lifted, snap is off and the
 rail auto-scrolls only inside a 40px edge band at 0.22px/ms (about 1.5s per
 column). Pointerup always clears the lift. Only the column under the pointer
 at release counts: a drop there on another column commits

@@ -58,7 +58,13 @@ export default function BoardMobile({
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    const rail = railRef.current;
+    function onTouchMove(event: TouchEvent) {
+      if (liftedIdRef.current) event.preventDefault();
+    }
+    rail?.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
+      rail?.removeEventListener('touchmove', onTouchMove);
       if (timerRef.current != null) window.clearTimeout(timerRef.current);
       if (rafRef.current != null) window.cancelAnimationFrame(rafRef.current);
     };
@@ -287,7 +293,6 @@ export default function BoardMobile({
                   card={cardsById[card.id] ?? card}
                   visibility={visibility}
                   dimmed={liftedId === card.id}
-                  className="touch-pan-y"
                   onPointerDown={canEdit ? (event) => startPress(card.id, event) : undefined}
                   onPointerCancel={cancelPress}
                   onClick={(event) => {

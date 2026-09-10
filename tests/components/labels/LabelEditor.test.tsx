@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 
 import type { LabelView } from '@/lib/labels';
 
@@ -69,7 +69,12 @@ function StatefulEditor({
   );
 }
 
-function renderEditor(onDone = vi.fn(), onLabelsChange = vi.fn()) {
+type LabelEditorProps = ComponentProps<typeof LabelEditor>;
+
+function renderEditor(
+  onDone = vi.fn<LabelEditorProps['onDone']>(),
+  onLabelsChange = vi.fn<NonNullable<LabelEditorProps['onLabelsChange']>>(),
+) {
   return {
     onDone,
     onLabelsChange,
