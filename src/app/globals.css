@@ -102,23 +102,32 @@
   --spacing-screen-breadcrumb: calc(
     var(--text-screen-breadcrumb) * var(--text-screen-breadcrumb--line-height)
   );
-  --spacing-screen-header: calc(
-    var(--spacing-screen-breadcrumb) + var(--spacing-screen-header-gap) +
-      (var(--text-screen-title) * var(--text-screen-title--line-height)) +
+  --spacing-screen-header-title: calc(
+    (var(--text-screen-title) * var(--text-screen-title--line-height)) +
       var(--spacing-screen-header-subtitle) +
       (var(--text-screen-subtitle) * var(--text-screen-subtitle--line-height))
+  );
+  --spacing-screen-header-title-tablet: calc(
+    (var(--text-screen-title-tablet) * var(--text-screen-title-tablet--line-height)) +
+      var(--spacing-screen-header-subtitle) +
+      (var(--text-screen-subtitle) * var(--text-screen-subtitle--line-height))
+  );
+  --spacing-screen-header-title-lg: calc(
+    (var(--text-screen-title-lg) * var(--text-screen-title-lg--line-height)) +
+      var(--spacing-screen-header-subtitle) +
+      (var(--text-screen-subtitle) * var(--text-screen-subtitle--line-height))
+  );
+  --spacing-screen-header: calc(
+    var(--spacing-screen-breadcrumb) + var(--spacing-screen-header-gap) +
+      var(--spacing-screen-header-title)
   );
   --spacing-screen-header-tablet: calc(
     var(--spacing-screen-breadcrumb) + var(--spacing-screen-header-gap) +
-      (var(--text-screen-title-tablet) * var(--text-screen-title-tablet--line-height)) +
-      var(--spacing-screen-header-subtitle) +
-      (var(--text-screen-subtitle) * var(--text-screen-subtitle--line-height))
+      var(--spacing-screen-header-title-tablet)
   );
   --spacing-screen-header-lg: calc(
     var(--spacing-screen-breadcrumb) + var(--spacing-screen-header-gap) +
-      (var(--text-screen-title-lg) * var(--text-screen-title-lg--line-height)) +
-      var(--spacing-screen-header-subtitle) +
-      (var(--text-screen-subtitle) * var(--text-screen-subtitle--line-height))
+      var(--spacing-screen-header-title-lg)
   );
   --color-form-bg: var(--form-bg);
   --color-form-fg: var(--form-fg);

@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Renders a title inside the screen-header slot
-// - Title-only and breadcrumb headers share the identity min-height classes
+// - Omits the breadcrumb slot and uses the shorter identity when there is no crumb
 // - Places actions after the title
 // - Flush inset adds no pane padding; pane inset uses the shared tokens and wash
 // - Truncates the breadcrumb slot so a long crumb cannot grow the identity
@@ -29,6 +29,7 @@ import { render, screen } from '@testing-library/react';
 
 import ScreenHeader, {
   screenHeaderIdentityClassName,
+  screenHeaderIdentityWithBreadcrumbClassName,
   screenInsetClassName,
 } from '@/components/ScreenHeader';
 
@@ -42,6 +43,7 @@ describe('ScreenHeader', () => {
     expect(css).toMatch(/--spacing-screen-x:/);
     expect(css).toMatch(/--spacing-screen-pt:/);
     expect(css).toMatch(/--spacing-screen-header:/);
+    expect(css).toMatch(/--spacing-screen-header-title:/);
     expect(css).toMatch(/--text-screen-title:/);
     expect(css).toMatch(/--tracking-screen-title:/);
   });
@@ -52,18 +54,25 @@ describe('ScreenHeader', () => {
     expect(heading.closest('[data-slot="screen-header"]')).not.toBeNull();
   });
 
-  it('uses the same identity min-height with or without a breadcrumb', () => {
-    const titleOnly = render(<ScreenHeader title="Projects" />);
-    const titleIdentity = titleOnly.container.querySelector('[data-slot="screen-header-identity"]');
+  it('omits the breadcrumb slot when none is passed', () => {
+    const { container } = render(<ScreenHeader title="Projects" />);
+    const identity = container.querySelector('[data-slot="screen-header-identity"]');
 
-    const withCrumb = render(
+    expect(container.querySelector('[data-slot="screen-header-breadcrumb"]')).toBeNull();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(identity).toHaveClass(...screenHeaderIdentityClassName.split(' '));
+    expect(identity).not.toHaveClass('min-h-screen-header');
+  });
+
+  it('renders the breadcrumb slot only when a crumb is passed', () => {
+    const { container } = render(
       <ScreenHeader breadcrumb={<>Projects / Archived</>} title="Archived" />,
     );
-    const crumbIdentity = withCrumb.container.querySelector('[data-slot="screen-header-identity"]');
+    const identity = container.querySelector('[data-slot="screen-header-identity"]');
 
-    expect(titleIdentity).toHaveClass(...screenHeaderIdentityClassName.split(' '));
-    expect(crumbIdentity).toHaveClass(...screenHeaderIdentityClassName.split(' '));
-    expect(titleIdentity?.className).toBe(crumbIdentity?.className);
+    expect(container.querySelector('[data-slot="screen-header-breadcrumb"]')).not.toBeNull();
+    expect(screen.getByRole('navigation')).toHaveTextContent('Projects / Archived');
+    expect(identity).toHaveClass(...screenHeaderIdentityWithBreadcrumbClassName.split(' '));
   });
 
   it('places actions after the title', () => {
