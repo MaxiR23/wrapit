@@ -22,9 +22,10 @@ import Loading from '@/app/(app)/projects/loading';
 
 describe('ProjectsLoading', () => {
   it('renders a card grid inside a status region and omits shell chrome', () => {
-    render(<ProjectsLoading />);
+    const { container } = render(<ProjectsLoading />);
 
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('[data-slot="screen-header"]')).not.toBeNull();
     expect(screen.getByRole('list').children).toHaveLength(6);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });

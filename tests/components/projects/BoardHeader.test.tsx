@@ -5,6 +5,7 @@
 // Tested:
 // - Links back to the projects list
 // - Shows desktop and mobile progress copy from the same counts
+// - Search sits in a full-width mobile actions row
 // - Replaces the bar with empty copy when there are no cards
 // - Renders one interactive avatar per member and a Share button
 // - Does not render a Labels control
@@ -78,8 +79,13 @@ describe('BoardHeader', () => {
       '/projects/project-1/archived',
     );
     expect(screen.getByRole('heading', { name: 'Sprint board' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Sprint board' }).closest('[data-slot="screen-header"]'),
+    ).not.toBeNull();
     expect(screen.getByText('1 of 4 cards done')).toBeInTheDocument();
     expect(screen.getByText('1/4 done')).toBeInTheDocument();
+    const search = screen.getByRole('searchbox', { name: 'Search the board' });
+    expect(search.closest('[data-slot="screen-header-actions"]')).toHaveClass('w-full');
   });
 
   it('replaces the progress bar with empty copy when there are no cards', () => {

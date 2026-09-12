@@ -81,6 +81,9 @@ describe('AccountScreen', () => {
     renderScreen('profile');
 
     expect(screen.getByRole('heading', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Ada Lovelace' }).closest('[data-slot="screen-header"]'),
+    ).toHaveClass('projects-content-wash');
     expect(screen.getByText('@ada')).toBeInTheDocument();
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((tab) => tab.textContent)).toEqual(['Profile', 'Visibility', 'Activity']);

@@ -3,6 +3,7 @@
 import { useLayoutEffect, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
+import { screenInsetClassName } from '@/components/ScreenHeader';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import ProjectsMobileHeader from '@/components/projects/ProjectsMobileHeader';
 import ProjectsMobileTabBar from '@/components/projects/ProjectsMobileTabBar';
@@ -10,12 +11,14 @@ import { ProjectsSearchProvider } from '@/components/projects/ProjectsSearch';
 import ProjectsSidebar from '@/components/projects/ProjectsSidebar';
 import { searchScopeForPath } from '@/components/projects/searchScope';
 import { shellChromeForPath } from '@/components/projects/shellChrome';
-import ProjectsTopbar from '@/components/projects/ProjectsTopbar';
 import type { ProjectsShellUser } from '@/components/projects/shell';
+import ProjectsTopbar from '@/components/projects/ProjectsTopbar';
 import { cn } from '@/lib/utils';
 
-const defaultContentClassName =
-  'projects-content-wash flex min-h-0 flex-col gap-5 overflow-auto px-4 py-4 pb-6 tablet:flex-1 md:gap-[22px] md:px-5 md:pt-[22px] md:pb-[30px] lg:gap-[26px] lg:px-7 lg:pt-[26px] lg:pb-9';
+const defaultContentClassName = cn(
+  'projects-content-wash flex min-h-0 flex-col gap-5 overflow-auto pb-6 tablet:flex-1 md:gap-[22px] md:pb-[30px] lg:gap-[26px] lg:pb-9',
+  screenInsetClassName,
+);
 
 const mobileTabBarOffsetClassName = 'max-tablet:pb-[var(--spacing-mobile-tab-bar)]';
 

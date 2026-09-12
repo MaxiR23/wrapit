@@ -104,6 +104,14 @@ describe('ProjectsShell', () => {
     const content = tabBar()?.previousElementSibling;
 
     expect(content).toHaveClass('overflow-auto', 'min-h-0', 'tablet:flex-1');
+    expect(content).toHaveClass(
+      'px-screen-x',
+      'pt-screen-pt',
+      'md:px-screen-x-md',
+      'md:pt-screen-pt-md',
+      'lg:px-screen-x-lg',
+      'lg:pt-screen-pt-lg',
+    );
     expect(content).not.toHaveClass('flex-1');
     expect(content).toHaveClass('max-tablet:pb-[calc(var(--spacing-mobile-tab-bar)+1.5rem)]');
     expect(screen.getByText('Grid')).toBeInTheDocument();

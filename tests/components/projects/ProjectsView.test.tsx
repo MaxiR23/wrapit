@@ -177,6 +177,14 @@ describe('ProjectsView', () => {
     expect(screen.getByText('11 of 24 tasks')).toBeInTheDocument();
   });
 
+  it('keeps mobile search above the shared header', () => {
+    renderView(<ProjectsView projects={[project]} />, { withSearch: true });
+
+    const search = screen.getByLabelText('Search projects');
+    const heading = screen.getByRole('heading', { name: 'Projects' });
+    expect(search.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('seeds the list from the initial view without a click', () => {
     renderView(<ProjectsView projects={[project]} initialView="list" />);
 

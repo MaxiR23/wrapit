@@ -1,5 +1,6 @@
 'use client';
 
+import ScreenHeader from '@/components/ScreenHeader';
 import AccountActivity from '@/components/account/AccountActivity';
 import AccountProfile from '@/components/account/AccountProfile';
 import AccountStatusPill from '@/components/account/AccountStatusPill';
@@ -37,24 +38,26 @@ export default function AccountScreen({
       }}
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="projects-content-wash flex shrink-0 flex-col gap-4 px-7 pt-[26px]">
-          <div className="flex items-center gap-3.5">
+        <ScreenHeader
+          inset="pane"
+          leading={
             <span
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-border-strong bg-card text-sm font-semibold leading-none"
               aria-hidden="true"
             >
               {initials}
             </span>
-            <div className="mr-auto flex min-w-0 flex-col gap-[3px]">
-              <h1 className="text-2xl font-semibold tracking-[-0.02em]">{name}</h1>
-              <div className="flex items-center gap-[9px]">
-                <span className="text-[13px] text-muted-foreground">@{profile.username}</span>
-                <AccountStatusPill />
-              </div>
+          }
+          title={name}
+          subtitle={
+            <div className="flex items-center gap-[9px]">
+              <span>@{profile.username}</span>
+              <AccountStatusPill />
             </div>
-          </div>
+          }
+        >
           <AccountTabs tab={tab} />
-        </header>
+        </ScreenHeader>
         <div className="min-h-0 overflow-auto tablet:flex-1">
           {tab === 'profile' ? (
             <AccountProfile profile={profile} />

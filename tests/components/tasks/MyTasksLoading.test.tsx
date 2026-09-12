@@ -25,6 +25,7 @@ describe('MyTasksLoading', () => {
     const { container } = render(<MyTasksLoading />);
 
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(container.querySelector('[data-slot="screen-header"]')).not.toBeNull();
     expect(container.querySelectorAll('.rounded-\\[10px\\]').length).toBeGreaterThanOrEqual(5);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });

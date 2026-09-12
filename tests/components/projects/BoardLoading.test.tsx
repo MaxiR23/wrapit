@@ -29,6 +29,9 @@ describe('BoardLoading', () => {
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute('aria-busy', 'true');
     expect(status).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col');
+    expect(container.querySelector('[data-slot="screen-header"]')).toHaveClass(
+      'projects-content-wash',
+    );
     expect(container.querySelector('[data-board="desktop"]')).toHaveClass('min-h-0', 'flex-1');
     expect(container.querySelector('[data-board="desktop"]')?.children).toHaveLength(3);
     expect(container.querySelector('[data-board="mobile"]')).not.toBeNull();

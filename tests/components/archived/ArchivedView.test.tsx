@@ -119,6 +119,9 @@ describe('ArchivedView', () => {
 
     expect(screen.getByText('No archived tasks in Sprint board')).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', { name: 'Archived' }).closest('[data-slot="screen-header"]'),
+    ).not.toBeNull();
+    expect(
       screen.getByText('Archive a card from the board and you will find it here.'),
     ).toBeInTheDocument();
   });

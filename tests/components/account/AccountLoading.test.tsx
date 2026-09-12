@@ -25,13 +25,17 @@ describe('AccountLoading', () => {
     const { container } = render(<AccountLoading />);
 
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
-    expect(container.querySelector('header.projects-content-wash')).not.toBeNull();
+    expect(container.querySelector('[data-slot="screen-header"]')).toHaveClass(
+      'projects-content-wash',
+    );
     expect(container.querySelectorAll('.rounded-lg.border.bg-surface').length).toBe(2);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 
   it('is what the account loading route file renders', () => {
     const { container } = render(<Loading />);
-    expect(container.querySelector('header.projects-content-wash')).not.toBeNull();
+    expect(container.querySelector('[data-slot="screen-header"]')).toHaveClass(
+      'projects-content-wash',
+    );
   });
 });
