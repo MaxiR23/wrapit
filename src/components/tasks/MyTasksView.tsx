@@ -5,6 +5,7 @@ import { AlertTriangle, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { setCardCompleted } from '@/actions/setCardCompleted';
+import ScreenHeader from '@/components/ScreenHeader';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -172,70 +173,66 @@ function MyTasksViewBody({
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-4 tablet:flex-row tablet:items-end tablet:justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="hidden text-[23px] font-semibold tracking-[-0.025em] tablet:block lg:text-[27px]">
-            My tasks
-          </h1>
-          <p className="text-[13px] text-muted-foreground tablet:text-[12.5px] lg:text-[13px]">
-            {myTasksSummary(openFiltered, now)}
-          </p>
-        </div>
-        <div className="relative flex items-center gap-2">
-          <div className="flex flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:flex-none">
-            {hasLate ? (
-              <button
-                type="button"
-                onClick={() => setPeriod('overdue')}
-                className={cn(
-                  segmentClass(period === 'overdue'),
-                  'hidden text-late tablet:inline-flex tablet:items-center tablet:gap-1.5',
-                  period === 'overdue' && 'bg-card',
-                )}
-              >
-                Overdue
-                <span className="rounded-full bg-danger-soft px-1.5 text-[11px] text-late">
-                  {lateCount}
-                </span>
-              </button>
+      <ScreenHeader
+        title="My tasks"
+        subtitle={myTasksSummary(openFiltered, now)}
+        actions={
+          <div className="relative flex w-full items-center gap-2">
+            <div className="flex flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:flex-none">
+              {hasLate ? (
+                <button
+                  type="button"
+                  onClick={() => setPeriod('overdue')}
+                  className={cn(
+                    segmentClass(period === 'overdue'),
+                    'hidden text-late tablet:inline-flex tablet:items-center tablet:gap-1.5',
+                    period === 'overdue' && 'bg-card',
+                  )}
+                >
+                  Overdue
+                  <span className="rounded-full bg-danger-soft px-1.5 text-[11px] text-late">
+                    {lateCount}
+                  </span>
+                </button>
+              ) : null}
+              {PERIODS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setPeriod(item.id)}
+                  className={cn(segmentClass(period === item.id), 'flex-1 tablet:flex-none')}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="New task"
+              onClick={() => {
+                setOpenPanel(null);
+                setCreateOpen(true);
+              }}
+              className={cn(
+                shellFocusClassName,
+                'inline-flex size-[46px] items-center justify-center rounded-md bg-primary text-[13.5px] font-semibold text-primary-foreground',
+                'tablet:size-10 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-[15px]',
+              )}
+            >
+              <Plus className="size-[15px]" strokeWidth={2.2} />
+              <span className="hidden lg:inline">New task</span>
+            </button>
+            {createOpen ? (
+              <NewTaskPopover
+                open
+                onOpenChange={setCreateOpen}
+                projects={createProjects}
+                onCreated={handleCreated}
+              />
             ) : null}
-            {PERIODS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setPeriod(item.id)}
-                className={cn(segmentClass(period === item.id), 'flex-1 tablet:flex-none')}
-              >
-                {item.label}
-              </button>
-            ))}
           </div>
-          <button
-            type="button"
-            aria-label="New task"
-            onClick={() => {
-              setOpenPanel(null);
-              setCreateOpen(true);
-            }}
-            className={cn(
-              shellFocusClassName,
-              'inline-flex size-[46px] items-center justify-center rounded-md bg-primary text-[13.5px] font-semibold text-primary-foreground',
-              'tablet:size-10 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-[15px]',
-            )}
-          >
-            <Plus className="size-[15px]" strokeWidth={2.2} />
-            <span className="hidden lg:inline">New task</span>
-          </button>
-          {createOpen ? (
-            <NewTaskPopover
-              open
-              onOpenChange={setCreateOpen}
-              projects={createProjects}
-              onCreated={handleCreated}
-            />
-          ) : null}
-        </div>
-      </header>
+        }
+      />
 
       {hasLate && !lateHidden ? (
         <div className="flex h-[46px] items-center gap-2 rounded-md border border-border px-3.5 text-late tablet:hidden">

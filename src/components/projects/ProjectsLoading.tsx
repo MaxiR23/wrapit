@@ -1,3 +1,4 @@
+import ScreenHeader from '@/components/ScreenHeader';
 import { RouteSkeleton, Skeleton } from '@/components/ui/skeleton';
 
 function ProjectCardBone() {
@@ -34,14 +35,16 @@ export default function ProjectsLoading() {
         <Skeleton className="h-mobile-search min-w-0 flex-1 rounded-md" />
         <Skeleton className="size-mobile-search shrink-0 rounded-md" />
       </div>
-      <div className="flex flex-wrap items-end gap-3 md:gap-2.5 lg:gap-3">
-        <div className="mr-auto flex flex-col gap-[5px]">
-          <Skeleton className="hidden h-8 w-32 md:block" />
-          <Skeleton className="h-3.5 w-20" />
-        </div>
-        <Skeleton className="h-[34px] w-[140px] rounded-md md:h-8 lg:h-[30px]" />
-        <Skeleton className="hidden h-[38px] w-[132px] rounded-md md:block lg:h-9" />
-      </div>
+      <ScreenHeader
+        title={<Skeleton className="h-7 w-32" />}
+        subtitle={<Skeleton className="h-3.5 w-20" />}
+        actions={
+          <>
+            <Skeleton className="h-[34px] w-[140px] rounded-md md:h-8 lg:h-[30px]" />
+            <Skeleton className="hidden h-[38px] w-[132px] rounded-md md:block lg:h-9" />
+          </>
+        }
+      />
       <ul className="m-0 grid list-none grid-cols-[repeat(1,minmax(0,1fr))] gap-3.5 p-0 md:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
         {Array.from({ length: 6 }, (_, index) => (
           <li key={index} className="min-w-0">

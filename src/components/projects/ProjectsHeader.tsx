@@ -2,6 +2,7 @@
 
 import { Plus } from 'lucide-react';
 
+import ScreenHeader from '@/components/ScreenHeader';
 import NewProjectDialog from '@/components/projects/NewProjectDialog';
 import { shellFocusClassName } from '@/components/projects/shell';
 import { projectCountLabel } from '@/lib/projectGrid';
@@ -24,65 +25,66 @@ export default function ProjectsHeader({
   hasProjects?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 md:gap-2.5 lg:gap-3">
-      <div className="mr-auto flex flex-col gap-[5px]">
-        <h1 className="hidden text-2xl font-semibold tracking-[-0.025em] md:block lg:text-[27px]">
-          Projects
-        </h1>
-        <span className="text-[12.5px] text-muted-foreground md:text-[13px]">
-          {projectCountLabel(count)}
-        </span>
-      </div>
+    <ScreenHeader
+      title="Projects"
+      subtitle={projectCountLabel(count)}
+      actions={
+        <>
+          <div
+            className={cn(
+              'flex gap-[3px] rounded-md border border-border bg-surface p-[3px]',
+              !hasProjects && 'opacity-35 md:hidden',
+            )}
+          >
+            <button
+              type="button"
+              aria-pressed={view === 'grid'}
+              aria-disabled={hasProjects ? undefined : true}
+              disabled={!hasProjects}
+              onClick={() => onViewChange('grid')}
+              className={cn(
+                shellFocusClassName,
+                toggleButtonClassName,
+                view === 'grid'
+                  ? 'bg-card text-foreground'
+                  : 'bg-transparent text-muted-foreground',
+              )}
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'list'}
+              aria-disabled={hasProjects ? undefined : true}
+              disabled={!hasProjects}
+              onClick={() => onViewChange('list')}
+              className={cn(
+                shellFocusClassName,
+                toggleButtonClassName,
+                view === 'list'
+                  ? 'bg-card text-foreground'
+                  : 'bg-transparent text-muted-foreground',
+              )}
+            >
+              List
+            </button>
+          </div>
 
-      <div
-        className={cn(
-          'flex gap-[3px] rounded-md border border-border bg-surface p-[3px]',
-          !hasProjects && 'opacity-35 md:hidden',
-        )}
-      >
-        <button
-          type="button"
-          aria-pressed={view === 'grid'}
-          aria-disabled={hasProjects ? undefined : true}
-          disabled={!hasProjects}
-          onClick={() => onViewChange('grid')}
-          className={cn(
-            shellFocusClassName,
-            toggleButtonClassName,
-            view === 'grid' ? 'bg-card text-foreground' : 'bg-transparent text-muted-foreground',
-          )}
-        >
-          Grid
-        </button>
-        <button
-          type="button"
-          aria-pressed={view === 'list'}
-          aria-disabled={hasProjects ? undefined : true}
-          disabled={!hasProjects}
-          onClick={() => onViewChange('list')}
-          className={cn(
-            shellFocusClassName,
-            toggleButtonClassName,
-            view === 'list' ? 'bg-card text-foreground' : 'bg-transparent text-muted-foreground',
-          )}
-        >
-          List
-        </button>
-      </div>
-
-      <NewProjectDialog>
-        <button
-          type="button"
-          className={cn(
-            shellFocusClassName,
-            'hidden items-center gap-[7px] rounded-md bg-primary px-[15px] text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90',
-            'h-[38px] md:inline-flex lg:h-9',
-          )}
-        >
-          <Plus className="size-[15px]" strokeWidth={2.2} />
-          New project
-        </button>
-      </NewProjectDialog>
-    </div>
+          <NewProjectDialog>
+            <button
+              type="button"
+              className={cn(
+                shellFocusClassName,
+                'hidden items-center gap-[7px] rounded-md bg-primary px-[15px] text-[13.5px] font-semibold text-primary-foreground hover:bg-primary/90',
+                'h-[38px] md:inline-flex lg:h-9',
+              )}
+            >
+              <Plus className="size-[15px]" strokeWidth={2.2} />
+              New project
+            </button>
+          </NewProjectDialog>
+        </>
+      }
+    />
   );
 }

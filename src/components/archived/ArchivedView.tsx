@@ -11,6 +11,7 @@ import { rearchiveArchivedCards } from '@/actions/rearchiveArchivedCards';
 import { rearchiveArchivedProjects } from '@/actions/rearchiveArchivedProjects';
 import { restoreArchivedCards } from '@/actions/restoreArchivedCards';
 import { restoreArchivedProjects } from '@/actions/restoreArchivedProjects';
+import ScreenHeader from '@/components/ScreenHeader';
 import ArchivedDeleteDialog from '@/components/archived/ArchivedDeleteDialog';
 import ArchivedDeleteProjectDialog from '@/components/archived/ArchivedDeleteProjectDialog';
 import ArchivedDetail from '@/components/archived/ArchivedDetail';
@@ -375,47 +376,44 @@ export default function ArchivedView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <header className="flex flex-col gap-4">
-        <nav className="text-[12px] text-subtle">
-          <Link
-            href={PROJECTS_PATH}
-            className={cn(
-              shellFocusClassName,
-              'rounded-sm no-underline hover:text-muted-foreground',
+      <ScreenHeader
+        breadcrumb={
+          <>
+            <Link
+              href={PROJECTS_PATH}
+              className={cn(
+                shellFocusClassName,
+                'rounded-sm no-underline hover:text-muted-foreground',
+              )}
+            >
+              {isProjects ? archivedCopy.projects.breadcrumbHome : archivedCopy.breadcrumbProjects}
+            </Link>
+            {isProjects || !projectId || !projectTitle ? (
+              <>
+                {' / '}
+                <span>{archivedCopy.breadcrumbArchived}</span>
+              </>
+            ) : (
+              <>
+                {' / '}
+                <Link
+                  href={projectPath(projectId)}
+                  className={cn(
+                    shellFocusClassName,
+                    'rounded-sm no-underline hover:text-muted-foreground',
+                  )}
+                >
+                  {projectTitle}
+                </Link>
+                {' / '}
+                <span>{archivedCopy.breadcrumbArchived}</span>
+              </>
             )}
-          >
-            {isProjects ? archivedCopy.projects.breadcrumbHome : archivedCopy.breadcrumbProjects}
-          </Link>
-          {isProjects || !projectId || !projectTitle ? (
-            <>
-              {' / '}
-              <span>{archivedCopy.breadcrumbArchived}</span>
-            </>
-          ) : (
-            <>
-              {' / '}
-              <Link
-                href={projectPath(projectId)}
-                className={cn(
-                  shellFocusClassName,
-                  'rounded-sm no-underline hover:text-muted-foreground',
-                )}
-              >
-                {projectTitle}
-              </Link>
-              {' / '}
-              <span>{archivedCopy.breadcrumbArchived}</span>
-            </>
-          )}
-        </nav>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h1 className="text-[15.5px] font-semibold tracking-[-0.025em] tablet:text-[23px] lg:text-[27px]">
-              {archivedCopy.title}
-            </h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">{countLabel}</p>
-          </div>
-        </div>
+          </>
+        }
+        title={archivedCopy.title}
+        subtitle={countLabel}
+      >
         <div className="hidden items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-[11px] lg:flex">
           <Clock className="size-[15px] shrink-0 text-subtle" strokeWidth={1.5} />
           <p className="text-[13px] text-muted-foreground text-pretty">
@@ -486,7 +484,7 @@ export default function ArchivedView({
             )}
           />
         </label>
-      </header>
+      </ScreenHeader>
 
       {selectionMode ? (
         <div className="flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 lg:hidden">

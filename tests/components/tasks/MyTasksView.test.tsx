@@ -3,6 +3,7 @@
 // Tests for the My tasks list: filters, split row actions, empty states, and create.
 //
 // Tested:
+// - Renders the shared screen header with a full-width mobile actions row
 // - Renders markdown in a task title
 // - The complete circle does not open detail; the rest of the row does
 // - Completing calls setCardCompleted without opening detail
@@ -124,6 +125,20 @@ describe('MyTasksView', () => {
         assignees: [{ id: 'user-ada', name: 'Ada', username: 'ada' }],
       },
     });
+  });
+
+  it('renders the shared screen header', () => {
+    renderView(<MyTasksView initialTasks={[openToday]} createProjects={[]} now={frozenNow} />);
+
+    expect(
+      screen.getByRole('heading', { name: 'My tasks' }).closest('[data-slot="screen-header"]'),
+    ).not.toBeNull();
+    const newTask = screen.getByRole('button', { name: 'New task' });
+    expect(newTask.closest('[data-slot="screen-header-actions"]')).toHaveClass(
+      'w-full',
+      'tablet:w-auto',
+    );
+    expect(newTask.parentElement).toHaveClass('w-full');
   });
 
   it('completes from the circle without opening detail, and opens detail from the row', async () => {

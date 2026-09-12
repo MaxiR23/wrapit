@@ -1,3 +1,4 @@
+import ScreenHeader from '@/components/ScreenHeader';
 import { RouteSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { BOARD_COLUMN_WIDTH_PX } from '@/lib/board';
 import { cn } from '@/lib/utils';
@@ -27,11 +28,13 @@ export default function BoardLoading() {
   return (
     <RouteSkeleton>
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 px-4 pt-0.5 pb-3 tablet:items-end tablet:gap-x-2.5 tablet:gap-y-[7px] tablet:px-[18px] tablet:pt-5 tablet:pb-3.5 lg:px-7 lg:pt-6 lg:pb-4">
-          <Skeleton className="col-start-1 row-start-1 h-3 w-28" />
-          <Skeleton className="col-start-1 row-start-2 col-span-2 h-7 w-48 tablet:col-span-1" />
-          <Skeleton className="col-start-1 row-start-3 col-span-2 h-3 w-40 tablet:col-span-1" />
-        </header>
+        <ScreenHeader
+          inset="pane"
+          className="pb-3 lg:pb-4"
+          breadcrumb={<Skeleton className="h-3 w-28" />}
+          title={<Skeleton className="h-7 w-48" />}
+          subtitle={<Skeleton className="h-3 w-40" />}
+        />
         <div
           data-board="desktop"
           className="hidden min-h-0 flex-1 gap-3 overflow-x-auto px-[18px] pb-[18px] tablet:flex lg:gap-3.5 lg:px-7 lg:pb-7"

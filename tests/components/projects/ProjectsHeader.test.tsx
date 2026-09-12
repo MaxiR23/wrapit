@@ -34,6 +34,9 @@ describe('ProjectsHeader', () => {
     render(<ProjectsHeader count={1} view="grid" onViewChange={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Projects' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Projects' }).closest('[data-slot="screen-header"]'),
+    ).not.toBeNull();
     expect(screen.getByText('1 project')).toBeInTheDocument();
   });
 
