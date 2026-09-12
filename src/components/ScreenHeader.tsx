@@ -6,6 +6,9 @@ export const screenInsetClassName =
   'px-screen-x pt-screen-pt md:px-screen-x-md md:pt-screen-pt-md lg:px-screen-x-lg lg:pt-screen-pt-lg';
 
 export const screenHeaderIdentityClassName =
+  'flex min-h-screen-header-title flex-col tablet:min-h-screen-header-title-tablet lg:min-h-screen-header-title-lg';
+
+export const screenHeaderIdentityWithBreadcrumbClassName =
   'flex min-h-screen-header flex-col gap-screen-header-gap tablet:min-h-screen-header-tablet lg:min-h-screen-header-lg';
 
 const titleClassName =
@@ -40,12 +43,20 @@ export default function ScreenHeader({
         className,
       )}
     >
-      <div data-slot="screen-header-identity" className={screenHeaderIdentityClassName}>
-        <div className="flex h-screen-breadcrumb min-w-0 items-center">
-          {breadcrumb ? (
+      <div
+        data-slot="screen-header-identity"
+        className={
+          breadcrumb ? screenHeaderIdentityWithBreadcrumbClassName : screenHeaderIdentityClassName
+        }
+      >
+        {breadcrumb ? (
+          <div
+            data-slot="screen-header-breadcrumb"
+            className="flex h-screen-breadcrumb min-w-0 items-center"
+          >
             <nav className="min-w-0 truncate text-screen-breadcrumb text-subtle">{breadcrumb}</nav>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3.5">
             {leading}
