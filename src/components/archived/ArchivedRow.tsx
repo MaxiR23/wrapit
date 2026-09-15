@@ -54,7 +54,7 @@ function ArchivedCheckbox({
       onClick={(event) => event.stopPropagation()}
       onChange={onToggle}
       className={cn(
-        'size-[17px] shrink-0 rounded-[4px] border border-border-strong accent-foreground tablet:size-[19px]',
+        'size-[17px] shrink-0 rounded-xs border border-border-strong accent-foreground tablet:size-[19px]',
         className,
       )}
     />

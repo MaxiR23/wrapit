@@ -57,7 +57,7 @@ export default function ArchiveProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-[calc(100%-2rem)] max-w-[420px] gap-0 rounded-[10px] p-0 sm:max-w-[420px]"
+        className="w-[calc(100%-2rem)] max-w-[420px] gap-0 rounded-xl p-0 sm:max-w-[420px]"
       >
         <DialogHeader className="gap-3 px-5 pt-5">
           <DialogTitle className="text-[16px] font-semibold">{ARCHIVE_PROJECT_LABEL}</DialogTitle>

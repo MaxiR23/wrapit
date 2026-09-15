@@ -362,7 +362,7 @@ function CardDetailProperties({
   const selectedAssignees = new Set(selectedAssigneeIds);
 
   return (
-    <div className="flex h-full flex-col gap-5 rounded-[10px] border border-border bg-surface p-[15px] tablet:rounded-none tablet:border-0 tablet:bg-transparent tablet:p-0">
+    <div className="flex h-full flex-col gap-5 rounded-lg border border-border bg-surface p-[15px] tablet:rounded-none tablet:border-0 tablet:bg-transparent tablet:p-0">
       <section className="flex flex-col gap-2">
         <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
           Column

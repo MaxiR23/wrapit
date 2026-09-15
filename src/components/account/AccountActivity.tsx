@@ -212,7 +212,7 @@ function ActivityRow({
           {activitySentence(event, activityCopy, viewerTimeZone)}
         </p>
         {quote ? (
-          <p className="line-clamp-4 rounded-[10px] border border-border bg-card px-3 py-2 text-[12.5px] leading-normal text-muted-foreground">
+          <p className="line-clamp-4 rounded-md border border-border bg-card px-3 py-2 text-[12.5px] leading-normal text-muted-foreground">
             {quote}
           </p>
         ) : null}

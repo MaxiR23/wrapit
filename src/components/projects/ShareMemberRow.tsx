@@ -332,7 +332,7 @@ function ShareAccessMenu({
         <ul
           id={menuId}
           role="menu"
-          className="absolute top-full right-0 z-20 mt-1 min-w-[160px] rounded-[10px] border border-border-strong bg-surface p-1 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
+          className="absolute top-full right-0 z-20 mt-1 min-w-[160px] rounded-xl border border-border-strong bg-surface p-1 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
         >
           {canChangeAccess
             ? BOARD_ACCESS_OPTIONS.map((option) => (

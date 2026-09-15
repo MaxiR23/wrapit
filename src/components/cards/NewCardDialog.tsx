@@ -179,7 +179,7 @@ export default function NewCardDialog({
           'z-[80] flex flex-col gap-0 overflow-hidden border bg-surface p-0 text-foreground',
           'w-full max-w-none translate-x-0 translate-y-0 rounded-none border-0 shadow-none sm:max-w-none',
           'tablet:top-1/2 tablet:left-1/2 tablet:h-auto tablet:max-h-full tablet:w-full tablet:max-w-[540px]',
-          'tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-[14px] tablet:border tablet:border-border-strong',
+          'tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-xl tablet:border tablet:border-border-strong',
           'tablet:shadow-[0_30px_70px_oklch(0_0_0/0.6)] tablet:sm:max-w-[540px]',
         )}
       >

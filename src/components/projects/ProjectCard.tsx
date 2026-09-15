@@ -20,12 +20,12 @@ export default function ProjectCard({
   onArchive?: (project: ProjectSummary) => void;
 }) {
   return (
-    <article className="relative rounded-xl border border-border bg-card tabular-nums transition-[background,border-color] duration-[160ms] ease-in-out hover:border-border-strong hover:bg-card-hover">
+    <article className="relative rounded-lg border border-border bg-card tabular-nums transition-[background,border-color] duration-[160ms] ease-in-out hover:border-border-strong hover:bg-card-hover">
       <Link
         href={projectPath(project.id)}
         className={cn(
           shellFocusClassName,
-          'flex flex-col gap-4 rounded-xl p-[18px] no-underline text-inherit',
+          'flex flex-col gap-4 rounded-lg p-[18px] no-underline text-inherit',
         )}
       >
         <div className="flex items-start gap-2.5 pr-6">

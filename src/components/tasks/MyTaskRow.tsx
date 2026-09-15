@@ -62,7 +62,7 @@ export default function MyTaskRow({
       }}
       className={cn(
         shellFocusClassName,
-        'grid items-center gap-x-3.5 rounded-[10px] border border-border bg-card px-4 py-[13px] tabular-nums transition-[background,border-color] duration-150',
+        'grid items-center gap-x-3.5 rounded-md border border-border bg-card px-4 py-[13px] tabular-nums transition-[background,border-color] duration-150',
         'grid-cols-[18px_minmax(0,1fr)]',
         'tablet:grid-cols-[20px_minmax(0,1fr)_auto] tablet:px-3.5 tablet:py-3',
         'lg:grid-cols-[24px_minmax(0,1fr)_132px_150px_108px_72px] lg:gap-x-3.5 lg:px-4',

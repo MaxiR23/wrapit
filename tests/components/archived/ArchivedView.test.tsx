@@ -232,7 +232,9 @@ describe('ArchivedView', () => {
     expect(screen.getAllByText('1 task selected').length).toBeGreaterThan(0);
 
     const sticky = document.querySelector('.sticky');
-    expect(sticky).toHaveClass('max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+0.5rem)]');
+    expect(sticky).toHaveClass(
+      'max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar-clearance)+0.5rem)]',
+    );
     expect(sticky).toHaveClass('bottom-2');
 
     await user.click(screen.getByRole('button', { name: /Last 7 days/ }));

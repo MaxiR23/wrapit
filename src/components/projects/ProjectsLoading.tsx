@@ -3,7 +3,7 @@ import { RouteSkeleton, Skeleton } from '@/components/ui/skeleton';
 
 function ProjectCardBone() {
   return (
-    <div className="rounded-xl border border-border bg-card p-[18px]">
+    <div className="rounded-lg border border-border bg-card p-[18px]">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <Skeleton className="h-5 w-2/3" />

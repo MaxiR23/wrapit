@@ -124,7 +124,7 @@ describe('ProjectsTopbar', () => {
   it('renders the Search projects input', () => {
     renderTopbar(<ProjectsTopbar user={user} />);
 
-    expect(screen.getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search projects' })).toHaveClass('rounded-md');
   });
 
   it('renders a custom search placeholder', () => {

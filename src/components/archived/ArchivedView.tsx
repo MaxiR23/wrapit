@@ -17,6 +17,7 @@ import { rearchiveArchivedProjects } from '@/actions/rearchiveArchivedProjects';
 import { restoreArchivedCards } from '@/actions/restoreArchivedCards';
 import { restoreArchivedProjects } from '@/actions/restoreArchivedProjects';
 import ScreenHeader from '@/components/ScreenHeader';
+import { searchFieldDomProps } from '@/components/mobileChrome';
 import ArchivedDeleteDialog from '@/components/archived/ArchivedDeleteDialog';
 import ArchivedDeleteProjectDialog from '@/components/archived/ArchivedDeleteProjectDialog';
 import ArchivedDetail from '@/components/archived/ArchivedDetail';
@@ -654,7 +655,7 @@ export default function ArchivedView({
                 onClick={() => changeRange(key)}
                 className={cn(
                   shellFocusClassName,
-                  'h-7 rounded-[6px] px-[11px] text-[12.5px] font-medium',
+                  'h-7 rounded-xs px-[11px] text-[12.5px] font-medium',
                   range === key ? 'bg-card text-foreground' : 'text-muted-foreground',
                 )}
               >
@@ -696,14 +697,14 @@ export default function ArchivedView({
         <label className="relative lg:hidden">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
           <input
-            type="search"
+            {...searchFieldDomProps}
             value={query}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchAriaLabel}
             className={cn(
               shellFocusClassName,
-              'h-10 w-full rounded-md border border-input bg-surface pr-3 pl-9 text-base text-foreground placeholder:text-subtle',
+              'h-10 w-full overflow-hidden rounded-md border border-input bg-surface pr-3 pl-9 text-base text-foreground placeholder:text-subtle',
             )}
           />
         </label>
@@ -798,14 +799,14 @@ export default function ArchivedView({
           }}
         />
       ) : (
-        <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+        <div className="overflow-hidden rounded-md border border-border bg-card">
           <div className="hidden grid-cols-[30px_minmax(0,1fr)_104px_88px_96px_120px_156px] gap-2.5 bg-surface px-4 py-[11px] text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase lg:grid">
             <input
               type="checkbox"
               checked={allShownSelected}
               aria-label={archivedCopy.selectAll}
               onChange={() => setSelectedIds(allShownSelected ? [] : shown.map((item) => item.id))}
-              className="size-[17px] rounded-[4px] border border-border-strong accent-foreground"
+              className="size-[17px] rounded-xs border border-border-strong accent-foreground"
             />
             {isProjects ? (
               <>
@@ -889,7 +890,7 @@ export default function ArchivedView({
       ) : null}
 
       {selectedIds.length > 0 ? (
-        <div className="sticky bottom-2 z-20 flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+0.5rem)] lg:hidden">
+        <div className="sticky bottom-2 z-20 flex items-center gap-2 rounded-md border border-border-strong bg-card px-3.5 py-2.5 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar-clearance)+0.5rem)] lg:hidden">
           <p className="mr-auto text-[13px]">{selectedLabel}</p>
           <button
             type="button"

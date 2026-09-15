@@ -5,6 +5,7 @@ import { AlertTriangle, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { setCardCompleted } from '@/actions/setCardCompleted';
+import { mobileAddButtonClassName } from '@/components/mobileChrome';
 import ScreenHeader from '@/components/ScreenHeader';
 import { useOpenPanel } from '@/components/projects/OpenPanel';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
@@ -167,7 +168,7 @@ function MyTasksViewBody({
   const segmentClass = (active: boolean) =>
     cn(
       shellFocusClassName,
-      'h-[38px] rounded-[6px] px-[13px] text-sm font-medium tablet:h-8 tablet:text-[13px]',
+      'h-full rounded-md px-[13px] text-sm font-medium tablet:h-8 tablet:text-[13px]',
       active ? 'bg-card text-foreground' : 'text-muted-foreground',
     );
 
@@ -178,7 +179,7 @@ function MyTasksViewBody({
         subtitle={myTasksSummary(openFiltered, now)}
         actions={
           <div className="relative flex w-full items-center gap-2">
-            <div className="flex flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:flex-none">
+            <div className="flex h-mobile-search flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:h-auto tablet:flex-none">
               {hasLate ? (
                 <button
                   type="button"
@@ -214,9 +215,8 @@ function MyTasksViewBody({
                 setCreateOpen(true);
               }}
               className={cn(
-                shellFocusClassName,
-                'inline-flex size-[46px] items-center justify-center rounded-md bg-primary text-[13.5px] font-semibold text-primary-foreground',
-                'tablet:size-10 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-[15px]',
+                mobileAddButtonClassName,
+                'text-[13.5px] font-semibold tablet:size-10 lg:h-9 lg:w-auto lg:gap-1.5 lg:px-[15px]',
               )}
             >
               <Plus className="size-[15px]" strokeWidth={2.2} />
@@ -235,7 +235,7 @@ function MyTasksViewBody({
       />
 
       {hasLate && !lateHidden ? (
-        <div className="flex h-[46px] items-center gap-2 rounded-md border border-border px-3.5 text-late tablet:hidden">
+        <div className="flex h-mobile-search items-center gap-2 rounded-md border border-border px-3.5 text-late tablet:hidden">
           <button
             type="button"
             onClick={() => setPeriod('overdue')}
@@ -383,7 +383,7 @@ function EmptyState({
 }) {
   const copy = myTasksEmptyCopy(kind, query);
   return (
-    <div className="flex flex-col items-center rounded-[12px] border border-dashed border-border px-4 py-11 text-center tablet:py-[52px] lg:py-16">
+    <div className="flex flex-col items-center rounded-lg border border-dashed border-border px-4 py-11 text-center tablet:py-[52px] lg:py-16">
       <p className="text-base font-semibold">{copy.title}</p>
       <p className="mt-1 max-w-[340px] text-[13.5px] text-muted-foreground">{copy.note}</p>
     </div>

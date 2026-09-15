@@ -64,10 +64,10 @@ export default function ShareModal({
         className={cn(
           'z-[85] flex flex-col gap-0 overflow-hidden border bg-surface p-0 text-foreground',
           'top-auto right-0 bottom-0 left-0 h-auto max-h-[90dvh] w-full max-w-none translate-x-0 translate-y-0',
-          'rounded-t-[22px] rounded-b-none border-x-0 border-b-0 border-t border-border-strong',
+          'rounded-t-2xl rounded-b-none border-x-0 border-b-0 border-t border-border-strong',
           'shadow-[0_-22px_60px_oklch(0_0_0/0.6)] sm:max-w-none',
           'tablet:top-1/2 tablet:right-auto tablet:bottom-auto tablet:left-1/2 tablet:max-h-full tablet:w-full tablet:max-w-[520px]',
-          'tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-[14px] tablet:border tablet:border-border-strong',
+          'tablet:-translate-x-1/2 tablet:-translate-y-1/2 tablet:rounded-xl tablet:border tablet:border-border-strong',
           'tablet:shadow-[0_30px_70px_oklch(0_0_0/0.6)] tablet:sm:max-w-[520px]',
         )}
       >

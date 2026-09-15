@@ -76,10 +76,16 @@
   --spacing-auth-bar: 4.5rem;
   --mobile-auth-bar-fade-distance: 96px;
   --spacing-mobile-search: 46px;
+  --color-mobile-tab-bar: var(--mobile-tab-bar);
   --spacing-mobile-tab-bar: 4rem;
-  --spacing-mobile-tab-bar-offset: calc(
-    var(--spacing-mobile-tab-bar) + env(safe-area-inset-bottom, 0px)
+  --spacing-mobile-tab-bar-inset: 0.75rem;
+  --spacing-mobile-tab-bar-clearance: calc(
+    var(--spacing-mobile-tab-bar) + var(--spacing-mobile-tab-bar-inset)
   );
+  --spacing-mobile-tab-bar-offset: calc(
+    var(--spacing-mobile-tab-bar-clearance) + env(safe-area-inset-bottom, 0px)
+  );
+  --shadow-mobile-tab-bar: 0 6px 18px oklch(0 0 0 / 0.12);
   --spacing-screen-x: 1rem;
   --spacing-screen-x-md: 1.25rem;
   --spacing-screen-x-lg: 1.75rem;
@@ -162,13 +168,14 @@
   --breakpoint-auth-sm: 600px;
   --breakpoint-auth-lg: 900px;
   --breakpoint-tablet: 600px;
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: var(--radius);
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.75rem;
+  --radius-4xl: 2rem;
   --animate-fadebob: fadebob 1.8s ease-in-out infinite;
   --animate-empty-demo-col: empty-demo-col 6s ease-in-out infinite;
   --animate-empty-demo-card: empty-demo-card-move 6s linear infinite;
@@ -391,7 +398,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -403,6 +410,7 @@
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --surface: oklch(0.97 0 0);
+  --mobile-tab-bar: oklch(0.97 0 0 / 0.92);
   --card-hover: oklch(0.955 0 0);
   --subtle: oklch(0.55 0 0);
   --border-strong: oklch(0 0 0 / 22%);
@@ -485,6 +493,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --surface: oklch(0.185 0 0);
+  --mobile-tab-bar: oklch(0.185 0 0 / 0.92);
   --card-hover: oklch(0.255 0 0);
   --subtle: oklch(0.55 0 0);
   --border-strong: oklch(1 0 0 / 22%);
@@ -607,6 +616,11 @@
 .form-island :focus-visible {
   outline: 2px solid var(--form-ring);
   outline-offset: 2px;
+}
+
+/* Unlayered. WebKit searchfield chrome on type=text + role=searchbox. */
+input[role='searchbox'] {
+  appearance: none;
 }
 
 .route-skeleton {

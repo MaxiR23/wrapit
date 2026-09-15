@@ -101,7 +101,7 @@ export default function MemberPopover({ members }: { members: BoardMember[] }) {
           <div
             role="dialog"
             aria-label="Members"
-            className="absolute top-[calc(100%+8px)] left-0 z-50 w-[220px] rounded-[10px] border border-border-strong bg-surface p-3 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
+            className="absolute top-[calc(100%+8px)] left-0 z-50 w-[220px] rounded-xl border border-border-strong bg-surface p-3 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
           >
             <ul className="flex max-h-[240px] flex-col gap-3 overflow-y-auto">
               {members.map((member) => (
@@ -196,7 +196,7 @@ function MemberAvatar({
             ref={panelRef}
             role="dialog"
             aria-label={member.name}
-            className="absolute top-[calc(100%+8px)] left-1/2 z-50 min-w-[170px] -translate-x-1/2 rounded-[10px] border border-border-strong bg-surface p-3 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
+            className="absolute top-[calc(100%+8px)] left-1/2 z-50 min-w-[170px] -translate-x-1/2 rounded-xl border border-border-strong bg-surface p-3 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
           >
             <div className="flex items-center gap-2.5">
               <span className="inline-flex size-[30px] shrink-0 items-center justify-center rounded-full border border-border-strong bg-muted text-[11px] font-semibold leading-none">

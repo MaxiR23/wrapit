@@ -347,14 +347,21 @@ in `docs/kanban.md`.
 ## Projects shell on the phone
 
 Below `tablet` (600px) `ProjectsShell` pins the tab bar with `position: fixed`
-to the bottom of the viewport. `--spacing-mobile-tab-bar` is the bar height
-used as in-flow clearance on the canvas (the body already consumed the bottom
-inset). Portaled overlays that sit in `#safe-fixed-root` use that token, not
-`--spacing-mobile-tab-bar-offset`: the root already consumed the bottom inset.
-`--spacing-mobile-tab-bar-offset` is bar height plus `safe-area-inset-bottom`,
-for in-tree viewport-fixed overlays that are not descendants of the root.
-Desktop and tablet are unchanged (`tablet:hidden`). Layout does not measure
-the viewport in JavaScript.
+to the bottom of the viewport. The outer nav is `tablet:hidden` and composes
+`safe-inset-x` `safe-inset-b` so it sits on the safe rect, then padded with
+`--spacing-mobile-tab-bar-inset`. The inner surface is a
+4-column grid, `--radius-2xl`, `--mobile-tab-bar`, and `--shadow-mobile-tab-bar`.
+That chrome is inline styles bound to those tokens so a missing utility cannot
+collapse the row or square the pill. No `backdrop-filter`. Tab links use inset
+focus rings because the surface clips overflow.
+`--spacing-mobile-tab-bar` is the inner bar height. In-flow clearance on the
+canvas is `--spacing-mobile-tab-bar-clearance` (height plus inset); the body
+already consumed the bottom inset. Portaled overlays that sit in
+`#safe-fixed-root` use clearance, not `--spacing-mobile-tab-bar-offset`: the
+root already consumed the bottom inset. `--spacing-mobile-tab-bar-offset` is
+clearance plus `safe-area-inset-bottom`, for in-tree viewport-fixed overlays
+that are not descendants of the root. Desktop and tablet are unchanged
+(`tablet:hidden`). Layout does not measure the viewport in JavaScript.
 
 The phone column is `min-h-0` so a descendant `overflow-auto` can become a
 scrollport. Default list content (projects grid, my tasks, archived) is
@@ -619,6 +626,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/app/(auth)/reset-password/page.tsx   /reset-password
     src/app/globals.css                 theme tokens (Neutral base) and form-island
     src/components/ScreenHeader.tsx     shared screen identity (title/breadcrumb, inset tokens)
+    src/components/mobileChrome.ts      phone add button, searchFieldDomProps
     src/components/auth/                sign up, sign in, check-email, verify-email, password reset, sign-in hero
     src/components/account/             account screen, profile, visibility, activity, menu, display name, sign-out hook
     src/components/projects/searchScope.ts  pathname to per-screen search key; account has none

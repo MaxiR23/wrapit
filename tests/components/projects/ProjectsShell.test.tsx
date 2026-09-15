@@ -113,7 +113,9 @@ describe('ProjectsShell', () => {
       'lg:pt-screen-pt-lg',
     );
     expect(content).not.toHaveClass('flex-1');
-    expect(content).toHaveClass('max-tablet:pb-[calc(var(--spacing-mobile-tab-bar)+1.5rem)]');
+    expect(content).toHaveClass(
+      'max-tablet:pb-[calc(var(--spacing-mobile-tab-bar-clearance)+1.5rem)]',
+    );
     expect(screen.getByText('Grid')).toBeInTheDocument();
     expect(tabBar()).toBeInTheDocument();
   });
@@ -142,8 +144,10 @@ describe('ProjectsShell', () => {
     const content = tabBar()?.previousElementSibling;
 
     expect(content).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col', 'overflow-hidden');
-    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar)]');
-    expect(content).not.toHaveClass('max-tablet:pb-[calc(var(--spacing-mobile-tab-bar)+1.5rem)]');
+    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar-clearance)]');
+    expect(content).not.toHaveClass(
+      'max-tablet:pb-[calc(var(--spacing-mobile-tab-bar-clearance)+1.5rem)]',
+    );
     expect(tabBar()).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search the board' })).toBeInTheDocument();
   });
@@ -159,7 +163,7 @@ describe('ProjectsShell', () => {
 
     expect(screen.queryByRole('searchbox', { name: 'Search projects' })).not.toBeInTheDocument();
     const content = tabBar()?.previousElementSibling;
-    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar)]');
+    expect(content).toHaveClass('max-tablet:pb-[var(--spacing-mobile-tab-bar-clearance)]');
   });
 
   it('fills the padded canvas and keeps the phone header in flow', () => {

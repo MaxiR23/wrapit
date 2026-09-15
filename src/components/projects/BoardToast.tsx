@@ -40,7 +40,7 @@ export default function BoardToast({
       className={cn(
         'fixed z-[90] flex items-center gap-3.5 rounded-md border border-border-strong bg-card',
         'px-4 py-[11px] pr-3.5 text-[13.5px] text-foreground shadow-[0_18px_44px_oklch(0_0_0/0.55)]',
-        'inset-x-4 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar)+1.5rem)] tablet:inset-x-auto tablet:bottom-[26px] tablet:left-1/2 tablet:w-max tablet:-translate-x-1/2 tablet:text-[13px]',
+        'inset-x-4 max-tablet:bottom-[calc(var(--spacing-mobile-tab-bar-clearance)+1.5rem)] tablet:inset-x-auto tablet:bottom-[26px] tablet:left-1/2 tablet:w-max tablet:-translate-x-1/2 tablet:text-[13px]',
       )}
     >
       <span>{toast.message}</span>

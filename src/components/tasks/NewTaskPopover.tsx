@@ -112,8 +112,8 @@ export default function NewTaskPopover({
         aria-labelledby={titleId}
         className={cn(
           'fixed z-[70] flex flex-col bg-surface',
-          'max-h-[84%] rounded-t-[16px] border border-border-strong safe-inset-x safe-inset-b',
-          'tablet:absolute tablet:inset-auto tablet:top-full tablet:right-0 tablet:mt-2 tablet:w-[300px] tablet:rounded-[12px]',
+          'max-h-[84%] rounded-t-2xl border border-border-strong safe-inset-x safe-inset-b',
+          'tablet:absolute tablet:inset-auto tablet:top-full tablet:right-0 tablet:mt-2 tablet:w-[300px] tablet:rounded-xl',
           'shadow-[0_20px_50px_oklch(0_0_0/0.55)]',
         )}
       >

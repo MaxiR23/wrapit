@@ -189,7 +189,7 @@ export default function ShareModalBody({
               onClick={() => setInviteRole('MEMBER')}
               className={cn(
                 shellFocusClassName,
-                'h-full rounded-[6px] px-3 text-[13px] font-medium',
+                'h-full rounded-xs px-3 text-[13px] font-medium',
                 inviteRole === 'MEMBER'
                   ? 'bg-card text-foreground'
                   : 'bg-transparent text-muted-foreground',
@@ -203,7 +203,7 @@ export default function ShareModalBody({
               onClick={() => setInviteRole('ADMIN')}
               className={cn(
                 shellFocusClassName,
-                'h-full rounded-[6px] px-3 text-[13px] font-medium',
+                'h-full rounded-xs px-3 text-[13px] font-medium',
                 inviteRole === 'ADMIN'
                   ? 'bg-card text-foreground'
                   : 'bg-transparent text-muted-foreground',
@@ -274,7 +274,7 @@ export default function ShareModalBody({
             'gap-3 py-1.5 text-[13.5px] tablet:gap-[11px] tablet:py-0 tablet:text-[13px]',
             viewerCanAdminister ? '' : 'cursor-default opacity-70',
           )}
-          boxClassName="size-5 rounded-md text-[11px] tablet:size-4 tablet:rounded-[5px] tablet:text-[9px]"
+          boxClassName="size-5 rounded-xs text-[11px] tablet:size-4 tablet:text-[9px]"
         >
           Anyone with the link can view the board
         </BoardCheckRow>

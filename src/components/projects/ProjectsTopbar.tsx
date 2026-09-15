@@ -6,6 +6,7 @@ import {
   NotificationsBell,
   NotificationsPopover,
 } from '@/components/notifications/NotificationsBell';
+import { searchFieldDomProps } from '@/components/mobileChrome';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName, type ProjectsShellUser } from '@/components/projects/shell';
 import { cn } from '@/lib/utils';
@@ -34,18 +35,18 @@ export default function ProjectsTopbar({
       {showSearch ? (
         <div className="relative mr-auto flex items-center">
           <input
-            type="search"
+            {...searchFieldDomProps}
             placeholder={searchPlaceholder}
             aria-label={searchAriaLabel}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className={cn(
               shellFocusClassName,
-              'rounded-md border border-input bg-surface text-foreground placeholder:text-subtle',
+              'overflow-hidden rounded-md border border-input bg-surface text-foreground placeholder:text-subtle',
               'h-[38px] w-[240px] px-3.5 text-sm lg:h-9 lg:w-[300px] lg:pr-16 lg:text-[13.5px]',
             )}
           />
-          <kbd className="pointer-events-none absolute right-2.5 hidden rounded-[5px] border border-border px-1.5 py-0.5 text-[11px] text-subtle lg:inline">
+          <kbd className="pointer-events-none absolute right-2.5 hidden rounded-xs border border-border px-1.5 py-0.5 text-[11px] text-subtle lg:inline">
             ⌘K
           </kbd>
         </div>

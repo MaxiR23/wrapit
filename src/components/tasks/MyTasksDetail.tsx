@@ -48,7 +48,7 @@ export default function MyTasksDetail({
         aria-labelledby="my-task-detail-title"
         className={cn(
           'fixed z-[60] flex flex-col bg-surface',
-          'max-h-[84%] rounded-t-[16px] border-t border-border-strong safe-inset-x safe-inset-b',
+          'max-h-[84%] rounded-t-2xl border-t border-border-strong safe-inset-x safe-inset-b',
           'tablet:left-auto tablet:max-h-none tablet:w-[340px] tablet:rounded-none tablet:border-t-0 tablet:border-l tablet:safe-inset-y tablet:safe-inset-r',
           'lg:w-[392px]',
           'shadow-[0_-12px_40px_oklch(0_0_0/0.35)] tablet:shadow-[-24px_0_60px_oklch(0_0_0/0.45)]',

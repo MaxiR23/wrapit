@@ -6,6 +6,7 @@
 // - Links back to the projects list
 // - Shows desktop and mobile progress copy from the same counts
 // - Phone search is a full-width row below the actions, hidden from tablet
+// - Phone search shows a leading magnifying-glass icon
 // - Search is disabled when the board has no cards
 // - Members, Share, Archive and Archived are icon-sized below tablet
 // - Phone action icons stay a tight wrapping row so narrow phones keep every control
@@ -156,7 +157,9 @@ describe('BoardHeader', () => {
       .closest('[data-slot="screen-header-actions"]');
 
     expect(search).toBeDisabled();
-    expect(search).toHaveClass('w-full', 'tablet:hidden');
+    expect(search).toHaveClass('w-full', 'rounded-md', 'pl-9');
+    expect(search.parentElement).toHaveClass('relative', 'tablet:hidden');
+    expect(search.parentElement?.querySelector('svg')).not.toBeNull();
     expect(header?.contains(search)).toBe(true);
     expect(identity?.contains(search)).toBe(false);
     expect(actions?.contains(search)).toBe(false);

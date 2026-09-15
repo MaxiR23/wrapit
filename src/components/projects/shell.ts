@@ -24,7 +24,7 @@ export function shellPanelClassName(kind: 'popover' | 'sheet', width: ShellPanel
       'hidden tablet:block',
       'absolute top-[calc(100%+8px)] right-0 z-50',
       PANEL_WIDTH_CLASS[width],
-      'overflow-hidden rounded-[12px] border border-border-strong bg-surface',
+      'overflow-hidden rounded-xl border border-border-strong bg-surface',
       'shadow-[0_30px_70px_oklch(0_0_0/0.6)]',
     );
   }

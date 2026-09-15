@@ -7,7 +7,7 @@ function ColumnBone({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        'flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-hidden rounded-[14px] border border-border bg-surface p-3',
+        'flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-surface p-3',
         className,
       )}
     >
@@ -16,9 +16,9 @@ function ColumnBone({ className }: { className?: string }) {
         <Skeleton className="h-3 w-5" />
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-[9px]">
-        <Skeleton className="h-16 w-full rounded-[10px]" />
-        <Skeleton className="h-16 w-full rounded-[10px]" />
-        <Skeleton className="h-16 w-full rounded-[10px]" />
+        <Skeleton className="h-16 w-full rounded-md" />
+        <Skeleton className="h-16 w-full rounded-md" />
+        <Skeleton className="h-16 w-full rounded-md" />
       </div>
     </section>
   );

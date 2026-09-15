@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Renders the shared screen header with a full-width mobile actions row
+// - The New task control uses the shared phone add-button size
 // - Renders markdown in a task title
 // - The complete circle does not open detail; the rest of the row does
 // - Completing calls setCardCompleted without opening detail
@@ -134,6 +135,7 @@ describe('MyTasksView', () => {
       screen.getByRole('heading', { name: 'My tasks' }).closest('[data-slot="screen-header"]'),
     ).not.toBeNull();
     const newTask = screen.getByRole('button', { name: 'New task' });
+    expect(newTask).toHaveClass('size-mobile-search');
     expect(newTask.closest('[data-slot="screen-header-actions"]')).toHaveClass(
       'w-full',
       'tablet:w-auto',

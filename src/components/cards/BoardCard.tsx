@@ -98,7 +98,7 @@ export default function BoardCard({
       onClick={onClick ? handleClick : undefined}
       onKeyDown={handleKeyDown}
       className={cn(
-        'relative flex flex-col gap-[11px] rounded-[12px] border bg-card p-[13px] shadow-[0_1px_2px_oklch(0_0_0/0.35)]',
+        'relative flex flex-col gap-[11px] rounded-lg border bg-card p-[13px] shadow-[0_1px_2px_oklch(0_0_0/0.35)]',
         'transition-[transform,box-shadow,opacity,border-color,background] duration-[160ms] ease-out',
         highlighted || lifted
           ? 'border-foreground'
