@@ -9,8 +9,7 @@
 // - Returns an empty list when the user has no memberships
 // - Returns the project with columns in order for a member
 // - Returns each column with its cards in order
-// - Attaches ordered subtasks and comments (with author) on each card
-// - Orders comments by createdAt even when a later editedAt is present
+// - Selects first-paint card fields and aggregates subtask progress
 // - Omits archived cards so their subtasks and comments are not loaded
 // - Returns null for a non-member or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
@@ -20,8 +19,8 @@
 //
 // What is covered:
 // - Happy path, membership isolation, empty list, project detail with cards,
-//   subtasks and comments, archived cards omitted, grid summaries, recents
-//   membership access filter
+//   slim card select, aggregated subtasks, archived cards omitted, grid
+//   summaries, recents membership access filter
 //
 // Run with: pnpm test:run tests/lib/projects.test.ts
 //
@@ -38,6 +37,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: db }));
 const {
   listProjectsForUser,
   getProjectForUser,
+  getBoardPageForUser,
   listProjectSummariesForUser,
   listRecentProjectsForUser,
   listProjectMembersForUser,
@@ -190,7 +190,7 @@ describe('getProjectForUser', () => {
     ]);
   });
 
-  it('attaches ordered subtasks and comments with author on each card', async () => {
+  it('selects first-paint card fields and aggregates subtask progress without bodies', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
       userId: 'user-ada',
@@ -227,59 +227,44 @@ describe('getProjectForUser', () => {
       },
     });
 
-    const result = await getProjectForUser(project.id, 'user-ada');
-    const loaded = result?.columns[0]?.cards[0];
-
-    expect(loaded?.subtasks.map((subtask) => subtask.text)).toEqual(['First step', 'Later']);
-    expect(loaded?.comments.map((comment) => comment.body)).toEqual(['First note', 'Second note']);
-    expect(loaded?.comments[0]?.editedAt).toBeNull();
-    expect(loaded?.comments[0]?.author).toEqual({
-      id: 'user-ada',
-      name: 'Ada Lovelace',
-      username: 'ada',
-    });
-  });
-
-  it('orders comments by createdAt even when editedAt is later', async () => {
-    const project = await seedAccessibleProject(db, {
-      title: 'Sprint board',
-      userId: 'user-ada',
-    });
-    await db.user.create({
-      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
-    });
-    const todo = await db.column.create({
-      data: { title: 'To do', order: 1, projectId: project.id },
-    });
-    const card = await db.card.create({
-      data: { title: 'First', order: 1, columnId: todo.id },
-    });
-    await db.comment.create({
-      data: {
-        body: 'Edited first',
-        cardId: card.id,
-        authorId: 'user-ada',
-        createdAt: new Date('2026-08-01'),
-        editedAt: new Date('2026-08-20'),
-      },
-    });
-    await db.comment.create({
-      data: {
-        body: 'Second note',
-        cardId: card.id,
-        authorId: 'user-ada',
-        createdAt: new Date('2026-08-02'),
-      },
-    });
+    db.card.findMany.mockClear();
+    db.subtask.findMany.mockClear();
+    db.subtask.groupBy.mockClear();
 
     const result = await getProjectForUser(project.id, 'user-ada');
     const loaded = result?.columns[0]?.cards[0];
 
-    expect(loaded?.comments.map((comment) => comment.body)).toEqual([
-      'Edited first',
-      'Second note',
-    ]);
-    expect(loaded?.comments[0]?.editedAt).toEqual(new Date('2026-08-20'));
+    expect(db.card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ archivedAt: null }),
+        select: {
+          id: true,
+          title: true,
+          code: true,
+          dueDate: true,
+          dueTimeZone: true,
+          labelId: true,
+          columnId: true,
+          order: true,
+        },
+      }),
+    );
+    const cardSelect = db.card.findMany.mock.calls[0]?.[0]?.select as Record<string, unknown>;
+    expect(cardSelect).not.toHaveProperty('description');
+    expect(db.subtask.findMany).not.toHaveBeenCalled();
+    expect(db.subtask.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['cardId', 'done'],
+        where: { cardId: { in: [card.id] } },
+        _count: { _all: true },
+      }),
+    );
+    expect(loaded?.subtaskDone).toBe(1);
+    expect(loaded?.subtaskTotal).toBe(2);
+    expect(loaded).not.toHaveProperty('subtasks');
+    expect(loaded?.commentCount).toBe(2);
+    expect(loaded).not.toHaveProperty('comments');
+    expect(loaded).not.toHaveProperty('description');
   });
 
   it('omits archived cards from the board payload', async () => {
@@ -333,21 +318,20 @@ describe('getProjectForUser', () => {
     });
 
     db.subtask.findMany.mockClear();
+    db.subtask.groupBy.mockClear();
     db.comment.findMany.mockClear();
 
     const result = await getProjectForUser(project.id, 'user-ada');
 
     expect(result?.columns[0]?.cards.map((card) => card.title)).toEqual(['Open']);
-    expect(result?.columns[0]?.cards[0]?.subtasks.map((subtask) => subtask.text)).toEqual([
-      'Open step',
-    ]);
-    expect(result?.columns[0]?.cards[0]?.comments.map((comment) => comment.body)).toEqual([
-      'Open note',
-    ]);
-    expect(db.subtask.findMany).toHaveBeenCalledWith(
+    expect(result?.columns[0]?.cards[0]?.subtaskDone).toBe(0);
+    expect(result?.columns[0]?.cards[0]?.subtaskTotal).toBe(1);
+    expect(result?.columns[0]?.cards[0]?.commentCount).toBe(1);
+    expect(db.subtask.findMany).not.toHaveBeenCalled();
+    expect(db.subtask.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({ where: { cardId: { in: [open.id] } } }),
     );
-    expect(db.comment.findMany).toHaveBeenCalledWith(
+    expect(db.comment.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({ where: { cardId: { in: [open.id] } } }),
     );
   });
@@ -362,6 +346,40 @@ describe('getProjectForUser', () => {
 
   it('returns null for an unknown project id', async () => {
     expect(await getProjectForUser('missing-project', 'user-ada')).toBeNull();
+  });
+});
+
+describe('getBoardPageForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('loads labels, members, and prefs after one live access read', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    db.project.findFirst.mockClear();
+
+    const page = await getBoardPageForUser(project.id, 'user-ada');
+
+    expect(page?.title).toBe('Sprint board');
+    expect(page?.viewer).toEqual({ role: 'OWNER', access: 'EDIT' });
+    expect(page?.members).toEqual([{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }]);
+    expect(page?.labels.length).toBeGreaterThan(0);
+    expect(page?.boardVisibility.comments).toBe(true);
+    expect(db.project.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for a non-member', async () => {
+    const project = await db.project.create({
+      data: { title: 'Ada board', ownerId: 'user-ada' },
+    });
+
+    expect(await getBoardPageForUser(project.id, 'user-other')).toBeNull();
   });
 });
 
@@ -450,6 +468,34 @@ describe('listProjectSummariesForUser', () => {
     });
 
     expect(await listProjectSummariesForUser('user-ada')).toEqual([]);
+  });
+
+  it('does not count archived cards in progress', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    await db.card.create({
+      data: { title: 'Open', order: 1, columnId: todo.id },
+    });
+    await db.card.create({
+      data: {
+        title: 'Archived',
+        order: 2,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-01'),
+      },
+    });
+
+    const summaries = await listProjectSummariesForUser('user-ada');
+
+    expect(summaries[0]?.taskCount).toBe(1);
   });
 });
 

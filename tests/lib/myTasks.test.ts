@@ -5,6 +5,8 @@
 // Tested:
 // - Lists assigned cards across projects in one assignment pass
 // - Marks Done (or last-column) cards as completed
+// - Counts the same open tasks in the badge SQL as in the list when two columns
+//   are titled Done, and when two columns share the maximum order
 // - Ignores archived cards and assignments on projects the user left
 // - Does not include cards assigned only to other people
 // - EDIT projects with an inbox column appear in the create list
@@ -377,6 +379,7 @@ describe('listMyTasksForUser', () => {
     expect(list.tasks.find((item) => item.title === 'Live')?.completed).toBe(true);
     expect(list.tasks.find((item) => item.title === 'Draft')?.completed).toBe(false);
     expect(list.createProjects[0]?.inboxColumnId).toBe(ideas.id);
+    expect(await countOpenMyTasksForUser(db, 'user-ada')).toBe(1);
   });
 
   it('does not list assignments on a project the user left', async () => {
@@ -391,6 +394,7 @@ describe('listMyTasksForUser', () => {
     const list = await listMyTasksForUser(db, 'user-ada');
 
     expect(list.tasks.map((item) => item.title)).toEqual(['Mine']);
+    expect(await countOpenMyTasksForUser(db, 'user-ada')).toBe(1);
   });
 
   it("does not list other people's cards", async () => {
@@ -427,6 +431,54 @@ describe('listMyTasksForUser', () => {
 
     expect(db.cardAssignee.findMany).toHaveBeenCalledTimes(2);
     expect(db.card.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts the same open tasks as the list when two columns are titled Done', async () => {
+    const project = await seedAccessibleProject(db, { title: 'Sprint board', userId: 'user-ada' });
+    const todo = await db.column.create({
+      data: { id: 'col-todo', title: 'To do', order: 0, projectId: project.id },
+    });
+    const firstDone = await db.column.create({
+      data: { id: 'col-done-a', title: 'Done', order: 1, projectId: project.id },
+    });
+    const secondDone = await db.column.create({
+      data: { id: 'col-done-b', title: 'Done', order: 2, projectId: project.id },
+    });
+    await seedAssigned(todo.id, { userId: 'user-ada', title: 'Still open' });
+    await seedAssigned(firstDone.id, { userId: 'user-ada', title: 'Finished' });
+    await seedAssigned(secondDone.id, { userId: 'user-ada', title: 'On extra Done' });
+
+    const list = await listMyTasksForUser(db, 'user-ada');
+    const badge = await countOpenMyTasksForUser(db, 'user-ada');
+
+    expect(list.tasks.find((task) => task.title === 'Finished')?.completed).toBe(true);
+    expect(list.tasks.find((task) => task.title === 'On extra Done')?.completed).toBe(false);
+    expect(list.openCount).toBe(2);
+    expect(badge).toBe(2);
+  });
+
+  it('counts the same open tasks as the list when two columns share the maximum order', async () => {
+    const project = await seedAccessibleProject(db, { title: 'Marketing', userId: 'user-ada' });
+    const ideas = await db.column.create({
+      data: { id: 'col-ideas', title: 'Ideas', order: 0, projectId: project.id },
+    });
+    const alpha = await db.column.create({
+      data: { id: 'col-a', title: 'Wrap', order: 2, projectId: project.id },
+    });
+    const beta = await db.column.create({
+      data: { id: 'col-b', title: 'Ship', order: 2, projectId: project.id },
+    });
+    await seedAssigned(ideas.id, { userId: 'user-ada', title: 'Draft' });
+    await seedAssigned(alpha.id, { userId: 'user-ada', title: 'On tied earlier id' });
+    await seedAssigned(beta.id, { userId: 'user-ada', title: 'On tied later id' });
+
+    const list = await listMyTasksForUser(db, 'user-ada');
+    const badge = await countOpenMyTasksForUser(db, 'user-ada');
+
+    expect(list.tasks.find((task) => task.title === 'On tied later id')?.completed).toBe(true);
+    expect(list.tasks.find((task) => task.title === 'On tied earlier id')?.completed).toBe(false);
+    expect(list.openCount).toBe(2);
+    expect(badge).toBe(2);
   });
 
   it('returns an empty list when the user has no memberships', async () => {

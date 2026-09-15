@@ -44,6 +44,11 @@ vi.mock('@/actions/updateSubtaskField', () => ({
 vi.mock('@/actions/deleteSubtask', () => ({ deleteSubtask: vi.fn() }));
 vi.mock('@/actions/createComment', () => ({ createComment: vi.fn() }));
 vi.mock('@/actions/updateComment', () => ({ updateComment: vi.fn() }));
+vi.mock('@/actions/getCardDetail', () => ({
+  getCardDetail: vi.fn(async () => ({
+    data: { description: null, comments: [], subtasks: [] },
+  })),
+}));
 
 const { default: CardDetailDialog } = await import('@/components/cards/CardDetailDialog');
 

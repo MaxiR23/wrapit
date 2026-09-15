@@ -9,7 +9,7 @@
 // - Shows the board search input on the board header
 // - Does not render the Members heading
 // - Mounts the recents recorder after access is confirmed
-// - Calls notFound when getProjectForUser returns null
+// - Calls notFound when getBoardPageForUser returns null
 //
 // What is covered:
 // - Member happy path, empty-column Share, missing project as 404. Shell
@@ -28,11 +28,9 @@ import { OpenPanelProvider } from '@/components/projects/OpenPanel';
 import { ProjectsSearchProvider } from '@/components/projects/ProjectsSearch';
 
 const getSession = vi.fn();
-const getProjectForUser = vi.fn();
+const getBoardPageForUser = vi.fn();
 const getArchivedProjectForUser = vi.fn();
-const listProjectMembersForUser = vi.fn();
-const getProjectLabelsForUser = vi.fn();
-const getUserPreferences = vi.fn();
+const listProjectMembers = vi.fn();
 const recordRecentProject = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -46,17 +44,8 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 vi.mock('@/lib/projects', () => ({
-  getProjectForUser,
+  getBoardPageForUser,
   getArchivedProjectForUser,
-  listProjectMembersForUser,
-}));
-
-vi.mock('@/lib/projectLabels', () => ({
-  getProjectLabelsForUser,
-}));
-
-vi.mock('@/lib/userPreferences', () => ({
-  getUserPreferences,
 }));
 
 vi.mock('@/actions/recordRecentProject', () => ({
@@ -108,6 +97,9 @@ vi.mock('@/actions/updatePublicLink', () => ({ updatePublicLink: vi.fn() }));
 vi.mock('@/actions/transferOwnership', () => ({ transferOwnership: vi.fn() }));
 vi.mock('@/actions/leaveProject', () => ({ leaveProject: vi.fn() }));
 vi.mock('@/actions/archiveProject', () => ({ archiveProject: vi.fn() }));
+vi.mock('@/actions/listProjectMembers', () => ({
+  listProjectMembers: (...args: unknown[]) => listProjectMembers(...args),
+}));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers()),
@@ -144,21 +136,29 @@ describe('Project detail page', () => {
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
     recordRecentProject.mockResolvedValue(undefined);
-    listProjectMembersForUser.mockResolvedValue([
-      {
-        membershipId: 'mem-ada',
-        userId: 'user-ada',
-        name: 'Ada Lovelace',
-        username: 'ada',
-        role: 'OWNER',
-        access: 'EDIT',
+    listProjectMembers.mockResolvedValue({
+      data: {
+        members: [
+          {
+            membershipId: 'mem-ada',
+            userId: 'user-ada',
+            name: 'Ada Lovelace',
+            username: 'ada',
+            role: 'OWNER',
+            access: 'EDIT',
+          },
+        ],
       },
-    ]);
-    getProjectLabelsForUser.mockResolvedValue([
-      { id: 'l0', name: 'Design', tone: 'blue', order: 0 },
-    ]);
-    getUserPreferences.mockResolvedValue({
-      viewMode: 'grid',
+    });
+    getBoardPageForUser.mockResolvedValue({
+      id: 'project-1',
+      title: 'Sprint board',
+      ownerId: 'user-ada',
+      publicLinkEnabled: false,
+      columns: [],
+      members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
+      viewer: { role: 'OWNER', access: 'EDIT' },
+      labels: [{ id: 'l0', name: 'Design', tone: 'blue', order: 0 }],
       boardVisibility: {
         label: true,
         code: true,
@@ -172,13 +172,6 @@ describe('Project detail page', () => {
 
   it('renders the board header and can open Share when the project has no columns', async () => {
     const events = userEvent.setup();
-    getProjectForUser.mockResolvedValue({
-      id: 'project-1',
-      title: 'Sprint board',
-      ownerId: 'user-ada',
-      publicLinkEnabled: false,
-      columns: [],
-    });
 
     const page = await ProjectDetailPage(pageProps('project-1'));
     renderPage(page);
@@ -192,9 +185,8 @@ describe('Project detail page', () => {
       0,
     );
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
-    expect(getProjectForUser).toHaveBeenCalledWith('project-1', 'user-ada');
-    expect(listProjectMembersForUser).toHaveBeenCalledWith('project-1', 'user-ada');
-    expect(getProjectLabelsForUser).toHaveBeenCalledWith('project-1', 'user-ada');
+    expect(getBoardPageForUser).toHaveBeenCalledWith('project-1', 'user-ada');
+    expect(listProjectMembers).not.toHaveBeenCalled();
     expect(notFound).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(recordRecentProject).toHaveBeenCalledWith('project-1');
@@ -202,14 +194,29 @@ describe('Project detail page', () => {
 
     await events.click(screen.getByRole('button', { name: 'Share' }));
     expect(screen.getByRole('heading', { name: 'Share board' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(listProjectMembers).toHaveBeenCalledWith({ projectId: 'project-1' });
+    });
   });
 
   it('renders the board title when the project has columns', async () => {
-    getProjectForUser.mockResolvedValue({
+    getBoardPageForUser.mockResolvedValue({
       id: 'project-1',
       title: 'Sprint board',
       ownerId: 'user-ada',
+      publicLinkEnabled: false,
       columns: [{ id: 'column-todo', title: 'To do', order: 0, cards: [] }],
+      members: [{ id: 'user-ada', name: 'Ada Lovelace', username: 'ada' }],
+      viewer: { role: 'OWNER', access: 'EDIT' },
+      labels: [],
+      boardVisibility: {
+        label: true,
+        code: true,
+        comments: true,
+        subtasks: true,
+        dueDate: true,
+        assignees: true,
+      },
     });
 
     renderPage(await ProjectDetailPage(pageProps('project-1')));
@@ -219,7 +226,7 @@ describe('Project detail page', () => {
   });
 
   it('calls notFound when the project belongs to someone else', async () => {
-    getProjectForUser.mockResolvedValue(null);
+    getBoardPageForUser.mockResolvedValue(null);
     getArchivedProjectForUser.mockResolvedValue(null);
 
     await expect(ProjectDetailPage(pageProps('project-1'))).rejects.toThrow('NEXT_NOT_FOUND');
@@ -228,7 +235,7 @@ describe('Project detail page', () => {
   });
 
   it('redirects a member of an archived project to /archived', async () => {
-    getProjectForUser.mockResolvedValue(null);
+    getBoardPageForUser.mockResolvedValue(null);
     getArchivedProjectForUser.mockResolvedValue({ id: 'project-1' });
 
     await expect(ProjectDetailPage(pageProps('project-1'))).rejects.toThrow(
@@ -239,7 +246,7 @@ describe('Project detail page', () => {
   });
 
   it('calls notFound when the project id is unknown', async () => {
-    getProjectForUser.mockResolvedValue(null);
+    getBoardPageForUser.mockResolvedValue(null);
     getArchivedProjectForUser.mockResolvedValue(null);
 
     await expect(ProjectDetailPage(pageProps('missing'))).rejects.toThrow('NEXT_NOT_FOUND');

@@ -3,15 +3,21 @@
 // Tests for loading, filtering, and copy for a project's archived tasks.
 //
 // Tested:
-// - Returns archived cards with label, column, subtasks, comments, assignees
+// - Returns archived cards with label, column, progress counts, comment count, assignees
+// - Selects face fields and groups subtasks; omits description and subtask text
 // - Omits live cards and cards on another project
 // - Null archivedBy omits the by-line
 // - Search matches title or label; date range ANDs with search
-// - Sort by archive date (newest first) or name
+// - Sort by archive date (newest first) or name, with id as the name-sort tie-break
+// - A later page continues from the last row's cursor
 // - Slice of 50 reports remaining
+// - Selected archived cards load description, comment bodies, authors, and subtask text
+// - Sets canAdminister from the viewer's membership role
+// - Rollback inserts restored rows in the active sort order
 //
 // What is covered:
-// - Query isolation, assembly, filters, sort, volume slice, copy
+// - Query isolation, assembly, filters, sort, keyset page, volume slice, copy,
+//   deferred detail, viewer canAdminister from membership role, ordered insert
 //
 // Run with: pnpm test:run tests/lib/archived.test.ts
 //
@@ -25,15 +31,18 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { getArchivedCardsForUser } = await import('@/lib/archivedQuery');
+const { getArchivedCardsForUser, getArchivedCardsDetailForUser } =
+  await import('@/lib/archivedQuery');
 const {
   ARCHIVED_PAGE_SIZE,
   archivedAgeDays,
   archivedByLine,
   archivedCountLabel,
   archivedEmptyCopy,
+  archivedListCursorFromItem,
   archivedTaskDetailLine,
   filterArchivedTasks,
+  insertArchivedTasks,
   matchesArchivedSearch,
   sliceArchivedTasks,
 } = await import('@/lib/archived');
@@ -45,7 +54,7 @@ describe('getArchivedCardsForUser', () => {
     db.reset();
   });
 
-  it('returns archived cards with label, column, subtasks, comments, and assignees', async () => {
+  it('returns archived cards with face fields, progress counts, and comment count', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
       userId: 'user-ada',
@@ -66,6 +75,7 @@ describe('getArchivedCardsForUser', () => {
     const card = await db.card.create({
       data: {
         title: 'Sidebar variants',
+        description: 'Cover the board',
         code: 'SB-1',
         order: 1,
         columnId: todo.id,
@@ -105,7 +115,35 @@ describe('getArchivedCardsForUser', () => {
       },
     });
 
+    db.card.findMany.mockClear();
+    db.subtask.findMany.mockClear();
+    db.subtask.groupBy.mockClear();
+
     const result = await getArchivedCardsForUser(project.id, 'user-ada');
+
+    expect(db.card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: {
+          id: true,
+          title: true,
+          code: true,
+          labelId: true,
+          columnId: true,
+          archivedAt: true,
+          archivedById: true,
+        },
+      }),
+    );
+    const cardSelect = db.card.findMany.mock.calls[0]?.[0]?.select as Record<string, unknown>;
+    expect(cardSelect).not.toHaveProperty('description');
+    expect(db.subtask.findMany).not.toHaveBeenCalled();
+    expect(db.subtask.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['cardId', 'done'],
+        where: { cardId: { in: [card.id] } },
+        _count: { _all: true },
+      }),
+    );
 
     expect(result?.title).toBe('Sprint board');
     expect(result?.cards.map((card) => card.title)).toEqual(['Sidebar variants']);
@@ -120,9 +158,14 @@ describe('getArchivedCardsForUser', () => {
     expect(loaded?.assignees).toEqual([
       { id: 'user-grace', name: 'Grace Hopper', username: 'grace' },
     ]);
-    expect(loaded?.subtasks.map((subtask) => subtask.text)).toEqual(['Sketch', 'Review']);
-    expect(loaded?.comments[0]?.body).toBe('Keep the icon set.');
-    expect(loaded?.comments[0]?.author.username).toBe('grace');
+    expect(loaded?.subtaskDone).toBe(1);
+    expect(loaded?.subtaskTotal).toBe(2);
+    expect(loaded).not.toHaveProperty('subtasks');
+    expect(loaded?.commentCount).toBe(1);
+    expect(loaded?.comments).toEqual([]);
+    expect(loaded?.description).toBeNull();
+    expect(result?.totalCount).toBe(1);
+    expect(result?.canAdminister).toBe(true);
   });
 
   it('returns null when the project itself is archived', async () => {
@@ -147,6 +190,32 @@ describe('getArchivedCardsForUser', () => {
     expect(await getArchivedCardsForUser(project.id, 'user-other')).toBeNull();
   });
 
+  it('sets canAdminister from OWNER and ADMIN membership, not MEMBER', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const ownerProject = await seedAccessibleProject(db, {
+      title: 'Owner board',
+      userId: 'user-ada',
+    });
+    const adminProject = await seedAccessibleProject(db, {
+      title: 'Admin board',
+      userId: 'user-ada',
+      role: 'ADMIN',
+    });
+    const memberProject = await seedAccessibleProject(db, {
+      title: 'Member board',
+      userId: 'user-ada',
+      role: 'MEMBER',
+    });
+
+    expect((await getArchivedCardsForUser(ownerProject.id, 'user-ada'))?.canAdminister).toBe(true);
+    expect((await getArchivedCardsForUser(adminProject.id, 'user-ada'))?.canAdminister).toBe(true);
+    expect((await getArchivedCardsForUser(memberProject.id, 'user-ada'))?.canAdminister).toBe(
+      false,
+    );
+  });
+
   it('renders without a by-line when archivedBy is missing', async () => {
     const project = await seedAccessibleProject(db, {
       title: 'Sprint board',
@@ -169,6 +238,147 @@ describe('getArchivedCardsForUser', () => {
     const card = result?.cards[0];
     expect(card?.archivedBy).toBeNull();
     expect(archivedByLine(card!)).toBeNull();
+  });
+
+  it('paginates in the database with a matching count', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    for (let index = 0; index < 3; index += 1) {
+      await db.card.create({
+        data: {
+          title: `Card ${index}`,
+          code: `SB-${index}`,
+          order: index,
+          columnId: todo.id,
+          archivedAt: new Date(`2026-08-0${index + 1}T10:00:00.000Z`),
+        },
+      });
+    }
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada', { take: 2 });
+
+    expect(page?.totalCount).toBe(3);
+    expect(page?.cards).toHaveLength(2);
+    expect(page?.cards.map((card) => card.title)).toEqual(['Card 2', 'Card 1']);
+
+    const last = page?.cards[1];
+    const rest = await getArchivedCardsForUser(project.id, 'user-ada', {
+      take: 2,
+      cursor: last ? archivedListCursorFromItem(last) : undefined,
+    });
+    expect(rest?.totalCount).toBe(3);
+    expect(rest?.cards.map((card) => card.title)).toEqual(['Card 0']);
+  });
+
+  it('applies title search in the same query', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    await db.card.create({
+      data: {
+        title: 'Sidebar variants',
+        code: 'SB-1',
+        order: 1,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-09T10:00:00.000Z'),
+      },
+    });
+    await db.card.create({
+      data: {
+        title: 'Unrelated',
+        code: 'SB-2',
+        order: 2,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-08T10:00:00.000Z'),
+      },
+    });
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada', { query: 'sidebar' });
+
+    expect(page?.totalCount).toBe(1);
+    expect(page?.cards.map((card) => card.title)).toEqual(['Sidebar variants']);
+  });
+});
+
+describe('getArchivedCardsDetailForUser', () => {
+  beforeEach(() => {
+    db.reset();
+  });
+
+  it('returns description, comment bodies, authors, and subtask text for selected archived cards', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    await db.user.create({
+      data: { id: 'user-grace', name: 'Grace Hopper', username: 'grace' },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: {
+        title: 'Sidebar variants',
+        description: 'Cover the board',
+        order: 1,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-09T10:00:00.000Z'),
+      },
+    });
+    await db.subtask.create({
+      data: { text: 'Sketch the nav', done: true, order: 1, cardId: card.id },
+    });
+    await db.comment.create({
+      data: {
+        body: 'Keep the icon set.',
+        cardId: card.id,
+        authorId: 'user-grace',
+        createdAt: new Date('2026-08-08T10:00:00.000Z'),
+      },
+    });
+
+    const details = await getArchivedCardsDetailForUser(project.id, [card.id], 'user-ada');
+
+    expect(details?.[card.id]?.description).toBe('Cover the board');
+    expect(details?.[card.id]?.subtasks.map((subtask) => subtask.text)).toEqual(['Sketch the nav']);
+    expect(details?.[card.id]?.comments[0]?.body).toBe('Keep the icon set.');
+    expect(details?.[card.id]?.comments[0]?.author).toEqual({
+      id: 'user-grace',
+      name: 'Grace Hopper',
+      username: 'grace',
+    });
+  });
+
+  it('returns null for a non-member', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const card = await db.card.create({
+      data: {
+        title: 'Sidebar variants',
+        order: 1,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-09T10:00:00.000Z'),
+      },
+    });
+
+    expect(await getArchivedCardsDetailForUser(project.id, [card.id], 'user-other')).toBeNull();
   });
 });
 
@@ -221,6 +431,36 @@ describe('filterArchivedTasks', () => {
       filterArchivedTasks(cards, { query: 'design', range: 'old', sort: 'date', now }),
     ).toEqual([]);
   });
+
+  it('breaks name ties by id the same way the paged list does', () => {
+    const sameTitle = {
+      ...design,
+      title: 'Sidebar variants',
+    };
+    const earlierId = { ...sameTitle, id: 't0', archivedAt: new Date('2026-08-01T00:00:00.000Z') };
+    const laterId = { ...sameTitle, id: 't9', archivedAt: new Date('2026-08-21T00:00:00.000Z') };
+    expect(
+      filterArchivedTasks([laterId, earlierId], { query: '', range: 'all', sort: 'name', now }).map(
+        (card) => card.id,
+      ),
+    ).toEqual(['t0', 't9']);
+  });
+
+  it('inserts restored rows using the active date comparator', () => {
+    const newest = {
+      ...design,
+      id: 'n',
+      title: 'Newest',
+      archivedAt: new Date('2026-08-21T00:00:00.000Z'),
+    };
+    const oldest = bug;
+    const middle = design;
+    expect(insertArchivedTasks([newest, oldest], [middle], 'date').map((card) => card.id)).toEqual([
+      'n',
+      't1',
+      't2',
+    ]);
+  });
 });
 
 describe('archived helpers', () => {
@@ -262,6 +502,16 @@ describe('archived helpers', () => {
       })),
     };
     expect(archivedTaskDetailLine(card)).toBe('2/3 subtasks · 6 comments');
+    expect(
+      archivedTaskDetailLine({
+        ...card,
+        subtasks: undefined,
+        comments: [],
+        commentCount: 6,
+        subtaskDone: 2,
+        subtaskTotal: 3,
+      }),
+    ).toBe('2/3 subtasks · 6 comments');
   });
 
   it('slices to the page size and reports remaining', () => {

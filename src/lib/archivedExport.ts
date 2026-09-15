@@ -1,7 +1,32 @@
-import { subtaskProgress, commentCount } from '@/lib/cardCounters';
+import { faceSubtaskProgress, commentCount } from '@/lib/cardCounters';
 import type { ArchivedTask } from '@/lib/archived';
+import { MAX_ARCHIVED_BATCH } from '@/lib/validation/archived';
 
 export type ArchivedExportFormat = 'csv' | 'json';
+
+/** Split ids so each getArchivedCardsDetail call stays within MAX_ARCHIVED_BATCH. */
+export function archivedExportIdBatches(ids: string[], size = MAX_ARCHIVED_BATCH): string[][] {
+  if (ids.length === 0 || size < 1) return [];
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) {
+    batches.push(ids.slice(i, i + size));
+  }
+  return batches;
+}
+
+export async function loadArchivedExportDetails<T>(
+  cardIds: string[],
+  loadBatch: (batch: string[]) => Promise<{ data: Record<string, T> } | { error: string }>,
+  batchSize = MAX_ARCHIVED_BATCH,
+): Promise<{ data: Record<string, T> } | { error: string }> {
+  const data: Record<string, T> = {};
+  for (const batch of archivedExportIdBatches(cardIds, batchSize)) {
+    const result = await loadBatch(batch);
+    if ('error' in result) return result;
+    Object.assign(data, result.data);
+  }
+  return { data };
+}
 
 function csvCell(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -34,7 +59,7 @@ export function archivedTasksCsv(cards: ArchivedTask[]): string {
   ];
   const lines = [header.join(',')];
   for (const card of cards) {
-    const progress = subtaskProgress(card.subtasks);
+    const progress = faceSubtaskProgress(card);
     lines.push(
       [
         csvCell(card.code),
@@ -43,7 +68,7 @@ export function archivedTasksCsv(cards: ArchivedTask[]): string {
         csvCell(card.column.title),
         String(progress.done),
         String(progress.total),
-        String(commentCount(card.comments)),
+        String(card.commentCount ?? commentCount(card.comments)),
         csvCell(card.assignees.map((person) => person.name || person.username).join('; ')),
         csvCell(card.archivedAt.toISOString()),
         csvCell(card.archivedBy?.name ?? ''),

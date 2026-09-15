@@ -23,6 +23,7 @@ export type NotificationDb = {
     findFirst: (args: {
       where: Record<string, unknown>;
     }) => Promise<Record<string, unknown> | null>;
+    count: (args: { where: Record<string, unknown> }) => Promise<number>;
     update: (args: {
       where: Record<string, unknown>;
       data: Record<string, unknown>;
@@ -125,6 +126,11 @@ export async function listNotificationsForUser(
   };
 }
 
+/** Unread rows for the shell badge. Does not load invitation or actor rows. */
+export function countUnreadNotificationsForUser(db: NotificationDb, userId: string) {
+  return db.notification.count({ where: { recipientId: userId, read: false } });
+}
+
 export async function markNotificationReadForUser(
   db: NotificationDb,
   input: { userId: string; notificationId: string },
@@ -146,7 +152,12 @@ export async function markAllNotificationsReadForUser(
   });
 }
 
-/** Session-user list for Server Components. Uses the shared Prisma client. */
+/** Session-user list for the notifications panel. Uses the shared Prisma client. */
 export function getNotificationsForUser(userId: string) {
   return listNotificationsForUser(prisma as unknown as NotificationDb, userId);
+}
+
+/** Session-user unread count for the shell badge. Uses the shared Prisma client. */
+export function getUnreadNotificationCountForUser(userId: string) {
+  return countUnreadNotificationsForUser(prisma as unknown as NotificationDb, userId);
 }

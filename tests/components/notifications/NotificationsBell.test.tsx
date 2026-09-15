@@ -55,14 +55,16 @@ const unreadItem: NotificationListItem = {
 
 function Shell({
   children,
-  initialItems = [unreadItem],
+  initialUnreadCount = 1,
 }: {
   children: ReactNode;
-  initialItems?: NotificationListItem[];
+  initialUnreadCount?: number;
 }) {
   return (
     <OpenPanelProvider>
-      <NotificationsProvider initialItems={initialItems}>{children}</NotificationsProvider>
+      <NotificationsProvider initialUnreadCount={initialUnreadCount}>
+        {children}
+      </NotificationsProvider>
     </OpenPanelProvider>
   );
 }
@@ -75,7 +77,7 @@ describe('NotificationsBell', () => {
     });
   });
 
-  it('shows an unread badge from the initial fetch', async () => {
+  it('shows an unread badge from the initial unread count', async () => {
     render(
       <Shell>
         <NotificationsBell />
@@ -88,6 +90,15 @@ describe('NotificationsBell', () => {
 
   it('refetches when the panel opens and uses CSS-only popover and sheet chrome', async () => {
     const events = userEvent.setup();
+    let resolveList: (value: {
+      data: { items: NotificationListItem[]; unreadCount: number };
+    }) => void = () => {};
+    listNotifications.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveList = resolve;
+        }),
+    );
     render(
       <Shell>
         <div className="relative">
@@ -102,8 +113,18 @@ describe('NotificationsBell', () => {
 
     await events.click(screen.getByRole('button', { name: 'Notifications, 1 unread' }));
 
+    expect(screen.getAllByText('Loading notifications').length).toBeGreaterThan(0);
+    expect(screen.queryByText('No notifications')).not.toBeInTheDocument();
+
+    resolveList({ data: { items: [unreadItem], unreadCount: 1 } });
+
     await waitFor(() => {
       expect(listNotifications).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(
+        screen.getAllByText('Ada Lovelace invited you to Sprint board').length,
+      ).toBeGreaterThan(0);
     });
 
     const dialogs = screen.getAllByRole('dialog', { name: 'Notifications' });

@@ -4,10 +4,11 @@
 // and client-side title search.
 //
 // Tested:
-// - Counts cards in a Done column as done
+// - Counts per-column cardCount in a Done column as done
 // - Falls back to the last column by order when no Done column exists
 // - Resolves Done and inbox columns for completing a card
 // - Skips every Done-titled column when picking the inbox
+// - Picks one Done column when two are titled Done, and one last column when two share max order
 // - Renders N of M cards done, N/M done, and the empty-board copy
 // - Rounds the percentage
 // - Always includes the owner among members
@@ -78,8 +79,8 @@ describe('projectProgress', () => {
   it('counts cards in a Done column as done', () => {
     expect(
       projectProgress([
-        { title: 'To do', order: 1, cards: [{}, {}] },
-        { title: 'Done', order: 2, cards: [{}] },
+        { title: 'To do', order: 1, cardCount: 2 },
+        { title: 'Done', order: 2, cardCount: 1 },
       ]),
     ).toEqual({ taskCount: 3, doneCount: 1, percent: 33 });
   });
@@ -87,8 +88,8 @@ describe('projectProgress', () => {
   it('matches Done case-insensitively even when it is not last', () => {
     expect(
       projectProgress([
-        { title: 'done', order: 1, cards: [{}, {}] },
-        { title: 'Review', order: 2, cards: [{}] },
+        { title: 'done', order: 1, cardCount: 2 },
+        { title: 'Review', order: 2, cardCount: 1 },
       ]),
     ).toEqual({ taskCount: 3, doneCount: 2, percent: 67 });
   });
@@ -96,16 +97,16 @@ describe('projectProgress', () => {
   it('falls back to the last column by order when no Done column exists', () => {
     expect(
       projectProgress([
-        { title: 'To do', order: 1, cards: [{}, {}, {}] },
-        { title: 'In progress', order: 2, cards: [{}] },
-        { title: 'Listo', order: 3, cards: [{}, {}] },
+        { title: 'To do', order: 1, cardCount: 3 },
+        { title: 'In progress', order: 2, cardCount: 1 },
+        { title: 'Listo', order: 3, cardCount: 2 },
       ]),
     ).toEqual({ taskCount: 6, doneCount: 2, percent: 33 });
   });
 
   it('returns 0 of 0 and 0% when there are no cards', () => {
     expect(projectProgress([])).toEqual({ taskCount: 0, doneCount: 0, percent: 0 });
-    expect(projectProgress([{ title: 'To do', order: 1, cards: [] }])).toEqual({
+    expect(projectProgress([{ title: 'To do', order: 1, cardCount: 0 }])).toEqual({
       taskCount: 0,
       doneCount: 0,
       percent: 0,
@@ -115,8 +116,8 @@ describe('projectProgress', () => {
   it('rounds the percentage', () => {
     expect(
       projectProgress([
-        { title: 'To do', order: 1, cards: Array.from({ length: 13 }, () => ({})) },
-        { title: 'Done', order: 2, cards: Array.from({ length: 11 }, () => ({})) },
+        { title: 'To do', order: 1, cardCount: 13 },
+        { title: 'Done', order: 2, cardCount: 11 },
       ]),
     ).toEqual({ taskCount: 24, doneCount: 11, percent: 46 });
   });
@@ -157,6 +158,21 @@ describe('doneColumnFrom and inboxColumnFrom', () => {
 
     expect(doneColumnFrom([firstDone, secondDone, todo])).toBe(firstDone);
     expect(inboxColumnFrom([firstDone, secondDone, todo])).toBe(todo);
+  });
+
+  it('picks the lower-order Done when two columns are titled Done', () => {
+    const later = { id: 'col-later', title: 'Done', order: 2 };
+    const earlier = { id: 'col-earlier', title: ' done ', order: 0 };
+
+    expect(doneColumnFrom([later, earlier])).toBe(earlier);
+  });
+
+  it('picks the higher id when two columns share the maximum order', () => {
+    const ideas = { id: 'col-ideas', title: 'Ideas', order: 0 };
+    const alpha = { id: 'col-a', title: 'Wrap', order: 2 };
+    const beta = { id: 'col-b', title: 'Ship', order: 2 };
+
+    expect(doneColumnFrom([ideas, alpha, beta])).toBe(beta);
   });
 });
 

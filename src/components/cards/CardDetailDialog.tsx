@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
+import { getCardDetail } from '@/actions/getCardDetail';
 import CardDetailBody from '@/components/cards/CardDetailBody';
 import type { BoardCardData, BoardMember } from '@/components/projects/boardTypes';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -44,7 +45,7 @@ export default function CardDetailDialog({
   currentUser: BoardMember;
   canEdit?: boolean;
   canComment?: boolean;
-  onCardPatch: (patch: Partial<BoardCardData>) => void;
+  onCardPatch: (patch: Partial<BoardCardData>, options?: { recordWrite?: boolean }) => void;
   onMoveColumn: (columnId: string) => void;
   onArchive: () => void;
   onDelete: () => void;
@@ -53,6 +54,30 @@ export default function CardDetailDialog({
   const [askingDelete, setAskingDelete] = useState(false);
   const columnTitle = columns.find((column) => column.id === columnId)?.title ?? '';
   const tone = card?.label ? labelToneClasses(card.label.tone) : null;
+  const detailReady = card == null || card.detailLoaded === true || card.comments !== undefined;
+
+  useEffect(() => {
+    if (!open || !card || detailReady) return;
+    const cardId = card.id;
+    let cancelled = false;
+    void getCardDetail({ cardId }).then((result) => {
+      if (cancelled) return;
+      if ('error' in result) return;
+      onCardPatch(
+        {
+          description: result.data.description,
+          comments: result.data.comments,
+          subtasks: result.data.subtasks,
+          commentCount: result.data.comments.length,
+          detailLoaded: true,
+        },
+        { recordWrite: false },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, card, detailReady, onCardPatch]);
 
   return (
     <Dialog
@@ -114,23 +139,27 @@ export default function CardDetailDialog({
                 {columnTitle}
               </DialogDescription>
             </div>
-            <CardDetailBody
-              key={card.id}
-              card={card}
-              columnId={columnId}
-              columns={columns}
-              members={members}
-              labels={labels}
-              currentUser={currentUser}
-              canEdit={canEdit}
-              canComment={canComment}
-              askingDelete={askingDelete}
-              onAskingDelete={setAskingDelete}
-              onCardPatch={onCardPatch}
-              onMoveColumn={onMoveColumn}
-              onArchive={onArchive}
-              onDelete={onDelete}
-            />
+            {detailReady ? (
+              <CardDetailBody
+                key={card.id}
+                card={card}
+                columnId={columnId}
+                columns={columns}
+                members={members}
+                labels={labels}
+                currentUser={currentUser}
+                canEdit={canEdit}
+                canComment={canComment}
+                askingDelete={askingDelete}
+                onAskingDelete={setAskingDelete}
+                onCardPatch={onCardPatch}
+                onMoveColumn={onMoveColumn}
+                onArchive={onArchive}
+                onDelete={onDelete}
+              />
+            ) : (
+              <p className="px-4 py-6 text-sm text-muted-foreground tablet:px-5">Loading card</p>
+            )}
           </>
         ) : null}
       </DialogContent>

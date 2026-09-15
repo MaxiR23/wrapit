@@ -15,3 +15,22 @@ export function subtaskProgress(subtasks: CountedSubtask[]): { done: number; tot
   }
   return { done, total: subtasks.length };
 }
+
+/** Footer comment count: the loaded thread wins over the first-paint number. */
+export function faceCommentCount(card: {
+  comments?: CountedComment[];
+  commentCount?: number;
+}): number {
+  if (card.comments !== undefined) return commentCount(card.comments);
+  return card.commentCount ?? 0;
+}
+
+/** Footer subtask progress: the loaded list wins over first-paint aggregates. */
+export function faceSubtaskProgress(card: {
+  subtasks?: CountedSubtask[];
+  subtaskDone?: number;
+  subtaskTotal?: number;
+}): { done: number; total: number } {
+  if (card.subtasks !== undefined) return subtaskProgress(card.subtasks);
+  return { done: card.subtaskDone ?? 0, total: card.subtaskTotal ?? 0 };
+}

@@ -4,6 +4,7 @@
 //
 // Tested:
 // - Lists the recipient's notifications newest first with actor and unread count
+// - Counts unread rows for the recipient without loading the list
 // - Ignores another user's notifications
 // - Marks one of the recipient's rows read and refuses a foreign id
 // - Marking an already-read row is an idempotent success
@@ -23,8 +24,12 @@ import { createPrismaFake } from '../helpers/prismaFake';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { listNotificationsForUser, markNotificationReadForUser, markAllNotificationsReadForUser } =
-  await import('@/lib/notifications');
+const {
+  listNotificationsForUser,
+  countUnreadNotificationsForUser,
+  markNotificationReadForUser,
+  markAllNotificationsReadForUser,
+} = await import('@/lib/notifications');
 
 const ada = { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' };
 const maxi = { id: 'user-max', name: 'Maxi', username: 'maxi' };
@@ -93,6 +98,30 @@ describe('listNotificationsForUser', () => {
         read: false,
       }),
     );
+  });
+});
+
+describe('countUnreadNotificationsForUser', () => {
+  beforeEach(async () => {
+    db.reset();
+    await db.user.create({ data: ada });
+    await db.user.create({ data: maxi });
+  });
+
+  it('counts only the recipient unread rows', async () => {
+    await db.notification.create({
+      data: { id: 'read', type: 'INVITATION_RECEIVED', read: true, recipientId: maxi.id },
+    });
+    await db.notification.create({
+      data: { id: 'unread', type: 'INVITATION_RECEIVED', read: false, recipientId: maxi.id },
+    });
+    await db.notification.create({
+      data: { id: 'other', type: 'INVITATION_ACCEPTED', read: false, recipientId: ada.id },
+    });
+
+    expect(await countUnreadNotificationsForUser(db, maxi.id)).toBe(1);
+    expect(await countUnreadNotificationsForUser(db, ada.id)).toBe(1);
+    expect(await countUnreadNotificationsForUser(db, 'nobody')).toBe(0);
   });
 });
 

@@ -5,7 +5,7 @@
 // Tested:
 // - Wraps children in ProjectsShell when a session exists
 // - Redirects to sign in when there is no session
-// - Loads notifications and the open-task count for the shell
+// - Loads the unread notification count and the open-task count for the shell
 //
 // What is covered:
 // - Layout composition and the unauthenticated redirect. jsdom cannot prove
@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 const getSession = vi.fn();
-const getNotificationsForUser = vi.fn();
+const getUnreadNotificationCountForUser = vi.fn();
 const countOpenMyTasksForUser = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`NEXT_REDIRECT:${path}`);
@@ -31,7 +31,7 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 vi.mock('@/lib/notifications', () => ({
-  getNotificationsForUser,
+  getUnreadNotificationCountForUser,
 }));
 
 vi.mock('@/lib/myTasks', () => ({
@@ -68,14 +68,14 @@ describe('authenticated app layout', () => {
     getSession.mockResolvedValue({
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
-    getNotificationsForUser.mockResolvedValue({ items: [], unreadCount: 0 });
+    getUnreadNotificationCountForUser.mockResolvedValue(0);
     countOpenMyTasksForUser.mockResolvedValue(0);
   });
 
   it('wraps children in the projects shell for a signed-in user', async () => {
     render(await AppLayout({ children: <p>Slot</p> }));
 
-    expect(getNotificationsForUser).toHaveBeenCalledWith('user-ada');
+    expect(getUnreadNotificationCountForUser).toHaveBeenCalledWith('user-ada');
     expect(countOpenMyTasksForUser).toHaveBeenCalledWith(expect.anything(), 'user-ada');
     expect(screen.getByText('Slot')).toBeInTheDocument();
     expect(screen.getAllByRole('navigation', { name: 'Main' }).length).toBeGreaterThan(0);
@@ -87,6 +87,6 @@ describe('authenticated app layout', () => {
 
     await expect(AppLayout({ children: <p>Slot</p> })).rejects.toThrow('NEXT_REDIRECT:/sign-in');
     expect(redirect).toHaveBeenCalledWith('/sign-in');
-    expect(getNotificationsForUser).not.toHaveBeenCalled();
+    expect(getUnreadNotificationCountForUser).not.toHaveBeenCalled();
   });
 });

@@ -74,6 +74,7 @@ export type MyTasksDb = {
   label: FindMany;
   user: FindMany;
   subtask: FindMany;
+  $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
 };
 
 function asString(value: unknown): string {
@@ -313,13 +314,16 @@ type AssignedContext = {
 
 const EMPTY_LIST: MyTasksList = { tasks: [], createProjects: [], openCount: 0 };
 
-/** Memberships, live projects, columns, and assigned cards. React.cache so /tasks
- * list and the shell badge share one load on the same request. */
+/** Memberships, live projects, columns, and assigned cards. React.cache so
+ * listMyTasksForUser does not reload the same tables twice on one request. */
 const loadAssignedContext = cache(async function loadAssignedContext(
   db: MyTasksDb,
   userId: string,
 ): Promise<AssignedContext | null> {
-  const memberships = await db.membership.findMany({ where: { userId } });
+  const [memberships, assignments] = await Promise.all([
+    db.membership.findMany({ where: { userId } }),
+    db.cardAssignee.findMany({ where: { userId } }),
+  ]);
   if (memberships.length === 0) return null;
 
   const membershipProjectIds = memberships.map((membership) => asString(membership.projectId));
@@ -341,22 +345,20 @@ const loadAssignedContext = cache(async function loadAssignedContext(
 
   const projectIds = projects.map((project) => asString(project.id));
   const memberProjectIds = new Set(projectIds);
-
-  const assignments = await db.cardAssignee.findMany({ where: { userId } });
   const assignedCardIds = assignments.map((row) => asString(row.cardId));
-  const cards =
-    assignedCardIds.length === 0
-      ? []
-      : await db.card.findMany({
-          where: { id: { in: assignedCardIds }, archivedAt: null },
-        });
 
-  const columns =
+  const [cards, columns] = await Promise.all([
+    assignedCardIds.length === 0
+      ? Promise.resolve([])
+      : db.card.findMany({
+          where: { id: { in: assignedCardIds }, archivedAt: null },
+        }),
     projectIds.length === 0
-      ? []
-      : await db.column.findMany({
+      ? Promise.resolve([])
+      : db.column.findMany({
           where: { projectId: { in: projectIds } },
-        });
+        }),
+  ]);
   const projectIdByColumnId = new Map(
     columns.map((column) => [asString(column.id), asString(column.projectId)]),
   );
@@ -443,14 +445,18 @@ export async function listMyTasksForUser(db: MyTasksDb, userId: string): Promise
         .filter((id): id is string => id != null && id.length > 0),
     ),
   ];
-  const labels =
-    labelIds.length === 0 ? [] : await db.label.findMany({ where: { id: { in: labelIds } } });
-  const labelById = new Map(labels.map((label) => [asString(label.id), cardLabelFromRow(label)]));
-
-  const assignmentRows =
+  const [labels, assignmentRows, subtaskRows] = await Promise.all([
+    labelIds.length === 0
+      ? Promise.resolve([])
+      : db.label.findMany({ where: { id: { in: labelIds } } }),
     cardIds.length === 0
-      ? []
-      : await db.cardAssignee.findMany({ where: { cardId: { in: cardIds } } });
+      ? Promise.resolve([])
+      : db.cardAssignee.findMany({ where: { cardId: { in: cardIds } } }),
+    cardIds.length === 0
+      ? Promise.resolve([])
+      : db.subtask.findMany({ where: { cardId: { in: cardIds } } }),
+  ]);
+  const labelById = new Map(labels.map((label) => [asString(label.id), cardLabelFromRow(label)]));
   const assigneeUserIds = [...new Set(assignmentRows.map((row) => asString(row.userId)))];
   const users =
     assigneeUserIds.length === 0
@@ -476,8 +482,6 @@ export async function listMyTasksForUser(db: MyTasksDb, userId: string): Promise
     assigneesByCardId.set(cardId, current);
   }
 
-  const subtaskRows =
-    cardIds.length === 0 ? [] : await db.subtask.findMany({ where: { cardId: { in: cardIds } } });
   const subtasksByCardId = new Map<string, Array<{ id: string; done: boolean }>>();
   for (const row of subtaskRows) {
     const cardId = asString(row.cardId);
@@ -524,13 +528,42 @@ export async function listMyTasksForUser(db: MyTasksDb, userId: string): Promise
   };
 }
 
-/** Open assigned cards for the sidebar badge. Same membership and Done rules as the list. */
+/**
+ * Open assigned cards for the sidebar badge. Same membership and Done rules as
+ * the list, counted in one SQL statement so the shell does not load rows.
+ * The Done column per project is DISTINCT ON matching `compareDoneColumnPick`
+ * / `doneColumnFrom`: one titled Done (lowest order, then id) or else the
+ * last column (highest order, then id).
+ */
 export async function countOpenMyTasksForUser(db: MyTasksDb, userId: string): Promise<number> {
-  const context = await loadAssignedContext(db, userId);
-  if (!context) return 0;
-  let open = 0;
-  for (const card of context.cards) {
-    if (context.completedByCardId.get(asString(card.id)) !== true) open += 1;
-  }
-  return open;
+  const rows = (await db.$queryRaw`
+    WITH member_projects AS (
+      SELECT p.id
+      FROM "Project" p
+      INNER JOIN "Membership" m ON m."projectId" = p.id
+      WHERE m."userId" = ${userId}
+        AND p."archivedAt" IS NULL
+    ),
+    done_columns AS (
+      SELECT DISTINCT ON (c."projectId") c.id
+      FROM "Column" c
+      INNER JOIN member_projects mp ON mp.id = c."projectId"
+      ORDER BY
+        c."projectId",
+        CASE WHEN LOWER(TRIM(c.title)) = 'done' THEN 0 ELSE 1 END,
+        CASE WHEN LOWER(TRIM(c.title)) = 'done' THEN c."order" ELSE -c."order" END,
+        CASE WHEN LOWER(TRIM(c.title)) = 'done' THEN c.id END ASC NULLS LAST,
+        c.id DESC
+    )
+    SELECT COUNT(*)::int AS count
+    FROM "CardAssignee" ca
+    INNER JOIN "Card" card ON card.id = ca."cardId"
+    INNER JOIN "Column" col ON col.id = card."columnId"
+    INNER JOIN member_projects mp ON mp.id = col."projectId"
+    WHERE ca."userId" = ${userId}
+      AND card."archivedAt" IS NULL
+      AND card."columnId" NOT IN (SELECT id FROM done_columns)
+  `) as Array<{ count: number | bigint }>;
+  const count = rows[0]?.count ?? 0;
+  return typeof count === 'bigint' ? Number(count) : count;
 }

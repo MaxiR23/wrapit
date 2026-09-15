@@ -14,6 +14,8 @@
 // - Create is disabled without a title
 // - A created card lands at the end of the chosen column
 // - Clicking a card opens the detail dialog
+// - Opening a card then refreshing does not revert another user's edits to it
+// - A local pending edit is still protected by a refresh
 // - initialOpenCardId opens that card and ignores an unknown id
 // - Archive removes the card and shows a status toast
 // - Label filters and search narrow the board and empty results show no-results
@@ -29,9 +31,11 @@
 // - Self-demote with no stored access keeps EDIT controls
 // - The viewer's share row drives capabilities even when boardAccess stays EDIT
 // - A missing viewer row still falls back to the boardAccess and teamRole props
+// - Changing projectId without shareMembers drops the previous project's members
+//   and capabilities, then loads the new project's list on Share
 //
 // What is covered:
-// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail, activity log surface, live membership capabilities
+// - Render layout, optimistic rollback, serialized persist races, progress, new task modal, card detail vs pending writes, activity log surface, live membership capabilities
 //
 // Run with: pnpm test:run tests/components/projects/ProjectBoard.test.tsx
 //
@@ -46,6 +50,7 @@ import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import type { ProjectBoardHandle } from '@/components/projects/ProjectBoard';
 import type { BoardColumnData, ShareMember } from '@/components/projects/boardTypes';
 import type { BoardAccess } from '@/lib/membership';
+import type { ProjectMember } from '@/lib/projects';
 
 const moveCard = vi.fn();
 const createCard = vi.fn();
@@ -121,6 +126,17 @@ vi.mock('@/actions/archiveProject', () => ({
     data: { id: projectId },
   })),
 }));
+vi.mock('@/actions/getCardDetail', () => ({
+  getCardDetail: vi.fn(async () => ({
+    data: { description: null, comments: [], subtasks: [] },
+  })),
+}));
+const listProjectMembers = vi.fn<
+  (input: { projectId: string }) => Promise<{ data: { members: ProjectMember[] } }>
+>(async () => ({ data: { members: [] } }));
+vi.mock('@/actions/listProjectMembers', () => ({
+  listProjectMembers,
+}));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
@@ -143,15 +159,15 @@ const columns: BoardColumnData[] = [
     title: 'To do',
     order: 0,
     cards: [
-      { id: 'card-a', title: 'Card A', code: 'CA-1', dueDate: null },
-      { id: 'card-b', title: 'Card B', code: 'CB-2', dueDate: null },
+      { id: 'card-a', title: 'Card A', code: 'CA-1', dueDate: null, comments: [] },
+      { id: 'card-b', title: 'Card B', code: 'CB-2', dueDate: null, comments: [] },
     ],
   },
   {
     id: 'column-doing',
     title: 'Doing',
     order: 1,
-    cards: [{ id: 'card-c', title: 'Card C', code: 'CC-3', dueDate: null }],
+    cards: [{ id: 'card-c', title: 'Card C', code: 'CC-3', dueDate: null, comments: [] }],
   },
   {
     id: 'column-done',
@@ -264,6 +280,7 @@ async function confirmSelfDemote(user: ReturnType<typeof userEvent.setup>, acces
 describe('ProjectBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listProjectMembers.mockResolvedValue({ data: { members: [] } });
     listActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
     HTMLElement.prototype.scrollTo = vi.fn();
   });
@@ -737,6 +754,98 @@ describe('ProjectBoard', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('CA-1');
   });
 
+  it("does not revert another user's edits after opening a card and refreshing", async () => {
+    const user = userEvent.setup();
+    const slim = (title: string): BoardColumnData[] => [
+      {
+        id: 'column-todo',
+        title: 'To do',
+        order: 0,
+        cards: [{ id: 'card-a', title, code: 'CA-1', dueDate: null, commentCount: 0 }],
+      },
+      columns[1]!,
+      columns[2]!,
+    ];
+    const { rerender } = renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={slim('Card A')}
+        members={[]}
+      />,
+    );
+
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(await screen.findByLabelText('Title')).toHaveTextContent('Card A');
+
+    rerender(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={slim('Renamed by Grace')}
+        members={[]}
+      />,
+    );
+
+    expect(
+      within(desktopBoard()).getByRole('heading', { name: 'Renamed by Grace', hidden: true }),
+    ).toBeInTheDocument();
+    expect(
+      within(desktopBoard()).queryByRole('heading', { name: 'Card A', hidden: true }),
+    ).toBeNull();
+  });
+
+  it('keeps a local pending edit when columns refresh', async () => {
+    const user = userEvent.setup();
+    const slim = (title: string): BoardColumnData[] => [
+      {
+        id: 'column-todo',
+        title: 'To do',
+        order: 0,
+        cards: [{ id: 'card-a', title, code: 'CA-1', dueDate: null, commentCount: 0 }],
+      },
+      columns[1]!,
+      columns[2]!,
+    ];
+    const { rerender } = renderBoard(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={slim('Card A')}
+        members={[]}
+      />,
+    );
+
+    await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
+    expect(await screen.findByLabelText('Title')).toHaveTextContent('Card A');
+    screen.getByLabelText('Title').focus();
+    await user.keyboard('{Enter}');
+    const titleField = screen.getByRole('textbox', { name: 'Title' });
+    await user.clear(titleField);
+    await user.type(titleField, 'My draft title');
+
+    rerender(
+      <ProjectBoard
+        title="Sprint board"
+        projectId="project-1"
+        currentUser={{ id: 'user-ada', name: 'Ada', username: 'ada' }}
+        labels={[]}
+        columns={slim('Renamed by Grace')}
+        members={[]}
+      />,
+    );
+
+    expect(
+      within(desktopBoard()).getByRole('heading', { name: 'My draft title', hidden: true }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the card detail from initialOpenCardId and ignores an unknown id', async () => {
     renderBoard(
       <ProjectBoard
@@ -1150,6 +1259,92 @@ describe('ProjectBoard', () => {
     expect(addCardToDo()).toBeDisabled();
     await user.click(within(desktopColumn('To do')).getByRole('heading', { name: 'Card A' }));
     expect(screen.queryByRole('textbox', { name: 'Write a comment' })).not.toBeInTheDocument();
+  });
+
+  it('drops the previous project share row when projectId changes without shareMembers', async () => {
+    const user = userEvent.setup();
+    listProjectMembers.mockImplementation(async ({ projectId }) => {
+      if (projectId === 'project-1') {
+        return {
+          data: {
+            members: [
+              {
+                membershipId: 'mem-ada',
+                userId: adaUser.id,
+                name: adaUser.name,
+                username: adaUser.username,
+                role: 'MEMBER' as const,
+                access: 'COMMENT' as const,
+              },
+              {
+                membershipId: 'mem-owner',
+                userId: 'user-owner',
+                name: 'Owner',
+                username: 'owner',
+                role: 'OWNER' as const,
+                access: 'EDIT' as const,
+              },
+            ],
+          },
+        };
+      }
+      return {
+        data: {
+          members: [
+            {
+              membershipId: 'mem-bea',
+              userId: adaUser.id,
+              name: 'Bea',
+              username: 'bea',
+              role: 'MEMBER' as const,
+              access: 'EDIT' as const,
+            },
+          ],
+        },
+      };
+    });
+
+    function Board({ projectId }: { projectId: string }) {
+      return (
+        <ProjectBoard
+          title="Sprint board"
+          projectId={projectId}
+          currentUser={adaUser}
+          labels={[]}
+          columns={columns}
+          members={[]}
+          boardAccess="EDIT"
+          teamRole="MEMBER"
+        />
+      );
+    }
+
+    const { rerender } = renderBoard(<Board projectId="project-1" />);
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await waitFor(() => {
+      expect(listProjectMembers).toHaveBeenCalledWith({ projectId: 'project-1' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Can comment')).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(addCardToDo()).toBeDisabled();
+
+    rerender(<Board projectId="project-2" />);
+    await waitFor(() => {
+      expect(addCardToDo()).not.toBeDisabled();
+    });
+
+    listProjectMembers.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await waitFor(() => {
+      expect(listProjectMembers).toHaveBeenCalledWith({ projectId: 'project-2' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Bea')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Can comment')).not.toBeInTheDocument();
   });
 
   it('keeps EDIT controls when the viewer row is absent and boardAccess is EDIT', () => {

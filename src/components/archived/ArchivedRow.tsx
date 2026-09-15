@@ -25,7 +25,7 @@ import {
 } from '@/lib/archived';
 import { archivedCopy } from '@/lib/archivedCopy';
 import { startRowPointer } from '@/lib/swipe';
-import { subtaskProgress } from '@/lib/cardCounters';
+import { faceSubtaskProgress } from '@/lib/cardCounters';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
 import { projectStatusBarClass } from '@/lib/projectGrid';
@@ -406,7 +406,7 @@ export default function ArchivedRow({
 
   if (!card) return null;
 
-  const progress = subtaskProgress(card.subtasks);
+  const progress = faceSubtaskProgress(card);
   const tone = card.label ? labelToneClasses(card.label.tone) : null;
 
   return (

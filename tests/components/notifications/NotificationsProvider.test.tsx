@@ -6,19 +6,21 @@
 // - A successful accept refreshes the mounted projects page
 // - A failed accept does not refresh the page
 // - Reject does not refresh the page
-// - A new initialItems prop after refresh updates the list
-// - The same initialItems reference does not wipe local state
+// - A new initialUnreadCount after refresh updates the badge
+// - The same initialUnreadCount does not wipe a local mark-read
+// - A list response that started before mark-all-read does not restore unread
+//   items or the badge count
 //
 // What is covered:
-// - router.refresh after accept success only, initialItems sync after a
-//   persistent-layout refresh
+// - router.refresh after accept success only, unread count sync after a
+//   persistent-layout refresh, stale list after mark-all-read
 //
 // Run with: pnpm test:run tests/components/notifications/NotificationsProvider.test.tsx
 //
 // SEE: src/components/notifications/NotificationsProvider.tsx
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { NotificationListItem } from '@/lib/notifications';
@@ -26,6 +28,7 @@ import type { NotificationListItem } from '@/lib/notifications';
 const acceptInvitation = vi.fn();
 const rejectInvitation = vi.fn();
 const listNotifications = vi.fn();
+const markAllNotificationsRead = vi.fn();
 const refresh = vi.fn();
 
 vi.mock('@/actions/acceptInvitation', () => ({ acceptInvitation }));
@@ -34,7 +37,7 @@ vi.mock('@/actions/listNotifications', () => ({ listNotifications }));
 vi.mock('@/actions/markNotificationRead', () => ({
   markNotificationRead: vi.fn(async () => ({ data: { id: 'n1' } })),
 }));
-vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead: vi.fn() }));
+vi.mock('@/actions/markAllNotificationsRead', () => ({ markAllNotificationsRead }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh }),
@@ -43,6 +46,17 @@ vi.mock('next/navigation', () => ({
 const { OpenPanelProvider } = await import('@/components/projects/OpenPanel');
 const { NotificationsProvider, useNotifications } =
   await import('@/components/notifications/NotificationsProvider');
+
+const unreadItem: NotificationListItem = {
+  id: 'n1',
+  type: 'INVITATION_RECEIVED',
+  message: 'Ada invited you to Sprint board',
+  read: false,
+  createdAt: new Date().toISOString(),
+  invitationId: 'invite-1',
+  actorName: 'Ada Lovelace',
+  actorUsername: 'ada',
+};
 
 function Actions() {
   const { accept, reject } = useNotifications();
@@ -59,15 +73,23 @@ function Actions() {
 }
 
 function ListProbe() {
-  const { items, unreadCount, markRead } = useNotifications();
+  const { items, unreadCount, markRead, markAllRead, refresh: loadList } = useNotifications();
   return (
     <div>
       <p>unread:{unreadCount}</p>
       <ul>
         {items.map((item) => (
-          <li key={item.id}>{item.message}</li>
+          <li key={item.id}>
+            {item.read ? 'read' : 'unread'} {item.message}
+          </li>
         ))}
       </ul>
+      <button type="button" onClick={() => void loadList()}>
+        Load list
+      </button>
+      <button type="button" onClick={() => void markAllRead()}>
+        Mark all as read
+      </button>
       {items[0] ? (
         <button type="button" onClick={() => void markRead(items[0].id)}>
           Mark first read
@@ -77,10 +99,10 @@ function ListProbe() {
   );
 }
 
-function renderProvider(initialItems?: NotificationListItem[]) {
+function renderProvider(initialUnreadCount = 0) {
   return render(
     <OpenPanelProvider>
-      <NotificationsProvider initialItems={initialItems}>
+      <NotificationsProvider initialUnreadCount={initialUnreadCount}>
         <Actions />
         <ListProbe />
       </NotificationsProvider>
@@ -92,6 +114,7 @@ describe('NotificationsProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listNotifications.mockResolvedValue({ data: { items: [], unreadCount: 0 } });
+    markAllNotificationsRead.mockResolvedValue({ data: { ok: true } });
   });
 
   it('refreshes the projects page after a successful acceptance', async () => {
@@ -133,31 +156,13 @@ describe('NotificationsProvider', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it('adopts a new initialItems list after the layout refreshes', () => {
-    const first: NotificationListItem = {
-      id: 'n1',
-      type: 'INVITATION_RECEIVED',
-      message: 'Ada invited you to Sprint board',
-      read: false,
-      createdAt: new Date().toISOString(),
-      invitationId: 'invite-1',
-      actorName: 'Ada Lovelace',
-      actorUsername: 'ada',
-    };
-    const arrived: NotificationListItem = {
-      ...first,
-      id: 'n2',
-      invitationId: 'invite-2',
-      message: 'Ada invited you to App mobile',
-    };
-
-    const view = renderProvider([first]);
+  it('adopts a new unread count after the layout refreshes', () => {
+    const view = renderProvider(1);
     expect(screen.getByText('unread:1')).toBeInTheDocument();
-    expect(screen.getByText('Ada invited you to Sprint board')).toBeInTheDocument();
 
     view.rerender(
       <OpenPanelProvider>
-        <NotificationsProvider initialItems={[first, arrived]}>
+        <NotificationsProvider initialUnreadCount={2}>
           <Actions />
           <ListProbe />
         </NotificationsProvider>
@@ -165,30 +170,25 @@ describe('NotificationsProvider', () => {
     );
 
     expect(screen.getByText('unread:2')).toBeInTheDocument();
-    expect(screen.getByText('Ada invited you to App mobile')).toBeInTheDocument();
   });
 
-  it('keeps local unread changes when initialItems is the same list', async () => {
-    const first: NotificationListItem = {
-      id: 'n1',
-      type: 'INVITATION_RECEIVED',
-      message: 'Ada invited you to Sprint board',
-      read: false,
-      createdAt: new Date().toISOString(),
-      invitationId: 'invite-1',
-      actorName: 'Ada Lovelace',
-      actorUsername: 'ada',
-    };
-    const initialItems = [first];
+  it('keeps a local mark-read when the unread count from the layout is unchanged', async () => {
+    listNotifications.mockResolvedValue({
+      data: { items: [unreadItem], unreadCount: 1 },
+    });
     const events = userEvent.setup();
-    const view = renderProvider(initialItems);
+    const view = renderProvider(1);
 
+    await events.click(screen.getByRole('button', { name: 'Load list' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Mark first read' })).toBeInTheDocument();
+    });
     await events.click(screen.getByRole('button', { name: 'Mark first read' }));
     expect(screen.getByText('unread:0')).toBeInTheDocument();
 
     view.rerender(
       <OpenPanelProvider>
-        <NotificationsProvider initialItems={initialItems}>
+        <NotificationsProvider initialUnreadCount={1}>
           <Actions />
           <ListProbe />
         </NotificationsProvider>
@@ -196,5 +196,45 @@ describe('NotificationsProvider', () => {
     );
 
     expect(screen.getByText('unread:0')).toBeInTheDocument();
+  });
+
+  it('does not restore unread items or the count from a list that started before mark-all-read', async () => {
+    const events = userEvent.setup();
+    const listResolves: Array<
+      (value: { data: { items: NotificationListItem[]; unreadCount: number } }) => void
+    > = [];
+    listNotifications.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          listResolves.push(resolve);
+        }),
+    );
+    renderProvider(1);
+
+    await events.click(screen.getByRole('button', { name: 'Load list' }));
+    await waitFor(() => {
+      expect(listResolves).toHaveLength(1);
+    });
+    listResolves[0]!({ data: { items: [unreadItem], unreadCount: 1 } });
+    await waitFor(() => {
+      expect(screen.getByText('unread Ada invited you to Sprint board')).toBeInTheDocument();
+    });
+    expect(screen.getByText('unread:1')).toBeInTheDocument();
+
+    await events.click(screen.getByRole('button', { name: 'Load list' }));
+    await waitFor(() => {
+      expect(listResolves).toHaveLength(2);
+    });
+    await events.click(screen.getByRole('button', { name: 'Mark all as read' }));
+    expect(screen.getByText('unread:0')).toBeInTheDocument();
+    expect(screen.getByText('read Ada invited you to Sprint board')).toBeInTheDocument();
+
+    await act(async () => {
+      listResolves[1]!({ data: { items: [unreadItem], unreadCount: 1 } });
+    });
+
+    expect(screen.getByText('unread:0')).toBeInTheDocument();
+    expect(screen.getByText('read Ada invited you to Sprint board')).toBeInTheDocument();
+    expect(screen.queryByText('unread Ada invited you to Sprint board')).not.toBeInTheDocument();
   });
 });

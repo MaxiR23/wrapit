@@ -106,8 +106,9 @@ the board without a remount. Subtasks (add, rename, check, remove)
 and comments (create, edit own) live on the card. Comment order stays
 `createdAt`. The author edits through Save and Cancel, not blur; an occupancy
 conflict keeps the typed draft. Footer counters on the board face
-are derived from those lists (`commentCount` / `subtaskProgress` in
-`src/lib/cardCounters.ts`), including `0` and `0/0`. Archive and delete
+use first-paint aggregates (`commentCount`, `subtaskDone` / `subtaskTotal`)
+until the lists are loaded, then the lists win (`faceCommentCount` /
+`faceSubtaskProgress` in `src/lib/cardCounters.ts`), including `0` and `0/0`. Archive and delete
 close the dialog, drop the card from the board, and show a board toast with a
 **View archived** link.
 
@@ -209,7 +210,10 @@ the server appends with `(max order in the target) + 1`.
 
 `listProjectSummariesForUser` computes **done / total** from real cards. A card
 counts as done when its column title is `Done` (case-insensitive). If the project
-has no such column, the last column by `order` is treated as done. No cards means
+has no such column, the last column by `order` is treated as done. Ties pick one
+column: lowest id among titled Done, highest id among last-order columns.
+`doneColumnFrom` / `compareDoneColumnPick` is that pick; the open-task badge SQL
+uses the same comparator. No cards means
 `0 of 0` and `0%`. The percentage is `round(done / total * 100)`. My tasks
 uses the same Done identity via `doneColumnFrom`.
 
@@ -318,7 +322,8 @@ used. Pure list math lives in `kanbanItems.ts` / `kanbanPersist.ts` so it can
 be tested without the React tree.
 
 Progress copy (`N of M cards done` / `N/M done`) uses the same
-`projectProgress()` helper as the projects grid.
+`projectProgress()` helper as the projects grid. Summaries pass per-column
+counts; the live board passes each column's card length.
 
 ### Why a queue
 
@@ -364,7 +369,12 @@ sets a new server baseline and sets display to
 `applyPendingJobs(newBaseline, queue)`. Pending jobs are not dropped; cards
 that appeared on the server merge with in-flight moves instead of wiping them.
 A job whose card is already in the target column is a no-op on that list
-(no intra-column append).
+(no intra-column append). The same refresh overlays `pendingCardWritesRef` so
+this user's in-progress title, label, due date, or assignee edits are not
+replaced by the server copy. Opening a card hydrates description, comments, and
+subtasks without recording that overlay; treating hydration as a local write
+would freeze the pre-open snapshot and revert another member's edits on the
+next refresh.
 
 ## Files
 
@@ -457,13 +467,13 @@ src/components/archived/ArchivedDeleteProjectDialog.tsx  typed-title permanent-d
 src/components/archived/ArchivedExportDialog.tsx  CSV or JSON at export time
 src/lib/archived.ts                     filter, sort, slice, copy helpers
 src/lib/swipe.ts                        shared row-swipe thresholds and pointer gesture
-src/lib/archivedQuery.ts                load archived cards for a member
+src/lib/archivedQuery.ts                load archived cards for a member; viewer canAdminister
 src/lib/archivedProjectsQuery.ts        load archived projects for a member
 src/lib/archivedCopy.ts                 English archived-screen copy
 src/lib/archivedExport.ts               client-side CSV/JSON from loaded rows
 src/lib/archivedScope.ts                tasks and projects scope adapters
 src/lib/restoreUndo.ts                  undo-token id, ttl, expired-row cleanup
-src/lib/validation/archived.ts          restore, rearchive, delete, archive-project schemas
+src/lib/validation/archived.ts          restore, rearchive, delete, archive-project, list cursor
 src/app/projects/[projectId]/archived/page.tsx  archived tasks route (member only)
 src/app/archived/page.tsx               archived projects route
 src/components/projects/ArchiveProjectDialog.tsx  confirm before archiving a live project

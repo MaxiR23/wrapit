@@ -51,6 +51,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   stores the current access in `accessBeforeAdmin` and sets `EDIT`; demoting
   restores it (EDIT when null) and clears the column. Becoming OWNER clears
   `accessBeforeAdmin`. Every project must have at least one OWNER.
+  Indexed on `projectId` for member lists (`@@unique([userId, projectId])` does
+  not serve project-only lookups).
 - `Invitation` belongs to a `Project`, an inviter `User`, and an invitee `User`.
   One row per `(projectId, inviteeId)`. Status is `PENDING`, `ACCEPTED`, or
   `REJECTED`. Invites write the chosen `MEMBER` or `ADMIN` role (default
@@ -72,14 +74,24 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   `type` is `NotificationType`: `INVITATION_RECEIVED`, `INVITATION_ACCEPTED`,
   `INVITATION_REJECTED`. `invitationId` links the row so accept/reject can
   delete the invitee's received notification. `message` is denormalized English
-  copy written at create time.
-- `Column` belongs to a `Project` and has many `Card`.
+  copy written at create time. Indexed on `(recipientId, read, createdAt)` for
+  the unread count (`recipientId` + `read = false`). That index still earns its
+  place: the list index `(recipientId, createdAt)` cannot filter `read` without
+  scanning every notification for the recipient. Indexed on
+  `(recipientId, createdAt)` for the panel list (`recipientId` + `createdAt`
+  desc). The unread index cannot serve that order because unconstrained `read`
+  sits between the equality key and the sort key.
+- `Column` belongs to a `Project` and has many `Card`. Indexed on
+  `(projectId, order)` for board, summaries, archived, and my-tasks column
+  lists.
 - `Label` belongs to a `Project`. It holds a display `name`, a `tone` (one of
   eight palette keys: `blue`, `green`, `amber`, `red`, `violet`, `cyan`,
   `pink`, `gray`), and an `Int` `order`. Labels are per project and fully
   editable. A project with no rows is seeded on first board read with Design,
   Content, Infra, Bug, Product, and Internal. Concurrent first reads collide on
-  `@@unique([projectId, order])` and the loser re-reads. The last remaining
+  `@@unique([projectId, order])` and the loser re-reads. That GET seed is
+  unchanged pending a write-path decision (`createProject` does not seed; stopping
+  GET seed would paint an empty picker). The last remaining
   label cannot be deleted. Deleting a label reassigns its cards to the first
   remaining label (lowest `order`) in the same transaction, then
   `assertNotLastLabel` counts remaining rows after a conditional `deleteMany`.
@@ -89,7 +101,8 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 - `Card` belongs to a `Column`. It stores a `code` assigned at create time and
   an optional `archivedAt`; archived cards are omitted from board reads. An
   optional `archivedById` points at the user who archived it (`onDelete: SetNull`).
-  An optional `labelId` points at one project label. An optional `dueDate` pairs
+  Indexed on `(columnId, archivedAt)` for live `archivedAt IS NULL` board reads
+  and archived-card lists by column. An optional `labelId` points at one project label. An optional `dueDate` pairs
   with an optional `dueTimeZone`, which is what says whether the card is due on
   a day or at a moment. With no zone, `dueDate` is a calendar day stored as UTC
   midnight, and relative labels and overdue compare that stored day to the
@@ -162,7 +175,9 @@ Defined in `prisma/schema.prisma`. The models and their relations:
   there are no system-owned rows. A user with no rows is seeded on first read
   with Active, Inactive, Do not disturb, and Out of office; the first becomes
   `User.activeStatusId`. A missing `activeStatusId` with rows present is healed
-  to the lowest-order row. The last remaining status cannot be deleted. Deleting
+  to the lowest-order row. That GET seed and heal is unchanged pending a
+  write-path decision (sign-up does not seed; stopping GET seed would empty the
+  status pill on first visit). The last remaining status cannot be deleted. Deleting
   a status sets `User.activeStatusId` to null when it pointed at that row
   (`onDelete: SetNull`); the delete action then points it at the previous status
   (or the new first row) when the deleted row was active. At most 20 statuses

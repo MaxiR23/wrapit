@@ -1,3 +1,4 @@
+import { getAccountUser } from '@/lib/accountUser';
 import { prisma } from '@/lib/prisma';
 import { DEFAULT_USER_STATUSES, statusFromRow, type UserStatusesView } from '@/lib/userStatus';
 
@@ -46,21 +47,26 @@ async function ensureActiveStatus(
   return { statuses, activeStatusId: nextId };
 }
 
-async function loadExisting(tx: UserStatusDb, userId: string): Promise<UserStatusesView | null> {
-  const user = await tx.user.findUnique({ where: { id: userId } });
-  if (!user) return null;
-
+async function loadExisting(
+  tx: UserStatusDb,
+  userId: string,
+  activeStatusId?: unknown,
+): Promise<UserStatusesView | null> {
   const rows = await tx.userStatus.findMany({
     where: { userId },
     orderBy: { order: 'asc' },
   });
   if (rows.length === 0) return null;
 
-  return ensureActiveStatus(tx, userId, rows.map(statusFromRow), user.activeStatusId);
+  return ensureActiveStatus(tx, userId, rows.map(statusFromRow), activeStatusId);
 }
 
-async function loadOrSeed(tx: UserStatusDb, userId: string): Promise<UserStatusesView> {
-  const existing = await loadExisting(tx, userId);
+async function loadOrSeed(
+  tx: UserStatusDb,
+  userId: string,
+  activeStatusId?: unknown,
+): Promise<UserStatusesView> {
+  const existing = await loadExisting(tx, userId, activeStatusId);
   if (existing) return existing;
 
   await tx.userStatus.createMany({
@@ -80,13 +86,13 @@ async function loadOrSeed(tx: UserStatusDb, userId: string): Promise<UserStatuse
 /** Stored statuses for the user, seeding the four defaults when none exist yet. */
 export async function getUserStatusesForUser(userId: string): Promise<UserStatusesView | null> {
   const db = prisma as unknown as UserStatusDb;
-  const user = await db.user.findUnique({ where: { id: userId } });
+  const user = await getAccountUser(userId);
   if (!user) return null;
 
   try {
-    return await db.$transaction((tx) => loadOrSeed(tx, userId));
+    return await db.$transaction((tx) => loadOrSeed(tx, userId, user.activeStatusId));
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
-    return db.$transaction((tx) => loadExisting(tx, userId));
+    return db.$transaction((tx) => loadExisting(tx, userId, user.activeStatusId));
   }
 }

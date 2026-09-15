@@ -46,7 +46,7 @@ vi.mock('next/cache', () => ({
 }));
 
 const { updateComment } = await import('@/actions/updateComment');
-const { getProjectForUser } = await import('@/lib/projects');
+const { getCardDetailForUser } = await import('@/lib/cardDetail');
 
 const sessionUser = { id: 'user-ada', email: 'ada@example.com', name: 'Ada', username: 'ada' };
 
@@ -263,7 +263,7 @@ describe('updateComment', () => {
   });
 
   it('does not reorder comments when the older one is edited', async () => {
-    const { project, card } = await seedComment({
+    const { card } = await seedComment({
       body: 'First note',
       createdAt: new Date('2026-08-01'),
     });
@@ -290,8 +290,8 @@ describe('updateComment', () => {
       new Date('2026-08-01'),
     );
 
-    const loaded = await getProjectForUser(project.id, sessionUser.id);
-    expect(loaded?.columns[0]?.cards[0]?.comments.map((comment) => comment.body)).toEqual([
+    const loaded = await getCardDetailForUser(card.id, sessionUser.id);
+    expect(loaded?.comments.map((comment) => comment.body)).toEqual([
       'First note edited',
       'Second note',
     ]);

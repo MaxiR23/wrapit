@@ -71,7 +71,10 @@ export default function CardSubtaskList({
       const current = subtasksRef.current;
       if (!current.some((item) => item.id === subtask.id)) {
         const next = [...current, subtask];
-        next.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+        next.sort(
+          (left, right) =>
+            (left.order ?? 0) - (right.order ?? 0) || left.id.localeCompare(right.id),
+        );
         onChange(next);
       }
       setError(GENERIC_ERROR_MESSAGE);
@@ -160,7 +163,7 @@ function SubtaskRow({
   onRemove: () => void;
 }) {
   const text = useProfileAutosave({
-    initial: subtask.text,
+    initial: subtask.text ?? '',
     debounceMs: PROFILE_AUTOSAVE_DEBOUNCE_MS,
     save: (value) => updateSubtaskField({ subtaskId: subtask.id, field: 'text', value }),
     onSuccess: onRename,
@@ -186,7 +189,7 @@ function SubtaskRow({
           done.setValue(next);
           onDone(next);
         }}
-        aria-label={subtask.text}
+        aria-label={subtask.text ?? 'Subtask'}
         className={cn(
           shellFocusClassName,
           'size-5 shrink-0 rounded-[6px] border-[1.5px] border-border-strong accent-foreground tablet:size-[17px] tablet:rounded-[5px]',
@@ -212,7 +215,7 @@ function SubtaskRow({
       {canEdit ? (
         <button
           type="button"
-          aria-label={`Remove ${subtask.text}`}
+          aria-label={`Remove ${subtask.text ?? 'subtask'}`}
           onClick={onRemove}
           className={cn(
             shellFocusClassName,

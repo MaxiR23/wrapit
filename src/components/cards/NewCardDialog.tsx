@@ -149,6 +149,8 @@ export default function NewCardDialog({
       comments: result.data.comments ?? [],
       subtasks: result.data.subtasks ?? [],
       description: result.data.description,
+      commentCount: (result.data.comments ?? []).length,
+      detailLoaded: true,
       columnId: result.data.columnId,
     });
     setSubmitting(false);

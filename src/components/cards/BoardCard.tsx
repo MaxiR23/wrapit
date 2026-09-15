@@ -2,7 +2,7 @@ import type { DragEvent, KeyboardEvent, MouseEvent, PointerEvent, ReactNode } fr
 import { MessageSquare } from 'lucide-react';
 
 import CardMarkdown from '@/components/cards/CardMarkdown';
-import { commentCount, subtaskProgress } from '@/lib/cardCounters';
+import { faceCommentCount, faceSubtaskProgress } from '@/lib/cardCounters';
 import { cardDueLabel } from '@/lib/cardDue';
 import { initials } from '@/lib/initials';
 import { labelToneClasses } from '@/lib/labelTones';
@@ -49,9 +49,8 @@ export default function BoardCard({
   const showLabel = visibility.label && Boolean(card.label);
   const showCode = visibility.code && Boolean(card.code);
   const showTop = showLabel || showCode;
-  const comments = card.comments ?? [];
-  const subtasks = card.subtasks ?? [];
-  const { done: subtaskDone, total: subtaskTotal } = subtaskProgress(subtasks);
+  const commentTotal = faceCommentCount(card);
+  const { done: subtaskDone, total: subtaskTotal } = faceSubtaskProgress(card);
   const showComments = visibility.comments;
   const showSubtasks = visibility.subtasks;
   const showDue = visibility.dueDate && card.dueDate != null;
@@ -138,7 +137,7 @@ export default function BoardCard({
           {showComments ? (
             <span className="inline-flex items-center gap-[5px]">
               <MessageSquare className="size-[13px]" strokeWidth={2} />
-              {commentCount(comments)}
+              {commentTotal}
             </span>
           ) : null}
           {showSubtasks ? (

@@ -8,6 +8,8 @@
 
 import { vi } from 'vitest';
 
+import { doneColumnFrom } from '@/lib/projectGrid';
+
 type Row = Record<string, unknown>;
 
 // The adapter writes conditions as operator objects, e.g.
@@ -72,13 +74,29 @@ function matchesValue(actual: unknown, condition: unknown): boolean {
         return compareValues(actual, expected) <= 0;
       case 'gte':
         return compareValues(actual, expected) >= 0;
+      case 'contains':
+        return String(actual ?? '')
+          .toLowerCase()
+          .includes(String(expected ?? '').toLowerCase());
+      case 'mode':
+        return true;
       default:
         throw new Error(`unsupported where operator: ${operator}`);
     }
   });
 }
 
-const SCALAR_WHERE_OPS = new Set(['equals', 'not', 'in', 'lt', 'gt', 'lte', 'gte']);
+const SCALAR_WHERE_OPS = new Set([
+  'equals',
+  'not',
+  'in',
+  'lt',
+  'gt',
+  'lte',
+  'gte',
+  'contains',
+  'mode',
+]);
 
 function isCompoundUniqueWhere(key: string, condition: unknown): condition is Row {
   return (
@@ -255,6 +273,7 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
         skip?: number;
         take?: number;
         orderBy?: Row | Row[];
+        select?: Row;
       } = {}) => {
         let matched = rows.filter((r) => matches(r, where, getRelated));
 
@@ -302,6 +321,42 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
       async ({ where }: { where?: Row } = {}) =>
         rows.filter((r) => matches(r, where, getRelated)).length,
     ),
+    groupBy: vi.fn(
+      async ({
+        by,
+        where,
+        _count,
+        _max,
+      }: {
+        by: string[];
+        where?: Row;
+        _count?: { _all?: boolean };
+        _max?: { updatedAt?: boolean };
+      }) => {
+        if (by.length === 0) return [];
+        const groups = new Map<string, { count: number; sample: Row; maxUpdatedAt: Date | null }>();
+        for (const row of rows.filter((r) => matches(r, where, getRelated))) {
+          const key = by.map((field) => String(row[field])).join('\0');
+          const current = groups.get(key) ?? {
+            count: 0,
+            sample: row,
+            maxUpdatedAt: null,
+          };
+          current.count += 1;
+          if (row.updatedAt instanceof Date) {
+            if (current.maxUpdatedAt == null || row.updatedAt > current.maxUpdatedAt) {
+              current.maxUpdatedAt = row.updatedAt;
+            }
+          }
+          groups.set(key, current);
+        }
+        return [...groups.values()].map((value) => ({
+          ...Object.fromEntries(by.map((field) => [field, value.sample[field]])),
+          ...(_count ? { _count: { _all: value.count } } : {}),
+          ...(_max?.updatedAt ? { _max: { updatedAt: value.maxUpdatedAt } } : {}),
+        }));
+      },
+    ),
     upsert: vi.fn(async ({ where, create, update }: { where?: Row; create: Row; update: Row }) => {
       const row = rows.find((r) => matches(r, where, getRelated));
       if (row) {
@@ -314,6 +369,43 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
 }
 
 type ModelDelegate = ReturnType<typeof createModel>;
+
+function countOpenAssignedCards(models: Record<string, ModelDelegate>, userId: string): number {
+  const memberProjectIds = new Set(
+    (models.membership?.rows ?? [])
+      .filter((membership) => membership.userId === userId)
+      .map((membership) => membership.projectId)
+      .filter((projectId) =>
+        (models.project?.rows ?? []).some(
+          (project) => project.id === projectId && project.archivedAt == null,
+        ),
+      ),
+  );
+  const doneColumnIds = new Set<unknown>();
+  for (const projectId of memberProjectIds) {
+    const columns = (models.column?.rows ?? [])
+      .filter((column) => column.projectId === projectId)
+      .map((column) => ({
+        id: String(column.id ?? ''),
+        title: String(column.title ?? ''),
+        order: typeof column.order === 'number' ? column.order : 0,
+      }));
+    const done = doneColumnFrom(columns);
+    if (done) doneColumnIds.add(done.id);
+  }
+  const assignedCardIds = new Set(
+    (models.cardAssignee?.rows ?? [])
+      .filter((row) => row.userId === userId)
+      .map((row) => row.cardId),
+  );
+  return (models.card?.rows ?? []).filter((card) => {
+    if (!assignedCardIds.has(card.id)) return false;
+    if (card.archivedAt != null) return false;
+    const column = (models.column?.rows ?? []).find((row) => row.id === card.columnId);
+    if (!column || !memberProjectIds.has(column.projectId)) return false;
+    return !doneColumnIds.has(card.columnId);
+  }).length;
+}
 
 function sqlFromRaw(strings: unknown, values: unknown[]): string {
   if (Array.isArray(strings)) {
@@ -582,6 +674,10 @@ export function createPrismaFake() {
       const sql = sqlFromRaw(strings, values);
       if (/FOR UPDATE/i.test(sql)) {
         unlocks.push(await acquireUserRowLock(String(values[0] ?? '')));
+        return values[0] != null ? [{ id: values[0] }] : [];
+      }
+      if (/member_projects/i.test(sql) && /CardAssignee/i.test(sql)) {
+        return [{ count: countOpenAssignedCards(models, String(values[0] ?? '')) }];
       }
       return values[0] != null ? [{ id: values[0] }] : [];
     });
