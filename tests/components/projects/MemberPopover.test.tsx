@@ -3,10 +3,12 @@
 // Tests for the board-header member avatar popover.
 //
 // Tested:
+// - Below lg the trigger is a Members icon that lists every member when opened
+// - Desktop shows at most three avatars and an overflow control for the rest
 // - First and last avatars on a narrow viewport keep the popover in bounds
 //
 // What is covered:
-// - Viewport clamping for edge avatars
+// - Compact members list through tablet, desktop avatar cap, viewport clamping for edge avatars
 //
 // Run with: pnpm test:run tests/components/projects/MemberPopover.test.tsx
 //
@@ -16,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import MemberPopover from '@/components/projects/MemberPopover';
+import MemberPopover, { BOARD_VISIBLE_MEMBER_AVATARS } from '@/components/projects/MemberPopover';
 import { MEMBER_POPOVER_VIEWPORT_INSET_PX } from '@/components/projects/memberPopoverPosition';
 import { OpenPanelProvider } from '@/components/projects/OpenPanel';
 
@@ -72,6 +74,65 @@ describe('MemberPopover', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('opens a members list from the phone icon', async () => {
+    const events = userEvent.setup();
+    render(
+      <OpenPanelProvider>
+        <MemberPopover members={members} />
+      </OpenPanelProvider>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Members' });
+    expect(trigger).toHaveClass('size-10');
+    expect(trigger.parentElement).toHaveClass('lg:hidden');
+    expect(trigger.querySelector('svg')).not.toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Members' })).not.toBeInTheDocument();
+
+    await events.click(trigger);
+    const list = screen.getByRole('dialog', { name: 'Members' });
+    expect(list).toHaveTextContent('Ada Lovelace');
+    expect(list).toHaveTextContent('@ada');
+    expect(list).toHaveTextContent('Ben');
+    expect(list).toHaveTextContent('Cara');
+  });
+
+  it('caps desktop avatars and lists the rest from the overflow control', async () => {
+    const events = userEvent.setup();
+    const extra = [
+      ...members,
+      { id: 'user-dan', name: 'Dan', username: 'dan' },
+      { id: 'user-eve', name: 'Eve', username: 'eve' },
+    ];
+    expect(extra.length).toBeGreaterThan(BOARD_VISIBLE_MEMBER_AVATARS);
+
+    render(
+      <OpenPanelProvider>
+        <MemberPopover members={extra} />
+      </OpenPanelProvider>,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Ada Lovelace' }).parentElement?.parentElement,
+    ).toHaveClass('hidden', 'lg:flex');
+    expect(screen.getByRole('button', { name: 'Cara' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dan' })).not.toBeInTheDocument();
+    const overflow = extra.length - BOARD_VISIBLE_MEMBER_AVATARS;
+    await events.click(screen.getByRole('button', { name: `${overflow} more members` }));
+    const list = screen.getByRole('dialog', { name: 'Members' });
+    expect(list).toHaveTextContent('Dan');
+    expect(list).toHaveTextContent('Eve');
+  });
+
+  it('does not render an overflow control when every avatar fits', () => {
+    render(
+      <OpenPanelProvider>
+        <MemberPopover members={members} />
+      </OpenPanelProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: /more members/ })).not.toBeInTheDocument();
   });
 
   it('keeps the first and last avatar popovers inside a narrow viewport', async () => {

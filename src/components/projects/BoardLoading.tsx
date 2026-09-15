@@ -34,7 +34,9 @@ export default function BoardLoading() {
           breadcrumb={<Skeleton className="h-3 w-28" />}
           title={<Skeleton className="h-7 w-48" />}
           subtitle={<Skeleton className="h-3 w-40" />}
-        />
+        >
+          <Skeleton className="h-10 w-full rounded-md tablet:hidden" />
+        </ScreenHeader>
         <div
           data-board="desktop"
           className="hidden min-h-0 flex-1 gap-3 overflow-x-auto px-[18px] pb-[18px] tablet:flex lg:gap-3.5 lg:px-7 lg:pb-7"

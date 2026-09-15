@@ -27,7 +27,7 @@ export default function BoardVisibilityPopover({
   }
 
   return (
-    <div className="relative flex">
+    <div className="relative flex shrink-0">
       <button
         type="button"
         aria-label="Card visibility"
@@ -38,7 +38,7 @@ export default function BoardVisibilityPopover({
         className={cn(
           shellFocusClassName,
           'inline-flex items-center justify-center rounded-md border',
-          'size-10 tablet:size-[38px] lg:size-9',
+          'size-10',
           open
             ? 'border-border-strong bg-card text-foreground'
             : 'border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground',
