@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { History, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, History, Plus } from 'lucide-react';
 
 import ScreenHeader from '@/components/ScreenHeader';
 import BoardFilterSummary from '@/components/projects/BoardFilterSummary';
@@ -73,17 +73,20 @@ export default function BoardHeader({
   const shareOpen = openPanel === 'share';
 
   const progress = hasCards ? (
-    <div className="flex items-center gap-2.5">
-      <span className="block h-1 w-full overflow-hidden rounded-full bg-muted tablet:w-[104px] lg:w-[120px]">
+    <div className="flex w-full min-w-0 items-center gap-2.5">
+      <span
+        data-slot="board-progress"
+        className="block h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted tablet:w-[104px] tablet:flex-none lg:w-[120px]"
+      >
         <span
           className="block h-full rounded-full bg-status-in-progress"
           style={{ width: `${percent}%` }}
         />
       </span>
-      <span className="hidden text-[12.5px] tabular-nums whitespace-nowrap tablet:inline">
+      <span className="hidden text-[12.5px] tabular-nums whitespace-nowrap lg:inline">
         {boardProgressLabel(doneCount, taskCount)}
       </span>
-      <span className="text-[12.5px] tabular-nums whitespace-nowrap tablet:hidden">
+      <span className="text-[12.5px] tabular-nums whitespace-nowrap lg:hidden">
         {boardProgressShortLabel(doneCount, taskCount)}
       </span>
     </div>
@@ -106,39 +109,29 @@ export default function BoardHeader({
       title={title}
       subtitle={progress}
       actions={
-        <>
-          <div className="flex w-full items-center gap-1 tablet:w-auto">
-            <MemberPopover members={members} />
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={shareOpen}
-              onClick={() => setOpenPanel(shareOpen ? null : 'share')}
-              className={cn(
-                shellFocusClassName,
-                'ml-0.5 inline-flex h-7 items-center gap-[5px] rounded-full border border-border bg-surface px-[11px] pl-[9px]',
-                'text-[12.5px] font-medium text-muted-foreground tablet:ml-1 tablet:h-[30px] tablet:gap-1.5',
-                shareOpen
-                  ? 'border-border-strong bg-card text-foreground'
-                  : 'hover:border-border-strong hover:bg-card hover:text-foreground',
-              )}
-            >
-              <Plus className="size-[13px] tablet:size-3.5" strokeWidth={1.9} />
-              Share
-            </button>
-          </div>
-          <input
-            type="search"
-            placeholder="Search the board"
-            aria-label="Search the board"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-2 tablet:flex-nowrap">
+          <MemberPopover members={members} />
+          <button
+            type="button"
+            aria-label="Share"
+            aria-haspopup="dialog"
+            aria-expanded={shareOpen}
+            onClick={() => setOpenPanel(shareOpen ? null : 'share')}
             className={cn(
               shellFocusClassName,
-              'h-10 min-w-0 flex-1 rounded-md border border-input bg-surface px-3.5 text-base text-foreground placeholder:text-subtle tablet:hidden',
+              'inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-surface',
+              'size-10 text-muted-foreground hover:border-border-strong hover:text-foreground',
+              'lg:ml-1 lg:h-[30px] lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-[11px] lg:pl-[9px]',
+              'lg:text-[12.5px] lg:font-medium',
+              shareOpen
+                ? 'border-border-strong bg-card text-foreground'
+                : 'hover:border-border-strong hover:bg-card hover:text-foreground',
             )}
-          />
-          <div className="mx-0.5 hidden h-6 w-px bg-border tablet:block" />
+          >
+            <Plus className="size-[17px] lg:size-[13px]" strokeWidth={1.9} />
+            <span className="hidden lg:inline">Share</span>
+          </button>
+          <div className="mx-0.5 hidden h-6 w-px bg-border lg:block" />
           <BoardFiltersPopover labels={labels} filters={filters} onChange={onFiltersChange} />
           <BoardVisibilityPopover visibility={visibility} onChange={onVisibilityChange} />
           <button
@@ -149,23 +142,27 @@ export default function BoardHeader({
             onClick={onArchive}
             className={cn(
               shellFocusClassName,
-              'inline-flex h-10 items-center rounded-md border border-border bg-surface px-3',
-              'text-[12.5px] font-medium text-muted-foreground hover:border-border-strong hover:text-foreground',
-              'tablet:h-[38px] lg:h-9 disabled:cursor-not-allowed disabled:opacity-50',
+              'inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-surface',
+              'size-10 text-muted-foreground hover:border-border-strong hover:text-foreground',
+              'lg:h-9 lg:w-auto lg:px-3 lg:text-[12.5px] lg:font-medium',
+              'disabled:cursor-not-allowed disabled:opacity-50',
             )}
           >
-            Archive
+            <Archive className="size-[17px] lg:hidden" strokeWidth={1.9} />
+            <span className="hidden lg:inline">Archive</span>
           </button>
           <Link
             href={projectArchivedPath(projectId)}
+            aria-label="Archived"
             className={cn(
               shellFocusClassName,
-              'inline-flex h-10 items-center rounded-md border border-border bg-surface px-3',
-              'text-[12.5px] font-medium text-muted-foreground hover:border-border-strong hover:text-foreground',
-              'tablet:h-[38px] lg:h-9',
+              'inline-flex shrink-0 items-center justify-center rounded-md border border-border bg-surface',
+              'size-10 text-muted-foreground hover:border-border-strong hover:text-foreground',
+              'lg:h-9 lg:w-auto lg:px-3 lg:text-[12.5px] lg:font-medium',
             )}
           >
-            Archived
+            <ArchiveRestore className="size-[17px] lg:hidden" strokeWidth={1.9} />
+            <span className="hidden lg:inline">Archived</span>
           </Link>
           <button
             type="button"
@@ -178,8 +175,8 @@ export default function BoardHeader({
             }}
             className={cn(
               shellFocusClassName,
-              'inline-flex items-center justify-center rounded-md border',
-              'size-10 tablet:size-[38px] lg:size-9',
+              'inline-flex shrink-0 items-center justify-center rounded-md border',
+              'size-10',
               logOpen
                 ? 'border-border-strong bg-card text-foreground'
                 : 'border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground',
@@ -187,9 +184,22 @@ export default function BoardHeader({
           >
             <History className="size-[17px]" strokeWidth={1.9} />
           </button>
-        </>
+        </div>
       }
     >
+      <input
+        type="search"
+        placeholder="Search the board"
+        aria-label="Search the board"
+        value={query}
+        disabled={!hasCards}
+        onChange={(event) => setQuery(event.target.value)}
+        className={cn(
+          shellFocusClassName,
+          'h-10 w-full rounded-md border border-input bg-surface px-3.5 text-base text-foreground placeholder:text-subtle tablet:hidden',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      />
       {filterCount > 0 ? (
         <BoardFilterSummary
           summary={boardFilterSummary({

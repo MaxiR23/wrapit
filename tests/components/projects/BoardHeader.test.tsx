@@ -5,7 +5,14 @@
 // Tested:
 // - Links back to the projects list
 // - Shows desktop and mobile progress copy from the same counts
-// - Search sits in a full-width mobile actions row
+// - Phone search is a full-width row below the actions, hidden from tablet
+// - Search is disabled when the board has no cards
+// - Members, Share, Archive and Archived are icon-sized below tablet
+// - Phone action icons stay a tight wrapping row so narrow phones keep every control
+// - Share, Archive and Archived stay icon-sized through tablet and show labels from lg
+// - Board title and actions sit on one row from tablet; action chrome stays compact until lg
+// - Progress bar fills the title row below tablet
+// - Opening Members lists the people on the board
 // - Replaces the bar with empty copy when there are no cards
 // - Renders one interactive avatar per member and a Share button
 // - Does not render a Labels control
@@ -16,7 +23,7 @@
 // - Links to the project's archived tasks
 //
 // What is covered:
-// - Back link, progress labels, empty copy, member avatars, filters chrome, activity clock, Archived link
+// - Back link, progress labels, empty copy, phone members list, member avatars, filters chrome, activity clock, Archived link
 //
 // Run with: pnpm test:run tests/components/projects/BoardHeader.test.tsx
 //
@@ -84,8 +91,81 @@ describe('BoardHeader', () => {
     ).not.toBeNull();
     expect(screen.getByText('1 of 4 cards done')).toBeInTheDocument();
     expect(screen.getByText('1/4 done')).toBeInTheDocument();
+    const archive = screen.getByRole('button', { name: 'Archive project' });
+    const archived = screen.getByRole('link', { name: 'Archived' });
+    expect(archive).toHaveClass('size-10');
+    expect(archived).toHaveClass('size-10');
+    expect(archive.querySelector('svg')).not.toBeNull();
+    expect(archived.querySelector('svg')).not.toBeNull();
+    const share = screen.getByRole('button', { name: 'Share' });
+    expect(share).toHaveClass('size-10');
+    expect(share.querySelector('svg')).not.toBeNull();
+    expect(share.parentElement).toHaveClass(
+      'flex-wrap',
+      'tablet:flex-nowrap',
+      'justify-start',
+      'gap-2',
+    );
+    expect(share.parentElement).not.toHaveClass('justify-between');
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveClass('size-10');
+    const track = document.querySelector('[data-slot="board-progress"]');
+    expect(track).toHaveClass('min-w-0', 'flex-1', 'tablet:flex-none');
+    const heading = screen.getByRole('heading', { name: 'Sprint board' });
+    expect(heading.parentElement?.parentElement).toHaveClass('w-full', 'tablet:flex-1');
+    expect(heading.parentElement?.parentElement?.parentElement).toHaveClass(
+      'flex-wrap',
+      'tablet:flex-nowrap',
+    );
+    expect(share.closest('[data-slot="screen-header-actions"]')).toHaveClass(
+      'tablet:w-auto',
+      'tablet:shrink-0',
+      'tablet:flex-nowrap',
+    );
+  });
+
+  it('keeps Share, Archive and Archived compact through tablet and labels them from lg', () => {
+    renderHeader();
+
+    const share = screen.getByRole('button', { name: 'Share' });
+    const archive = screen.getByRole('button', { name: 'Archive project' });
+    const archived = screen.getByRole('link', { name: 'Archived' });
+    expect(share.querySelector('span')).toHaveClass('hidden', 'lg:inline');
+    expect(share.querySelector('span')).toHaveTextContent('Share');
+    expect(archive.querySelector('span')).toHaveClass('hidden', 'lg:inline');
+    expect(archive.querySelector('span')).toHaveTextContent('Archive');
+    expect(archived.querySelector('span')).toHaveClass('hidden', 'lg:inline');
+    expect(archived.querySelector('span')).toHaveTextContent('Archived');
+    expect(share).toHaveClass('size-10', 'lg:w-auto');
+    expect(archive).toHaveClass('size-10', 'lg:w-auto');
+    expect(archive.querySelector('svg')).toHaveClass('lg:hidden');
+    expect(screen.getByRole('button', { name: 'Filters' })).not.toHaveClass('tablet:w-auto');
+  });
+
+  it('puts phone search on its own full-width row and disables it without cards', () => {
+    renderHeader();
+
     const search = screen.getByRole('searchbox', { name: 'Search the board' });
-    expect(search.closest('[data-slot="screen-header-actions"]')).toHaveClass('w-full');
+    const header = screen
+      .getByRole('heading', { name: 'Sprint board' })
+      .closest('[data-slot="screen-header"]');
+    const identity = screen
+      .getByRole('heading', { name: 'Sprint board' })
+      .closest('[data-slot="screen-header-identity"]');
+    const actions = screen
+      .getByRole('button', { name: 'Share' })
+      .closest('[data-slot="screen-header-actions"]');
+
+    expect(search).toBeDisabled();
+    expect(search).toHaveClass('w-full', 'tablet:hidden');
+    expect(header?.contains(search)).toBe(true);
+    expect(identity?.contains(search)).toBe(false);
+    expect(actions?.contains(search)).toBe(false);
+  });
+
+  it('enables phone search when the board has cards', () => {
+    renderHeader({ doneCount: 1, taskCount: 4, percent: 25, visibleCount: 4 });
+
+    expect(screen.getByRole('searchbox', { name: 'Search the board' })).toBeEnabled();
   });
 
   it('replaces the progress bar with empty copy when there are no cards', () => {
@@ -104,6 +184,19 @@ describe('BoardHeader', () => {
     expect(screen.getByRole('button', { name: 'Ada Lovelace' })).toBeInTheDocument();
     expect(screen.queryByTitle('Ada Lovelace')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+  });
+
+  it('opens the phone members list from the header icon', async () => {
+    const events = userEvent.setup();
+    renderHeader({
+      members: [members[0]!, { id: 'user-ben', name: 'Ben', username: 'ben' }],
+    });
+
+    const trigger = screen.getByRole('button', { name: 'Members' });
+    expect(trigger).toHaveClass('size-10');
+    await events.click(trigger);
+    expect(screen.getByRole('dialog', { name: 'Members' })).toHaveTextContent('Ada Lovelace');
+    expect(screen.getByRole('dialog', { name: 'Members' })).toHaveTextContent('Ben');
   });
 
   it('does not render a Labels control in the header', () => {

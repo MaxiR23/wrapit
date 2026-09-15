@@ -9,7 +9,8 @@
 // - Flush inset adds no pane padding; pane inset uses the shared tokens and wash
 // - Truncates the breadcrumb slot so a long crumb cannot grow the identity
 // - Renders extra children below the identity
-// - Actions occupy the full row below tablet so inner flex-1 controls can fill
+// - Makes the title column full width below tablet so a subtitle can fill the row
+// - Keeps title and actions on one row from tablet (title flexes, actions do not wrap)
 // - globals.css defines the shared inset and identity tokens
 //
 // What is covered:
@@ -89,7 +90,29 @@ describe('ScreenHeader', () => {
     const actions = screen
       .getByRole('button', { name: 'New task' })
       .closest('[data-slot="screen-header-actions"]');
-    expect(actions).toHaveClass('w-full', 'tablet:w-auto', 'min-w-0');
+    expect(actions).toHaveClass(
+      'w-full',
+      'tablet:w-auto',
+      'min-w-0',
+      'tablet:shrink-0',
+      'tablet:flex-nowrap',
+    );
+  });
+
+  it('lets the title column fill the row below tablet', () => {
+    render(<ScreenHeader title="Sprint board" subtitle="1/4 done" />);
+
+    const heading = screen.getByRole('heading', { name: 'Sprint board' });
+    expect(heading.parentElement).toHaveClass('min-w-0', 'flex-1');
+    expect(heading.parentElement?.parentElement).toHaveClass('w-full', 'tablet:flex-1');
+  });
+
+  it('keeps title and actions on one row from tablet', () => {
+    render(<ScreenHeader title="Sprint board" actions={<button type="button">Share</button>} />);
+
+    const heading = screen.getByRole('heading', { name: 'Sprint board' });
+    const row = heading.parentElement?.parentElement?.parentElement;
+    expect(row).toHaveClass('flex-wrap', 'tablet:flex-nowrap');
   });
 
   it('keeps flush headers free of pane inset and wash', () => {

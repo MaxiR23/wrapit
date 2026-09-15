@@ -11,7 +11,7 @@ import {
 } from 'react';
 
 export type OpenPanelId =
-  'notifications' | 'account' | 'filters' | 'visibility' | 'member' | 'share' | null;
+  'notifications' | 'account' | 'filters' | 'visibility' | 'members' | 'member' | 'share' | null;
 
 type OpenPanelContextValue = {
   openPanel: OpenPanelId;

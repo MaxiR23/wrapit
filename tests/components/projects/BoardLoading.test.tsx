@@ -6,6 +6,7 @@
 // - Renders desktop and mobile board landmarks
 // - Does not render sidebar or tab bar chrome
 // - Joins the fill-pane height chain so columns can flex instead of collapsing
+// - Reserves a full-width phone search row in the header
 //
 // What is covered:
 // - Shape landmarks and the flex height-chain classes. jsdom cannot prove
@@ -32,6 +33,9 @@ describe('BoardLoading', () => {
     expect(container.querySelector('[data-slot="screen-header"]')).toHaveClass(
       'projects-content-wash',
     );
+    expect(
+      container.querySelector('[data-slot="screen-header"] .h-10.w-full.tablet\\:hidden'),
+    ).not.toBeNull();
     expect(container.querySelector('[data-board="desktop"]')).toHaveClass('min-h-0', 'flex-1');
     expect(container.querySelector('[data-board="desktop"]')?.children).toHaveLength(3);
     expect(container.querySelector('[data-board="mobile"]')).not.toBeNull();

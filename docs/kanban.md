@@ -171,7 +171,8 @@ The board sits in the authenticated `ProjectsShell` with Projects as the active
 nav. The topbar
 search on this screen filters the board live by title and label
 (case-insensitive includes), combined with the header filters; it is not the
-projects-list search. Filters (label chips as OR, plus only-mine and
+projects-list search. Below tablet, that same query lives in a full-width field
+under the header actions and is disabled when the board has no cards. Filters (label chips as OR, plus only-mine and
 only-overdue) combine with AND across groups. The filter button badge counts
 active groups, not selected labels. A summary bar lists what is on and the
 visible count while any group is active. Field visibility (label, code,
@@ -179,9 +180,19 @@ comments, subtasks, due date, assignees) is a per-user preference on
 `UserPreferences` and applies to every card face; filters and search reset on
 reload. A failed visibility write rolls the face back to the last persisted
 flags and shows the same generic alert as a failed card move. When the combined filter and search match nothing, the board shows a
-no-results state instead of empty columns. Filters, visibility, and the member
+no-results state instead of empty columns. Filters, visibility, the phone Members list, and the member
 popover join the shell's single-open panel list with notifications and
-account; opening a modal closes them.
+account; opening a modal closes them. Below tablet, Members is an icon that opens the people on the
+board. Phone header actions are a tight wrapping `size-10` row (`justify-start`,
+fixed gap) so leftover width never stretches the icons apart and a 320px
+viewport can wrap instead of clipping behind the shell's `overflow-hidden`.
+From tablet, title and actions sit on one row with compact icon controls
+(Members, Share, Archive, and Archived stay icon-sized) so the 504px pane
+after the collapsed sidebar fits. Labeled Share / Archive / Archived chrome
+and at most three member avatars match desktop from `lg`; further members
+open from a `+N` overflow into the Members list. The progress bar fills the
+title row on phone (short `N/M done` copy), stays short through tablet, and
+uses the long copy from `lg`.
 
 A header clock toggles `ProjectBoard` between the column area and a
 project-wide activity log (`surface: 'board' | 'log'`). It is not an
@@ -420,7 +431,7 @@ src/components/projects/NewProjectDialog.tsx  create-project modal (name, descri
 src/components/projects/ProjectList.tsx   projects table
 src/components/projects/ProjectBoard.tsx    persist queue, progress, desktop + mobile boards, filters, activity log surface
 src/components/projects/ColumnsEmptyState.tsx  empty column area when the project has no columns
-src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, Archived, activity clock, summary
+src/components/projects/BoardHeader.tsx   title, progress, members, Share, filters, visibility, Archived, activity clock, summary; phone search is a full-width row below the actions, disabled with no cards
 src/components/projects/BoardActivityLog.tsx  day-grouped activity rows, empty copy, load earlier
 src/components/account/AccountActivity.tsx    account Activity tab: project cards + personal timeline
 src/components/projects/ShareModal.tsx    share dialog (sheet below tablet, 520px from tablet up)
@@ -434,7 +445,7 @@ src/components/projects/BoardNoResults.tsx  empty combined filter+search state
 src/components/projects/BoardDesktop.tsx  HTML5 DnD and keyboard Move
 src/components/projects/BoardMobile.tsx   carousel, long press, finger-following drag
 src/components/projects/BoardColumn.tsx   column chrome
-src/components/projects/MemberPopover.tsx  member avatars; popover clamped to the viewport
+src/components/projects/MemberPopover.tsx  Members icon through tablet; desktop shows three avatars then overflow into the same list; popover clamped to the viewport
 src/components/projects/memberPopoverPosition.ts  left offset so the popover stays in bounds
 src/components/labels/LabelEditor.tsx     reusable editor (inline in new task)
 src/components/cards/NewCardDialog.tsx  new-task dialog (540px tablet+, full screen on phone)

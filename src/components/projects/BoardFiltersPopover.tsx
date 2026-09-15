@@ -45,7 +45,7 @@ export default function BoardFiltersPopover({
   }
 
   return (
-    <div className="relative flex">
+    <div className="relative flex shrink-0">
       <button
         type="button"
         aria-label="Filters"
@@ -55,16 +55,16 @@ export default function BoardFiltersPopover({
         onClick={toggle}
         className={cn(
           shellFocusClassName,
-          'inline-flex items-center justify-center gap-1.5 rounded-md border',
-          'h-10 min-w-10 px-[11px] tablet:h-[38px] lg:h-9',
+          'relative inline-flex items-center justify-center gap-1.5 rounded-md border',
+          'size-10',
           active || open
             ? 'border-border-strong bg-card text-foreground'
             : 'border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground',
         )}
       >
-        <Filter className="size-4" strokeWidth={1.9} />
+        <Filter className="size-[17px] tablet:size-4" strokeWidth={1.9} />
         {active ? (
-          <span className="rounded-full bg-foreground px-1.5 py-px text-[11px] font-semibold text-primary-foreground">
+          <span className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-primary-foreground">
             {count}
           </span>
         ) : null}

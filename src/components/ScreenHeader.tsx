@@ -57,10 +57,10 @@ export default function ScreenHeader({
             <nav className="min-w-0 truncate text-screen-breadcrumb text-subtle">{breadcrumb}</nav>
           </div>
         ) : null}
-        <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-3.5">
+        <div className="flex min-w-0 flex-wrap items-end justify-between gap-2 tablet:flex-nowrap">
+          <div className="flex w-full min-w-0 items-center gap-3.5 tablet:flex-1">
             {leading}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className={titleClassName}>{title}</h1>
               {subtitle ? (
                 <div className="mt-screen-header-subtitle text-screen-subtitle text-muted-foreground">
@@ -72,7 +72,7 @@ export default function ScreenHeader({
           {actions ? (
             <div
               data-slot="screen-header-actions"
-              className="flex w-full min-w-0 flex-wrap items-center gap-2 tablet:w-auto"
+              className="flex w-full min-w-0 flex-wrap items-center gap-2 tablet:w-auto tablet:shrink-0 tablet:flex-nowrap"
             >
               {actions}
             </div>
