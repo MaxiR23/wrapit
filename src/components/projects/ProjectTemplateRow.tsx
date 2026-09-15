@@ -26,7 +26,7 @@ export default function ProjectTemplateRow({
       onClick={onSelect}
       className={cn(
         shellFocusClassName,
-        'flex min-w-0 items-center gap-3 rounded-[11px] border px-[13px] text-left',
+        'flex min-w-0 items-center gap-3 rounded-md border px-[13px] text-left',
         stacked ? 'min-h-14 py-[9px]' : 'min-h-[54px] py-[9px] lg:min-h-[52px] lg:py-2',
         selected
           ? 'border-foreground bg-card-hover'

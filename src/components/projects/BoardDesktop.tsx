@@ -174,7 +174,7 @@ function DesktopCard({
               <ul
                 role="listbox"
                 aria-label={`Move ${card.title} to`}
-                className="absolute top-full right-0 z-20 mt-1 min-w-[140px] rounded-[10px] border border-border-strong bg-surface p-1 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
+                className="absolute top-full right-0 z-20 mt-1 min-w-[140px] rounded-xl border border-border-strong bg-surface p-1 shadow-[0_16px_40px_oklch(0_0_0/0.55)]"
               >
                 {destinations.map((column) => (
                   <li key={column.id} role="presentation">

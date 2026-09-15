@@ -28,7 +28,7 @@ describe('ArchivedLoading', () => {
 
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
     expect(container.querySelector('[data-slot="screen-header"]')).not.toBeNull();
-    expect(container.querySelector('.rounded-\\[10px\\].border.bg-card')).not.toBeNull();
+    expect(container.querySelector('.rounded-md.border.bg-card')).not.toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
   });
 

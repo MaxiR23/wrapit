@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Archive, ArchiveRestore, History, Plus } from 'lucide-react';
+import { Archive, ArchiveRestore, History, Plus, Search } from 'lucide-react';
 
 import ScreenHeader from '@/components/ScreenHeader';
+import { searchFieldDomProps } from '@/components/mobileChrome';
 import BoardFilterSummary from '@/components/projects/BoardFilterSummary';
 import BoardFiltersPopover from '@/components/projects/BoardFiltersPopover';
 import BoardVisibilityPopover from '@/components/projects/BoardVisibilityPopover';
@@ -187,19 +188,22 @@ export default function BoardHeader({
         </div>
       }
     >
-      <input
-        type="search"
-        placeholder="Search the board"
-        aria-label="Search the board"
-        value={query}
-        disabled={!hasCards}
-        onChange={(event) => setQuery(event.target.value)}
-        className={cn(
-          shellFocusClassName,
-          'h-10 w-full rounded-md border border-input bg-surface px-3.5 text-base text-foreground placeholder:text-subtle tablet:hidden',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      />
+      <label className="relative tablet:hidden">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle" />
+        <input
+          {...searchFieldDomProps}
+          placeholder="Search the board"
+          aria-label="Search the board"
+          value={query}
+          disabled={!hasCards}
+          onChange={(event) => setQuery(event.target.value)}
+          className={cn(
+            shellFocusClassName,
+            'h-10 w-full overflow-hidden rounded-md border border-input bg-surface pr-3 pl-9 text-base text-foreground placeholder:text-subtle',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        />
+      </label>
       {filterCount > 0 ? (
         <BoardFilterSummary
           summary={boardFilterSummary({

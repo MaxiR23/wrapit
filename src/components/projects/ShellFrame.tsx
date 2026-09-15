@@ -20,10 +20,10 @@ const defaultContentClassName = cn(
   screenInsetClassName,
 );
 
-const mobileTabBarOffsetClassName = 'max-tablet:pb-[var(--spacing-mobile-tab-bar)]';
+const mobileTabBarOffsetClassName = 'max-tablet:pb-[var(--spacing-mobile-tab-bar-clearance)]';
 
 const defaultMobileTabBarPadClassName =
-  'max-tablet:pb-[calc(var(--spacing-mobile-tab-bar)+1.5rem)]';
+  'max-tablet:pb-[calc(var(--spacing-mobile-tab-bar-clearance)+1.5rem)]';
 
 export default function ShellFrame({
   user,

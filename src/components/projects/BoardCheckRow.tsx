@@ -29,7 +29,7 @@ export default function BoardCheckRow({
     >
       <span
         className={cn(
-          'inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] text-[9px] text-primary-foreground',
+          'inline-flex size-4 shrink-0 items-center justify-center rounded-xs border-[1.5px] text-[9px] text-primary-foreground',
           checked ? 'border-foreground bg-foreground' : 'border-border-strong bg-transparent',
           boxClassName,
         )}

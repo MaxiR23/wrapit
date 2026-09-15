@@ -81,7 +81,7 @@ export default function BoardFiltersPopover({
           <div
             role="dialog"
             aria-label="Filters"
-            className="absolute top-[calc(100%+8px)] right-0 z-50 hidden w-[268px] flex-col gap-3.5 rounded-[12px] border border-border-strong bg-surface p-4 shadow-[0_20px_50px_oklch(0_0_0/0.55)] tablet:flex"
+            className="absolute top-[calc(100%+8px)] right-0 z-50 hidden w-[268px] flex-col gap-3.5 rounded-xl border border-border-strong bg-surface p-4 shadow-[0_20px_50px_oklch(0_0_0/0.55)] tablet:flex"
           >
             <FiltersBody
               labels={labels}
@@ -103,7 +103,7 @@ export default function BoardFiltersPopover({
               role="dialog"
               aria-modal="true"
               aria-label="Filters"
-              className="fixed z-10 flex max-h-[78%] flex-col gap-5 rounded-t-[22px] border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)] safe-inset-x safe-inset-b"
+              className="fixed z-10 flex max-h-[78%] flex-col gap-5 rounded-t-2xl border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)] safe-inset-x safe-inset-b"
             >
               <div className="flex items-center px-1 pt-2">
                 <span className="mr-auto text-[15px] font-semibold">Filters</span>
@@ -192,7 +192,7 @@ function FiltersBody({
           checked={filters.onlyMine}
           onToggle={onToggleMine}
           className={compact ? undefined : 'h-[52px] gap-3 text-[14.5px]'}
-          boxClassName={compact ? undefined : 'size-5 rounded-md text-[11px]'}
+          boxClassName={compact ? undefined : 'size-5 rounded-xs text-[11px]'}
         >
           Only my cards
         </BoardCheckRow>
@@ -200,7 +200,7 @@ function FiltersBody({
           checked={filters.onlyOverdue}
           onToggle={onToggleOverdue}
           className={compact ? undefined : 'h-[52px] gap-3 text-[14.5px]'}
-          boxClassName={compact ? undefined : 'size-5 rounded-md text-[11px]'}
+          boxClassName={compact ? undefined : 'size-5 rounded-xs text-[11px]'}
         >
           Only overdue
         </BoardCheckRow>

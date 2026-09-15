@@ -2,6 +2,7 @@
 
 import { Plus, Search } from 'lucide-react';
 
+import { mobileAddButtonClassName, searchFieldDomProps } from '@/components/mobileChrome';
 import NewProjectDialog from '@/components/projects/NewProjectDialog';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -12,32 +13,25 @@ export default function ProjectsMobileSearch() {
 
   return (
     <div className="flex items-center gap-2.5 md:hidden">
-      <div className="relative flex min-w-0 flex-1 items-center">
+      <div className="relative min-w-0 flex-1">
         <Search
-          className="pointer-events-none absolute left-[13px] size-[18px] text-subtle"
+          className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-subtle"
           strokeWidth={1.6}
         />
         <input
-          type="search"
+          {...searchFieldDomProps}
           placeholder="Search projects"
           aria-label="Search projects"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className={cn(
             shellFocusClassName,
-            'h-mobile-search w-full rounded-md border border-input bg-surface px-10 text-base text-foreground placeholder:text-subtle',
+            'h-mobile-search w-full overflow-hidden rounded-md border border-input bg-surface pr-3 pl-9 text-base text-foreground placeholder:text-subtle',
           )}
         />
       </div>
       <NewProjectDialog>
-        <button
-          type="button"
-          aria-label="New project"
-          className={cn(
-            shellFocusClassName,
-            'inline-flex size-mobile-search shrink-0 items-center justify-center rounded-md bg-primary text-[22px] leading-none text-primary-foreground hover:bg-primary/90',
-          )}
-        >
+        <button type="button" aria-label="New project" className={mobileAddButtonClassName}>
           <Plus className="size-5" strokeWidth={2} />
         </button>
       </NewProjectDialog>

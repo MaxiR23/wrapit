@@ -10,12 +10,12 @@ export default function MyTasksLoading() {
           subtitle={<Skeleton className="h-3.5 w-48" />}
           actions={
             <div className="flex w-full items-center gap-2">
-              <div className="flex flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:flex-none">
-                <Skeleton className="h-[38px] flex-1 rounded-[6px] tablet:h-8 tablet:w-[72px] tablet:flex-none" />
-                <Skeleton className="h-[38px] flex-1 rounded-[6px] tablet:h-8 tablet:w-[88px] tablet:flex-none" />
-                <Skeleton className="h-[38px] flex-1 rounded-[6px] tablet:h-8 tablet:w-[52px] tablet:flex-none" />
+              <div className="flex h-mobile-search flex-1 gap-[3px] rounded-md border border-border bg-surface p-[3px] tablet:h-auto tablet:flex-none">
+                <Skeleton className="h-full flex-1 rounded-md tablet:h-8 tablet:w-[72px] tablet:flex-none" />
+                <Skeleton className="h-full flex-1 rounded-md tablet:h-8 tablet:w-[88px] tablet:flex-none" />
+                <Skeleton className="h-full flex-1 rounded-md tablet:h-8 tablet:w-[52px] tablet:flex-none" />
               </div>
-              <Skeleton className="size-[46px] rounded-md tablet:size-10 lg:h-9 lg:w-[108px]" />
+              <Skeleton className="size-mobile-search rounded-md tablet:size-10 lg:h-9 lg:w-[108px]" />
             </div>
           }
         />
@@ -26,7 +26,7 @@ export default function MyTasksLoading() {
         </div>
         <div className="flex flex-col gap-2">
           {Array.from({ length: 5 }, (_, index) => (
-            <div key={index} className="rounded-[10px] border border-border bg-card px-4 py-[13px]">
+            <div key={index} className="rounded-md border border-border bg-card px-4 py-[13px]">
               <div className="flex items-center gap-3.5">
                 <Skeleton className="size-[18px] rounded-full" />
                 <Skeleton className="h-4 min-w-0 flex-1" />

@@ -107,7 +107,7 @@ export default function VisibilityDropdown({
           aria-label="Visibility"
           className={cn(
             'absolute top-[calc(100%+6px)] right-0 z-[60] flex w-[248px] flex-col gap-px p-[5px]',
-            'rounded-[10px] border border-border-strong bg-surface',
+            'rounded-xl border border-border-strong bg-surface',
             'shadow-[0_18px_44px_oklch(0_0_0/0.55)]',
           )}
         >
@@ -122,7 +122,7 @@ export default function VisibilityDropdown({
                 onClick={() => pick(option.value)}
                 className={cn(
                   shellFocusClassName,
-                  'flex items-center gap-[9px] rounded-[6px] px-[9px] py-2 text-left text-[12.5px]',
+                  'flex items-center gap-[9px] rounded-sm px-[9px] py-2 text-left text-[12.5px]',
                   selected
                     ? 'bg-card text-foreground'
                     : 'bg-transparent text-muted-foreground hover:bg-card',

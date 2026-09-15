@@ -38,7 +38,7 @@ export default function ProjectsEmptyState() {
       <div className="flex flex-col gap-[18px]">
         <div
           className={cn(
-            'flex flex-col items-center rounded-[14px] border border-dashed border-border-strong text-center',
+            'flex flex-col items-center rounded-lg border border-dashed border-border-strong text-center',
             'gap-3.5 px-[22px] pt-9 pb-[30px]',
             'md:gap-[15px] md:px-8 md:py-10',
             'lg:px-10 lg:py-[52px]',
@@ -46,7 +46,7 @@ export default function ProjectsEmptyState() {
         >
           <span
             className={cn(
-              'inline-flex items-center justify-center rounded-[12px] border border-border-strong text-muted-foreground',
+              'inline-flex items-center justify-center rounded-lg border border-border-strong text-muted-foreground',
               'size-12 md:size-[52px] lg:size-[54px]',
             )}
           >

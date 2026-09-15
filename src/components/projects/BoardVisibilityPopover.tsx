@@ -58,7 +58,7 @@ export default function BoardVisibilityPopover({
           <div
             role="dialog"
             aria-label="Show on card"
-            className="absolute top-[calc(100%+8px)] right-0 z-50 hidden w-[244px] flex-col gap-[11px] rounded-[12px] border border-border-strong bg-surface p-4 shadow-[0_20px_50px_oklch(0_0_0/0.55)] tablet:flex"
+            className="absolute top-[calc(100%+8px)] right-0 z-50 hidden w-[244px] flex-col gap-[11px] rounded-xl border border-border-strong bg-surface p-4 shadow-[0_20px_50px_oklch(0_0_0/0.55)] tablet:flex"
           >
             <span className="text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase">
               Show on card
@@ -84,7 +84,7 @@ export default function BoardVisibilityPopover({
               role="dialog"
               aria-modal="true"
               aria-label="Show on card"
-              className="fixed z-10 flex max-h-[78%] flex-col rounded-t-[22px] border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)] safe-inset-x safe-inset-b"
+              className="fixed z-10 flex max-h-[78%] flex-col rounded-t-2xl border-t border-border-strong bg-surface px-4 pt-2 pb-[26px] shadow-[0_-22px_60px_oklch(0_0_0/0.6)] safe-inset-x safe-inset-b"
             >
               <div className="flex items-center px-1 pt-2 pb-2">
                 <span className="mr-auto text-[15px] font-semibold">Show on card</span>

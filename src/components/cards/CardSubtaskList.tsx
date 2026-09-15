@@ -192,7 +192,7 @@ function SubtaskRow({
         aria-label={subtask.text ?? 'Subtask'}
         className={cn(
           shellFocusClassName,
-          'size-5 shrink-0 rounded-[6px] border-[1.5px] border-border-strong accent-foreground tablet:size-[17px] tablet:rounded-[5px]',
+          'size-5 shrink-0 rounded-xs border-[1.5px] border-border-strong accent-foreground tablet:size-[17px]',
         )}
       />
       <input

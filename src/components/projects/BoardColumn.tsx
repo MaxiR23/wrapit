@@ -37,7 +37,7 @@ export default function BoardColumn({
       onDrop={onDrop}
       onDragOver={onDragOver}
       className={cn(
-        'flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-hidden rounded-[14px] border p-3',
+        'flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 overflow-hidden rounded-lg border p-3',
         'transition-[border-color,background] duration-[160ms] ease',
         highlighted ? 'border-border-strong bg-card' : 'border-border bg-surface',
         className,

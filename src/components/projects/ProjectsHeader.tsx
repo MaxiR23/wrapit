@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export type ProjectsViewMode = 'grid' | 'list';
 
 const toggleButtonClassName =
-  'h-[34px] rounded-[6px] px-3.5 text-[13px] font-medium md:h-8 lg:h-[30px] lg:px-[13px]';
+  'h-[34px] rounded-md px-3.5 text-[13px] font-medium md:h-8 lg:h-[30px] lg:px-[13px]';
 
 export default function ProjectsHeader({
   count,

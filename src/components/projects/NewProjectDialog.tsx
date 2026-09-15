@@ -30,7 +30,7 @@ import {
   type ProjectInput,
 } from '@/lib/validation/project';
 
-const statusToggleClassName = 'h-[30px] flex-1 rounded-[6px] px-3 text-[12.5px] font-medium';
+const statusToggleClassName = 'h-[30px] flex-1 rounded-xs px-3 text-[12.5px] font-medium';
 
 function columnsFromTemplate(templateId: ProjectTemplateId) {
   const titles = getTemplateColumns(templateId) ?? getTemplateColumns('blank');
@@ -173,7 +173,7 @@ export default function NewProjectDialog({
           aria-modal="true"
           overlayClassName="z-[80] bg-black/62"
           onClick={(event) => event.stopPropagation()}
-          className="z-[80] flex max-h-full w-full max-w-[540px] flex-col gap-0 overflow-hidden rounded-[14px] border border-border-strong bg-surface p-0 text-foreground shadow-[0_30px_70px_oklch(0_0_0/0.6)] sm:max-w-[540px]"
+          className="z-[80] flex max-h-full w-full max-w-[540px] flex-col gap-0 overflow-hidden rounded-xl border border-border-strong bg-surface p-0 text-foreground shadow-[0_30px_70px_oklch(0_0_0/0.6)] sm:max-w-[540px]"
         >
           <form
             noValidate
@@ -366,7 +366,7 @@ export default function NewProjectDialog({
                           ref={field.ref}
                           className={cn(
                             shellFocusClassName,
-                            'size-4 shrink-0 rounded-[5px] border-[1.5px] border-border-strong accent-foreground',
+                            'size-4 shrink-0 rounded-xs border-[1.5px] border-border-strong accent-foreground',
                           )}
                         />
                         Mark as featured

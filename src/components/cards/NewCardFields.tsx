@@ -167,7 +167,7 @@ export default function NewCardFields({
                 onClick={() => onColumnIdChange(column.id)}
                 className={cn(
                   shellFocusClassName,
-                  'h-10 rounded-md border text-[13px] font-medium tablet:h-[30px] tablet:flex-1 tablet:rounded-[6px] tablet:border-0 tablet:text-[12.5px]',
+                  'h-10 rounded-md border text-[13px] font-medium tablet:h-[30px] tablet:flex-1 tablet:rounded-xs tablet:border-0 tablet:text-[12.5px]',
                   selected
                     ? 'border-border-strong bg-card text-foreground'
                     : 'border-border bg-transparent text-muted-foreground',
