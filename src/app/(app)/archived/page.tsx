@@ -16,7 +16,7 @@ export default async function ArchivedProjectsPage() {
     redirect(SIGN_IN_PATH);
   }
 
-  const projects = await listArchivedProjectsForUser(session.user.id);
+  const page = await listArchivedProjectsForUser(session.user.id);
 
-  return <ArchivedView initialProjects={projects} />;
+  return <ArchivedView initialProjects={page.projects} initialTotalCount={page.totalCount} />;
 }

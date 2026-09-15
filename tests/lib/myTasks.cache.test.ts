@@ -1,14 +1,16 @@
 // tests/lib/myTasks.cache.test.ts
 //
-// Tests that list and count share one assigned-context load per request.
+// Tests that the open-task count is its own query, not the assigned-context load.
 //
 // Tested:
-// - listMyTasksForUser and countOpenMyTasksForUser load assigned context once
-// - A later request loads assigned context again
+// - countOpenMyTasksForUser uses $queryRaw instead of membership.findMany
+// - listMyTasksForUser still loads assigned context through membership.findMany
+// - A later count request runs $queryRaw again
 //
 // What is covered:
-// - React.cache on loadAssignedContext. jsdom's client React makes cache() a
-//   no-op, so this file installs a request-scoped stand-in.
+// - The badge count does not share loadAssignedContext with the list.
+//   jsdom's client React makes cache() a no-op, so this file still installs
+//   a request-scoped stand-in for list memo tests if they land here later.
 //
 // Run with: pnpm test:run tests/lib/myTasks.cache.test.ts
 //
@@ -30,13 +32,13 @@ const { countOpenMyTasksForUser, listMyTasksForUser } = await import('@/lib/myTa
 
 const db = createPrismaFake();
 
-describe('assigned context request memo', () => {
+describe('open-task count query', () => {
   beforeEach(() => {
     db.reset();
     resetRequestCache();
   });
 
-  it('loads the assigned context once when listing and counting in one request', async () => {
+  it('counts in SQL and does not share assigned context with the list', async () => {
     const project = await seedAccessibleProject(db, { title: 'Sprint board', userId: 'user-ada' });
     const todo = await db.column.create({
       data: { title: 'To do', order: 0, projectId: project.id },
@@ -49,6 +51,7 @@ describe('assigned context request memo', () => {
     });
     await db.cardAssignee.create({ data: { cardId: card.id, userId: 'user-ada' } });
     db.membership.findMany.mockClear();
+    db.$queryRaw.mockClear();
 
     const list = await listMyTasksForUser(db, 'user-ada');
     const openCount = await countOpenMyTasksForUser(db, 'user-ada');
@@ -56,16 +59,19 @@ describe('assigned context request memo', () => {
     expect(list.openCount).toBe(1);
     expect(openCount).toBe(1);
     expect(db.membership.findMany).toHaveBeenCalledTimes(1);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the assigned context again on a later request', async () => {
+  it('runs the count query again on a later request', async () => {
     await seedAccessibleProject(db, { title: 'Sprint board', userId: 'user-ada' });
+    db.$queryRaw.mockClear();
     db.membership.findMany.mockClear();
 
     await countOpenMyTasksForUser(db, 'user-ada');
     resetRequestCache();
     await countOpenMyTasksForUser(db, 'user-ada');
 
-    expect(db.membership.findMany).toHaveBeenCalledTimes(2);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(db.membership.findMany).not.toHaveBeenCalled();
   });
 });

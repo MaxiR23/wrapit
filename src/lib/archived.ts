@@ -1,4 +1,4 @@
-import { commentCount, subtaskProgress } from '@/lib/cardCounters';
+import { commentCount, faceSubtaskProgress } from '@/lib/cardCounters';
 import { activityCopy } from '@/lib/activityCopy';
 import type { CardLabelView } from '@/lib/labels';
 import {
@@ -34,9 +34,9 @@ export type ArchivedPerson = {
 
 export type ArchivedSubtask = {
   id: string;
-  text: string;
+  text?: string;
   done: boolean;
-  order: number;
+  order?: number;
 };
 
 export type ArchivedComment = {
@@ -57,8 +57,12 @@ export type ArchivedTask = {
   column: { id: string; title: string };
   label: CardLabelView | null;
   assignees: ArchivedPerson[];
-  subtasks: ArchivedSubtask[];
+  subtasks?: ArchivedSubtask[];
   comments: ArchivedComment[];
+  commentCount?: number;
+  subtaskDone?: number;
+  subtaskTotal?: number;
+  detailLoaded?: boolean;
 };
 
 export type ArchivedProjectPayload = {
@@ -76,7 +80,7 @@ export type ArchivedProjectColumn = {
 export type ArchivedProject = {
   id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   status: 'NEW' | 'IN_PROGRESS' | 'PAUSED' | 'DONE';
   statusLabel: string;
   taskCount: number;
@@ -88,10 +92,159 @@ export type ArchivedProject = {
   archivedAt: Date;
   archivedBy: ArchivedPerson | null;
   canAdminister: boolean;
+  detailLoaded?: boolean;
 };
 
 export function archivedAgeDays(archivedAt: Date, now = new Date()): number {
   return Math.floor((now.getTime() - archivedAt.getTime()) / DAY_MS);
+}
+
+/**
+ * Prisma `archivedAt` bounds that match archivedAgeDays: floor((now - t) / DAY)
+ * <= 7 is t > now - 8 days, not now - 7 days.
+ */
+export function archivedRangeWhere(
+  range: ArchivedDateRange,
+  now: Date,
+): { archivedAt?: { gt: Date } | { lte: Date } } {
+  if (range === 'all') return {};
+  if (range === '7') return { archivedAt: { gt: new Date(now.getTime() - 8 * DAY_MS) } };
+  if (range === '30') return { archivedAt: { gt: new Date(now.getTime() - 31 * DAY_MS) } };
+  return { archivedAt: { lte: new Date(now.getTime() - 31 * DAY_MS) } };
+}
+
+export function archivedSearchContains(query: string): {
+  contains: string;
+  mode: 'insensitive';
+} | null {
+  const needle = query.trim();
+  if (needle === '') return null;
+  return { contains: needle, mode: 'insensitive' };
+}
+
+export function archivedCardSearchWhere(query: string):
+  | Record<string, never>
+  | {
+      OR: Array<
+        | { title: { contains: string; mode: 'insensitive' } }
+        | { label: { name: { contains: string; mode: 'insensitive' } } }
+      >;
+    } {
+  const contains = archivedSearchContains(query);
+  if (!contains) return {};
+  return {
+    OR: [{ title: contains }, { label: { name: contains } }],
+  };
+}
+
+export function archivedProjectSearchWhere(
+  query: string,
+): Record<string, never> | { title: { contains: string; mode: 'insensitive' } } {
+  const contains = archivedSearchContains(query);
+  if (!contains) return {};
+  return { title: contains };
+}
+
+export function archivedListOrderBy(
+  sort: ArchivedSort,
+): Array<{ title: 'asc' } | { archivedAt: 'desc' } | { id: 'asc' | 'desc' }> {
+  if (sort === 'name') return [{ title: 'asc' }, { id: 'asc' }];
+  return [{ archivedAt: 'desc' }, { id: 'desc' }];
+}
+
+export type ArchivedListCursor = {
+  id: string;
+  title: string;
+  archivedAt: string;
+};
+
+export function archivedListCursorFromItem(item: {
+  id: string;
+  title: string;
+  archivedAt: Date;
+}): ArchivedListCursor {
+  return {
+    id: item.id,
+    title: item.title,
+    archivedAt: item.archivedAt.toISOString(),
+  };
+}
+
+/** Keyset after `cursor` for the same order as `archivedListOrderBy`. */
+export function archivedListCursorWhere(
+  sort: ArchivedSort,
+  cursor?: ArchivedListCursor | null,
+): { OR: Array<Record<string, unknown>> } | null {
+  if (!cursor) return null;
+  const archivedAt = new Date(cursor.archivedAt);
+  if (sort === 'name') {
+    return {
+      OR: [
+        { title: { gt: cursor.title } },
+        { AND: [{ title: cursor.title }, { id: { gt: cursor.id } }] },
+      ],
+    };
+  }
+  return {
+    OR: [{ archivedAt: { lt: archivedAt } }, { AND: [{ archivedAt }, { id: { lt: cursor.id } }] }],
+  };
+}
+
+export function withArchivedListCursor<T extends Record<string, unknown>>(
+  where: T,
+  sort: ArchivedSort,
+  cursor?: ArchivedListCursor | null,
+): T | { AND: [T, { OR: Array<Record<string, unknown>> }] } {
+  const cursorWhere = archivedListCursorWhere(sort, cursor);
+  if (!cursorWhere) return where;
+  return { AND: [where, cursorWhere] };
+}
+
+/** Same comparator as SQL `archivedListOrderBy` (byte order, id tie-break). */
+export function compareArchivedItems<T extends { id: string; archivedAt: Date }>(
+  left: T,
+  right: T,
+  sort: ArchivedSort,
+  nameOf: (item: T) => string,
+): number {
+  if (sort === 'name') {
+    const leftName = nameOf(left);
+    const rightName = nameOf(right);
+    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
+    if (left.id !== right.id) return left.id < right.id ? -1 : 1;
+    return 0;
+  }
+  const byDate = right.archivedAt.getTime() - left.archivedAt.getTime();
+  if (byDate !== 0) return byDate;
+  if (left.id === right.id) return 0;
+  return left.id < right.id ? 1 : -1;
+}
+
+export function insertArchivedItems<T extends { id: string; archivedAt: Date }>(
+  current: T[],
+  incoming: T[],
+  sort: ArchivedSort,
+  nameOf: (item: T) => string,
+): T[] {
+  const existing = new Set(current.map((item) => item.id));
+  const merged = [...current, ...incoming.filter((item) => !existing.has(item.id))];
+  return merged.slice().sort((left, right) => compareArchivedItems(left, right, sort, nameOf));
+}
+
+export function insertArchivedTasks(
+  current: ArchivedTask[],
+  incoming: ArchivedTask[],
+  sort: ArchivedSort,
+): ArchivedTask[] {
+  return insertArchivedItems(current, incoming, sort, (card) => card.title);
+}
+
+export function insertArchivedProjects(
+  current: ArchivedProject[],
+  incoming: ArchivedProject[],
+  sort: ArchivedSort,
+): ArchivedProject[] {
+  return insertArchivedItems(current, incoming, sort, (project) => project.title);
 }
 
 export function matchesArchivedSearch(card: ArchivedTask, query: string): boolean {
@@ -135,12 +288,9 @@ export function filterArchivedItems<T extends { id: string; archivedAt: Date }>(
     (item) =>
       input.matchesSearch(item, input.query) && matchesArchivedRange(item, input.range, now),
   );
-  return matched.slice().sort((left, right) => {
-    if (input.sort === 'name') return input.nameOf(left).localeCompare(input.nameOf(right));
-    const byDate = right.archivedAt.getTime() - left.archivedAt.getTime();
-    if (byDate !== 0) return byDate;
-    return right.id.localeCompare(left.id);
-  });
+  return matched
+    .slice()
+    .sort((left, right) => compareArchivedItems(left, right, input.sort, input.nameOf));
 }
 
 export function filterArchivedTasks(
@@ -204,8 +354,8 @@ export function archivedByLine(item: { archivedBy: ArchivedPerson | null }): str
 }
 
 export function archivedTaskDetailLine(card: ArchivedTask): string {
-  const progress = subtaskProgress(card.subtasks);
-  const comments = commentCount(card.comments);
+  const progress = faceSubtaskProgress(card);
+  const comments = card.commentCount ?? commentCount(card.comments);
   const subtaskText =
     progress.total === 1 ? '1 subtask' : `${progress.done}/${progress.total} subtasks`;
   const commentText = comments === 1 ? '1 comment' : `${comments} comments`;
@@ -239,7 +389,7 @@ export function reviveArchivedTask(card: ArchivedTask): ArchivedTask {
   return {
     ...card,
     archivedAt: new Date(card.archivedAt),
-    comments: card.comments.map((comment) => ({
+    comments: (card.comments ?? []).map((comment) => ({
       ...comment,
       createdAt: new Date(comment.createdAt),
       editedAt: comment.editedAt ? new Date(comment.editedAt) : null,
@@ -252,4 +402,45 @@ export function reviveArchivedProject(project: ArchivedProject): ArchivedProject
     ...project,
     archivedAt: new Date(project.archivedAt),
   };
+}
+
+export function applyArchivedCardDetail(
+  card: ArchivedTask,
+  detail: {
+    description: string | null;
+    subtasks: Array<{ id: string; text: string; done: boolean; order: number }>;
+    comments: Array<{
+      id: string;
+      body: string;
+      createdAt: Date | string;
+      editedAt: Date | string | null;
+      author: ArchivedPerson;
+    }>;
+    commentCount: number;
+  },
+): ArchivedTask {
+  return {
+    ...card,
+    description: detail.description,
+    subtasks: detail.subtasks,
+    comments: detail.comments.map((comment) => ({
+      ...comment,
+      createdAt: new Date(comment.createdAt),
+      editedAt: comment.editedAt ? new Date(comment.editedAt) : null,
+    })),
+    commentCount: detail.commentCount,
+    detailLoaded: true,
+  };
+}
+
+export const ARCHIVED_DEFAULT_RANGE: ArchivedDateRange = 'all';
+export const ARCHIVED_DEFAULT_SORT: ArchivedSort = 'date';
+
+/** True when query, range, and sort match the archived list's first-paint query. */
+export function archivedListIsDefault(
+  query: string,
+  range: ArchivedDateRange,
+  sort: ArchivedSort,
+): boolean {
+  return query.trim() === '' && range === ARCHIVED_DEFAULT_RANGE && sort === ARCHIVED_DEFAULT_SORT;
 }

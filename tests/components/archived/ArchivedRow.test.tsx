@@ -8,9 +8,11 @@
 // - A tap opens detail
 // - A markdown title is not nested in a button
 // - A title link does not open the row
+// - First-paint progress and subtitle use aggregates when subtask rows are absent
 //
 // What is covered:
-// - Long-press vs tap vs cancelled press, title-link isolation
+// - Long-press vs tap vs cancelled press, title-link isolation, first-paint
+//   progress from aggregates
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedRow.test.tsx
 //
@@ -148,6 +150,37 @@ describe('ArchivedRow', () => {
     fireEvent(window, new PointerEvent('pointerup', { pointerId: 1, clientX: 10, clientY: 10 }));
 
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows first-paint progress from aggregates without subtask rows', () => {
+    render(
+      <ArchivedRow
+        card={{
+          ...card,
+          subtasks: undefined,
+          subtaskDone: 1,
+          subtaskTotal: 2,
+          commentCount: 3,
+        }}
+        selected={false}
+        selectionMode={false}
+        swipeEnabled
+        canAdminister
+        dx={0}
+        tween={false}
+        onOpen={vi.fn()}
+        onToggleSelect={vi.fn()}
+        onRestore={vi.fn()}
+        onExport={vi.fn()}
+        onDelete={vi.fn()}
+        onLongPress={vi.fn()}
+        onSwipeChange={vi.fn()}
+        onSwipeEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('1/2 subtasks · 3 comments')).toBeInTheDocument();
+    expect(screen.getAllByText('1/2').length).toBeGreaterThan(0);
   });
 
   it('renders markdown in an archived card title', () => {

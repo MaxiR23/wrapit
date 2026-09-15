@@ -1,10 +1,15 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpDown, Clock, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { getArchivedCardDetail } from '@/actions/getArchivedCardDetail';
+import { getArchivedCardsDetail } from '@/actions/getArchivedCardsDetail';
+import { getArchivedProjectDetail } from '@/actions/getArchivedProjectDetail';
+import { listArchivedCards } from '@/actions/listArchivedCards';
+import { listArchivedProjects } from '@/actions/listArchivedProjects';
 import { deleteArchivedCards } from '@/actions/deleteArchivedCards';
 import { deleteArchivedProject } from '@/actions/deleteArchivedProject';
 import { rearchiveArchivedCards } from '@/actions/rearchiveArchivedCards';
@@ -24,13 +29,18 @@ import { shellFocusClassName } from '@/components/projects/shell';
 import {
   ARCHIVED_PAGE_SIZE,
   ARCHIVED_PROJECTS_EMPTY,
+  applyArchivedCardDetail,
   archivedCountLabel,
+  archivedListCursorFromItem,
+  archivedListIsDefault,
   archivedPhoneSelectedLabel,
   archivedProjectCountLabel,
   archivedProjectSelectedLabel,
   archivedSelectedLabel,
   filterArchivedProjects,
   filterArchivedTasks,
+  insertArchivedProjects,
+  insertArchivedTasks,
   reviveArchivedProject,
   reviveArchivedTask,
   sliceArchivedTasks,
@@ -44,12 +54,30 @@ import {
   archivedExportFilename,
   archivedTasksCsv,
   archivedTasksJson,
+  loadArchivedExportDetails,
   type ArchivedExportFormat,
 } from '@/lib/archivedExport';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { PROJECTS_PATH, projectPath } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const RANGES: ArchivedDateRange[] = ['all', '7', '30', 'old'];
+
+function hasArchivedProjects(data: {
+  projects?: unknown;
+  cards?: unknown;
+  totalCount: number;
+}): data is { projects: ArchivedProject[]; totalCount: number } {
+  return Array.isArray(data.projects);
+}
+
+function hasArchivedCards(data: {
+  projects?: unknown;
+  cards?: unknown;
+  totalCount: number;
+}): data is { cards: ArchivedTask[]; totalCount: number } {
+  return Array.isArray(data.cards);
+}
 
 function downloadText(filename: string, text: string, mime: string) {
   const blob = new Blob([text], { type: mime });
@@ -68,15 +96,18 @@ export default function ArchivedView({
   projectTitle,
   initialCards = [],
   initialProjects,
+  initialTotalCount,
   canAdminister = false,
 }: {
   projectId?: string;
   projectTitle?: string;
   initialCards?: ArchivedTask[];
   initialProjects?: ArchivedProject[];
+  initialTotalCount?: number;
   canAdminister?: boolean;
 }) {
   const isProjects = initialProjects != null;
+  const paged = initialTotalCount != null;
   const router = useRouter();
   const { query, setQuery } = useProjectsSearch();
   const [cards, setCards] = useState(() => initialCards.map(reviveArchivedTask));
@@ -86,6 +117,7 @@ export default function ArchivedView({
   const [range, setRange] = useState<ArchivedDateRange>('all');
   const [sort, setSort] = useState<ArchivedSort>('date');
   const [limit, setLimit] = useState(ARCHIVED_PAGE_SIZE);
+  const [totalCount, setTotalCount] = useState(initialTotalCount ?? 0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -95,6 +127,11 @@ export default function ArchivedView({
   const [toast, setToast] = useState<BoardToastMessage | null>(null);
   const [now] = useState(() => new Date());
   const cardGenRef = useRef(new Map<string, number>());
+  const skipNextListFetch = useRef(archivedListIsDefault(query, range, sort));
+  const listEpochRef = useRef(0);
+  const filterFetchInFlightRef = useRef(false);
+  const restartFilterFetchRef = useRef(false);
+  const [listGeneration, setListGeneration] = useState(0);
   const [queryEpoch, setQueryEpoch] = useState(query);
   if (query !== queryEpoch) {
     setQueryEpoch(query);
@@ -104,16 +141,21 @@ export default function ArchivedView({
   }
 
   const filteredCards = useMemo(
-    () => filterArchivedTasks(cards, { query, range, sort, now }),
-    [cards, query, range, sort, now],
+    () => (paged ? cards : filterArchivedTasks(cards, { query, range, sort, now })),
+    [paged, cards, query, range, sort, now],
   );
   const filteredProjects = useMemo(
-    () => filterArchivedProjects(projects, { query, range, sort, now }),
-    [projects, query, range, sort, now],
+    () => (paged ? projects : filterArchivedProjects(projects, { query, range, sort, now })),
+    [paged, projects, query, range, sort, now],
   );
-  const { shown, remaining } = isProjects
-    ? sliceArchivedTasks(filteredProjects, limit)
-    : sliceArchivedTasks(filteredCards, limit);
+  const { shown, remaining } = paged
+    ? {
+        shown: isProjects ? filteredProjects : filteredCards,
+        remaining: Math.max(0, totalCount - (isProjects ? projects.length : cards.length)),
+      }
+    : isProjects
+      ? sliceArchivedTasks(filteredProjects, limit)
+      : sliceArchivedTasks(filteredCards, limit);
   const selectedShown = shown.filter((item) => selectedIds.includes(item.id));
   const allShownSelected = shown.length > 0 && selectedShown.length === shown.length;
   const filtersOn = query.trim() !== '' || range !== 'all';
@@ -121,6 +163,130 @@ export default function ArchivedView({
     !isProjects && openId ? (cards.find((card) => card.id === openId) ?? null) : null;
   const openProject =
     isProjects && openId ? (projects.find((project) => project.id === openId) ?? null) : null;
+
+  useEffect(() => {
+    if (!paged) return;
+    if (skipNextListFetch.current) {
+      skipNextListFetch.current = false;
+      return;
+    }
+    const epoch = ++listEpochRef.current;
+    filterFetchInFlightRef.current = true;
+    void (
+      isProjects
+        ? listArchivedProjects({ query, range, sort })
+        : projectId
+          ? listArchivedCards({ projectId, query, range, sort })
+          : Promise.resolve({ error: 'Unauthorized' as const })
+    ).then((result) => {
+      if (epoch !== listEpochRef.current) return;
+      filterFetchInFlightRef.current = false;
+      if ('error' in result) return;
+      if (isProjects && hasArchivedProjects(result.data)) {
+        setProjects(result.data.projects.map(reviveArchivedProject));
+        setTotalCount(result.data.totalCount);
+        return;
+      }
+      if (!isProjects && hasArchivedCards(result.data)) {
+        setCards(result.data.cards.map(reviveArchivedTask));
+        setTotalCount(result.data.totalCount);
+      }
+    });
+    return () => {
+      filterFetchInFlightRef.current = false;
+      if (listEpochRef.current === epoch) {
+        listEpochRef.current += 1;
+      }
+    };
+  }, [paged, isProjects, projectId, query, range, sort, listGeneration]);
+
+  useEffect(() => {
+    if (!openCard || openCard.detailLoaded) return;
+    const cardId = openCard.id;
+    let cancelled = false;
+    void getArchivedCardDetail({ cardId }).then((result) => {
+      if (cancelled || 'error' in result) return;
+      setCards((current) =>
+        current.map((card) =>
+          card.id === cardId
+            ? {
+                ...applyArchivedCardDetail(card, result.data),
+              }
+            : card,
+        ),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openCard]);
+
+  useEffect(() => {
+    if (!openProject || openProject.detailLoaded) return;
+    const id = openProject.id;
+    let cancelled = false;
+    void getArchivedProjectDetail({ projectId: id }).then((result) => {
+      if (cancelled || 'error' in result) return;
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === id
+            ? { ...project, description: result.data.description, detailLoaded: true }
+            : project,
+        ),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openProject]);
+
+  async function loadOlder() {
+    if (!paged) {
+      setLimit((current) => current + ARCHIVED_PAGE_SIZE);
+      return;
+    }
+    const epoch = listEpochRef.current;
+    const loaded = isProjects ? projects : cards;
+    const last = loaded[loaded.length - 1];
+    const cursor = last ? archivedListCursorFromItem(last) : undefined;
+    const result = isProjects
+      ? await listArchivedProjects({ query, range, sort, ...(cursor ? { cursor } : {}) })
+      : projectId
+        ? await listArchivedCards({
+            projectId,
+            query,
+            range,
+            sort,
+            ...(cursor ? { cursor } : {}),
+          })
+        : { error: 'Unauthorized' as const };
+    if (epoch !== listEpochRef.current || 'error' in result) return;
+    if (isProjects && hasArchivedProjects(result.data)) {
+      const nextProjects = result.data.projects;
+      const nextTotal = result.data.totalCount;
+      setProjects((current) => {
+        const seen = new Set(current.map((project) => project.id));
+        return [
+          ...current,
+          ...nextProjects.map(reviveArchivedProject).filter((project) => !seen.has(project.id)),
+        ];
+      });
+      setTotalCount(nextTotal);
+      return;
+    }
+    if (!isProjects && hasArchivedCards(result.data)) {
+      const nextCards = result.data.cards;
+      const nextTotal = result.data.totalCount;
+      setCards((current) => {
+        const seen = new Set(current.map((card) => card.id));
+        return [
+          ...current,
+          ...nextCards.map(reviveArchivedTask).filter((card) => !seen.has(card.id)),
+        ];
+      });
+      setTotalCount(nextTotal);
+    }
+  }
 
   const clearSelection = useCallback(() => {
     setSelectedIds([]);
@@ -188,17 +354,13 @@ export default function ArchivedView({
    * started left rows missing until reload.
    */
   function putCardsBack(removed: ArchivedTask[]) {
-    setCards((current) => {
-      const existing = new Set(current.map((card) => card.id));
-      return [...current, ...removed.filter((card) => !existing.has(card.id))];
-    });
+    setCards((current) => insertArchivedTasks(current, removed, sort));
+    if (paged) setTotalCount((current) => current + removed.length);
   }
 
   function putProjectsBack(removed: ArchivedProject[]) {
-    setProjects((current) => {
-      const existing = new Set(current.map((project) => project.id));
-      return [...current, ...removed.filter((project) => !existing.has(project.id))];
-    });
+    setProjects((current) => insertArchivedProjects(current, removed, sort));
+    if (paged) setTotalCount((current) => current + removed.length);
   }
 
   function canRestoreIds(ids: string[]): boolean {
@@ -208,147 +370,208 @@ export default function ArchivedView({
     return canAdminister && ids.length > 0;
   }
 
+  function invalidateInFlightList() {
+    listEpochRef.current += 1;
+    if (filterFetchInFlightRef.current) {
+      restartFilterFetchRef.current = true;
+      filterFetchInFlightRef.current = false;
+    }
+  }
+
+  function restartFilterFetchIfNeeded() {
+    if (!restartFilterFetchRef.current) return;
+    restartFilterFetchRef.current = false;
+    setListGeneration((current) => current + 1);
+  }
+
   async function runRestore(ids: string[]) {
     if (!canRestoreIds(ids)) return;
-    const gens = bumpCardGens(ids);
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setOpenId((current) => (current && ids.includes(current) ? null : current));
-    setSwipe(null);
-    if (isProjects) {
-      const removed = projectsByIds(ids);
-      setProjects((current) => current.filter((project) => !ids.includes(project.id)));
-      const result = await restoreArchivedProjects({ projectIds: ids });
+    invalidateInFlightList();
+    try {
+      const gens = bumpCardGens(ids);
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
+      setOpenId((current) => (current && ids.includes(current) ? null : current));
+      setSwipe(null);
+      if (isProjects) {
+        const removed = projectsByIds(ids);
+        setProjects((current) => current.filter((project) => !ids.includes(project.id)));
+        if (paged) setTotalCount((current) => Math.max(0, current - removed.length));
+        const result = await restoreArchivedProjects({ projectIds: ids });
+        if ('error' in result) {
+          putProjectsBack(removed);
+          setToast({ message: result.error, role: 'alert' });
+          return;
+        }
+        if (!gensAreCurrent(gens)) return;
+        const message =
+          removed.length === 1 && removed[0]
+            ? archivedCopy.projects.restoredOne(removed[0].title)
+            : archivedCopy.projects.restoredMany(ids.length);
+        setToast({
+          message,
+          role: 'status',
+          onUndo: () => {
+            void runUndoProjects(ids, removed, result.data.undoToken);
+          },
+        });
+        router.refresh();
+        return;
+      }
+      if (!projectId) return;
+      const removed = cardsByIds(ids);
+      setCards((current) => current.filter((card) => !ids.includes(card.id)));
+      if (paged) setTotalCount((current) => Math.max(0, current - removed.length));
+      const result = await restoreArchivedCards({ projectId, cardIds: ids });
       if ('error' in result) {
-        putProjectsBack(removed);
+        putCardsBack(removed);
         setToast({ message: result.error, role: 'alert' });
         return;
       }
       if (!gensAreCurrent(gens)) return;
       const message =
         removed.length === 1 && removed[0]
-          ? archivedCopy.projects.restoredOne(removed[0].title)
-          : archivedCopy.projects.restoredMany(ids.length);
+          ? archivedCopy.restoredOne(removed[0].title)
+          : archivedCopy.restoredMany(ids.length);
+      const undoToken = result.data.undoToken;
       setToast({
         message,
         role: 'status',
         onUndo: () => {
-          void runUndoProjects(ids, removed, result.data.undoToken);
+          void runUndo(ids, removed, undoToken);
         },
       });
       router.refresh();
-      return;
+    } finally {
+      restartFilterFetchIfNeeded();
     }
-    if (!projectId) return;
-    const removed = cardsByIds(ids);
-    setCards((current) => current.filter((card) => !ids.includes(card.id)));
-    const result = await restoreArchivedCards({ projectId, cardIds: ids });
-    if ('error' in result) {
-      putCardsBack(removed);
-      setToast({ message: result.error, role: 'alert' });
-      return;
-    }
-    if (!gensAreCurrent(gens)) return;
-    const message =
-      removed.length === 1 && removed[0]
-        ? archivedCopy.restoredOne(removed[0].title)
-        : archivedCopy.restoredMany(ids.length);
-    const undoToken = result.data.undoToken;
-    setToast({
-      message,
-      role: 'status',
-      onUndo: () => {
-        void runUndo(ids, removed, undoToken);
-      },
-    });
-    router.refresh();
   }
 
   async function runUndo(ids: string[], removed: ArchivedTask[], token: string) {
     const gens = bumpCardGens(ids);
-    setToast(null);
-    putCardsBack(removed);
-    const result = await rearchiveArchivedCards({ token });
-    if ('error' in result) {
-      setCards((current) => current.filter((card) => !ids.includes(card.id)));
-      setToast({ message: result.error, role: 'alert' });
-      return;
+    invalidateInFlightList();
+    try {
+      setToast(null);
+      putCardsBack(removed);
+      const result = await rearchiveArchivedCards({ token });
+      if ('error' in result) {
+        setCards((current) => current.filter((card) => !ids.includes(card.id)));
+        if (paged) setTotalCount((current) => Math.max(0, current - ids.length));
+        setToast({ message: result.error, role: 'alert' });
+        return;
+      }
+      if (!gensAreCurrent(gens)) return;
+      router.refresh();
+    } finally {
+      restartFilterFetchIfNeeded();
     }
-    if (!gensAreCurrent(gens)) return;
-    router.refresh();
   }
 
   async function runUndoProjects(ids: string[], removed: ArchivedProject[], token: string) {
     const gens = bumpCardGens(ids);
-    setToast(null);
-    putProjectsBack(removed);
-    const result = await rearchiveArchivedProjects({ token });
-    if ('error' in result) {
-      setProjects((current) => current.filter((project) => !ids.includes(project.id)));
-      setToast({ message: result.error, role: 'alert' });
-      return;
+    invalidateInFlightList();
+    try {
+      setToast(null);
+      putProjectsBack(removed);
+      const result = await rearchiveArchivedProjects({ token });
+      if ('error' in result) {
+        setProjects((current) => current.filter((project) => !ids.includes(project.id)));
+        if (paged) setTotalCount((current) => Math.max(0, current - ids.length));
+        setToast({ message: result.error, role: 'alert' });
+        return;
+      }
+      if (!gensAreCurrent(gens)) return;
+      router.refresh();
+    } finally {
+      restartFilterFetchIfNeeded();
     }
-    if (!gensAreCurrent(gens)) return;
-    router.refresh();
   }
 
   async function runDelete(ids: string[]) {
     if (!canAdminister || ids.length === 0 || !projectId) return;
-    const gens = bumpCardGens(ids);
-    const removed = cardsByIds(ids);
-    setPendingDeleteIds(null);
-    setCards((current) => current.filter((card) => !ids.includes(card.id)));
-    setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-    setOpenId((current) => (current && ids.includes(current) ? null : current));
-    const result = await deleteArchivedCards({ projectId, cardIds: ids });
-    if ('error' in result) {
-      putCardsBack(removed);
-      setToast({ message: result.error, role: 'alert' });
-      return;
+    invalidateInFlightList();
+    try {
+      const gens = bumpCardGens(ids);
+      const removed = cardsByIds(ids);
+      setPendingDeleteIds(null);
+      setCards((current) => current.filter((card) => !ids.includes(card.id)));
+      if (paged) setTotalCount((current) => Math.max(0, current - removed.length));
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
+      setOpenId((current) => (current && ids.includes(current) ? null : current));
+      const result = await deleteArchivedCards({ projectId, cardIds: ids });
+      if ('error' in result) {
+        putCardsBack(removed);
+        setToast({ message: result.error, role: 'alert' });
+        return;
+      }
+      if (!gensAreCurrent(gens)) return;
+      const message =
+        removed.length === 1 && removed[0]
+          ? archivedCopy.deletedOne(removed[0].title)
+          : archivedCopy.deletedMany(ids.length);
+      setToast({ message, role: 'alert' });
+      router.refresh();
+    } finally {
+      restartFilterFetchIfNeeded();
     }
-    if (!gensAreCurrent(gens)) return;
-    const message =
-      removed.length === 1 && removed[0]
-        ? archivedCopy.deletedOne(removed[0].title)
-        : archivedCopy.deletedMany(ids.length);
-    setToast({ message, role: 'alert' });
-    router.refresh();
   }
 
   async function runDeleteProject(id: string, title: string) {
     const target = projects.find((project) => project.id === id);
     if (!target?.canAdminister) return;
-    const gens = bumpCardGens([id]);
-    setPendingDeleteIds(null);
-    setProjects((current) => current.filter((project) => project.id !== id));
-    setSelectedIds((current) => current.filter((item) => item !== id));
-    setOpenId((current) => (current === id ? null : current));
-    const result = await deleteArchivedProject({ projectId: id, title });
-    if ('error' in result) {
-      putProjectsBack([target]);
-      setToast({ message: result.error, role: 'alert' });
-      return;
+    invalidateInFlightList();
+    try {
+      const gens = bumpCardGens([id]);
+      setPendingDeleteIds(null);
+      setProjects((current) => current.filter((project) => project.id !== id));
+      if (paged) setTotalCount((current) => Math.max(0, current - 1));
+      setSelectedIds((current) => current.filter((item) => item !== id));
+      setOpenId((current) => (current === id ? null : current));
+      const result = await deleteArchivedProject({ projectId: id, title });
+      if ('error' in result) {
+        putProjectsBack([target]);
+        setToast({ message: result.error, role: 'alert' });
+        return;
+      }
+      if (!gensAreCurrent(gens)) return;
+      setToast({ message: archivedCopy.projects.deletedOne(target.title), role: 'alert' });
+      router.refresh();
+    } finally {
+      restartFilterFetchIfNeeded();
     }
-    if (!gensAreCurrent(gens)) return;
-    setToast({ message: archivedCopy.projects.deletedOne(target.title), role: 'alert' });
-    router.refresh();
   }
 
-  function runExport(ids: string[], format: ArchivedExportFormat) {
+  async function runExport(ids: string[], format: ArchivedExportFormat) {
     if (isProjects || !projectId || !projectTitle) return;
     const rows = cardsByIds(ids);
     if (rows.length === 0) return;
+    const result = await loadArchivedExportDetails(ids, (cardIds) =>
+      getArchivedCardsDetail({ projectId, cardIds }),
+    );
+    if ('error' in result) {
+      setToast({ message: result.error, role: 'alert' });
+      return;
+    }
+    const hydrated: ArchivedTask[] = [];
+    for (const row of rows) {
+      const detail = result.data[row.id];
+      if (!detail) {
+        setToast({ message: GENERIC_ERROR_MESSAGE, role: 'alert' });
+        return;
+      }
+      hydrated.push(applyArchivedCardDetail(row, detail));
+    }
     const filename = archivedExportFilename(projectTitle, format);
     if (format === 'csv') {
-      downloadText(filename, archivedTasksCsv(rows), 'text/csv;charset=utf-8');
+      downloadText(filename, archivedTasksCsv(hydrated), 'text/csv;charset=utf-8');
     } else {
       downloadText(
         filename,
-        archivedTasksJson(rows, { id: projectId, title: projectTitle }),
+        archivedTasksJson(hydrated, { id: projectId, title: projectTitle }),
         'application/json',
       );
     }
     setExportIds(null);
-    setToast({ message: archivedCopy.exportToast(rows.length), role: 'status' });
+    setToast({ message: archivedCopy.exportToast(hydrated.length), role: 'status' });
   }
 
   const selectedCanRestore = canRestoreIds(selectedIds);
@@ -358,8 +581,8 @@ export default function ArchivedView({
       ? undefined
       : archivedCopy.adminOnly;
   const countLabel = isProjects
-    ? archivedProjectCountLabel(filteredProjects.length)
-    : archivedCountLabel(filteredCards.length);
+    ? archivedProjectCountLabel(paged ? totalCount : filteredProjects.length)
+    : archivedCountLabel(paged ? totalCount : filteredCards.length);
   const selectedLabel = isProjects
     ? archivedProjectSelectedLabel(selectedIds.length)
     : archivedSelectedLabel(selectedIds.length);
@@ -655,7 +878,7 @@ export default function ArchivedView({
       {remaining > 0 ? (
         <button
           type="button"
-          onClick={() => setLimit((current) => current + ARCHIVED_PAGE_SIZE)}
+          onClick={() => void loadOlder()}
           className={cn(
             shellFocusClassName,
             'h-11 w-full rounded-md border border-border bg-surface text-[13px] font-medium tablet:mx-auto tablet:w-auto tablet:px-5',
@@ -754,7 +977,7 @@ export default function ArchivedView({
           open={exportIds != null && exportIds.length > 0}
           onCancel={() => setExportIds(null)}
           onPick={(format) => {
-            if (exportIds) runExport(exportIds, format);
+            if (exportIds) void runExport(exportIds, format);
           }}
         />
       )}

@@ -6,18 +6,26 @@
 // - CSV quotes fields that contain commas
 // - JSON includes comments, subtasks, and archive metadata
 // - Filename slugifies the project title
+// - Export detail loads in batches at MAX_ARCHIVED_BATCH
 //
 // What is covered:
-// - Happy path, quoting, filename
+// - Happy path, quoting, filename, batched detail loads
 //
 // Run with: pnpm test:run tests/lib/archivedExport.test.ts
 //
 // SEE: src/lib/archivedExport.ts
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import type { ArchivedTask } from '@/lib/archived';
-import { archivedExportFilename, archivedTasksCsv, archivedTasksJson } from '@/lib/archivedExport';
+import { MAX_ARCHIVED_BATCH } from '@/lib/validation/archived';
+import {
+  archivedExportFilename,
+  archivedExportIdBatches,
+  archivedTasksCsv,
+  archivedTasksJson,
+  loadArchivedExportDetails,
+} from '@/lib/archivedExport';
 
 const card: ArchivedTask = {
   id: 'card-1',
@@ -65,5 +73,39 @@ describe('archived export', () => {
   it('slugifies the filename', () => {
     expect(archivedExportFilename('Sprint board', 'csv')).toBe('sprint-board-archived-tasks.csv');
     expect(archivedExportFilename('  ', 'json')).toBe('archived-tasks.json');
+  });
+});
+
+describe('loadArchivedExportDetails', () => {
+  it('loads ids in MAX_ARCHIVED_BATCH chunks and merges the results', async () => {
+    const ids = Array.from({ length: MAX_ARCHIVED_BATCH + 1 }, (_, index) => `card-${index + 1}`);
+    const loadBatch = vi.fn(async (batch: string[]) => ({
+      data: Object.fromEntries(batch.map((id) => [id, { commentCount: 0 }])),
+    }));
+
+    expect(archivedExportIdBatches(ids)).toEqual([
+      ids.slice(0, MAX_ARCHIVED_BATCH),
+      ids.slice(MAX_ARCHIVED_BATCH),
+    ]);
+
+    const result = await loadArchivedExportDetails(ids, loadBatch);
+
+    expect(loadBatch).toHaveBeenCalledTimes(2);
+    expect(loadBatch.mock.calls[0]?.[0]).toHaveLength(MAX_ARCHIVED_BATCH);
+    expect(loadBatch.mock.calls[1]?.[0]).toEqual([`card-${MAX_ARCHIVED_BATCH + 1}`]);
+    expect(result).toEqual({
+      data: Object.fromEntries(ids.map((id) => [id, { commentCount: 0 }])),
+    });
+  });
+
+  it('stops and returns the error from a later batch', async () => {
+    const ids = Array.from({ length: MAX_ARCHIVED_BATCH + 1 }, (_, index) => `card-${index + 1}`);
+    const loadBatch = vi.fn(async (batch: string[]) => {
+      if (batch.length === 1) return { error: 'Unauthorized' };
+      return { data: Object.fromEntries(batch.map((id) => [id, { ok: true }])) };
+    });
+
+    expect(await loadArchivedExportDetails(ids, loadBatch)).toEqual({ error: 'Unauthorized' });
+    expect(loadBatch).toHaveBeenCalledTimes(2);
   });
 });

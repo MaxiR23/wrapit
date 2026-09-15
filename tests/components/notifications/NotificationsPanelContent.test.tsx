@@ -3,7 +3,7 @@
 // Tests for the shared notifications panel content.
 //
 // Tested:
-// - Shows No notifications when the list is empty
+// - Shows an empty copy, a pending copy while loading, and the list
 // - Renders message, relative time, unread dot, and Accept / Decline
 // - Clicking an item marks it read
 // - Mark all as read marks every item
@@ -46,6 +46,22 @@ const accepted: NotificationListItem = {
 };
 
 describe('NotificationsPanelContent', () => {
+  it('shows a pending state instead of the empty copy while the list loads', () => {
+    render(
+      <NotificationsPanelContent
+        items={[]}
+        loading
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Loading notifications')).toBeInTheDocument();
+    expect(screen.queryByText('No notifications')).not.toBeInTheDocument();
+  });
+
   it('shows No notifications when the list is empty', () => {
     render(
       <NotificationsPanelContent

@@ -31,21 +31,45 @@ export type ProjectProgress = {
 type ProgressColumn = {
   title: string;
   order: number;
-  cards: unknown[];
+  cardCount: number;
 };
 
 function isDoneTitle(title: string): boolean {
   return title.trim().toLowerCase() === 'done';
 }
 
+function compareOptionalId(left?: string, right?: string): number {
+  if (left == null || right == null) return 0;
+  return left.localeCompare(right);
+}
+
+/**
+ * Sort key for the single Done column per project. Titled "Done" (any case)
+ * first, then lowest order and lowest id; otherwise highest order and highest
+ * id. `doneColumnFrom` and `countOpenMyTasksForUser` both use this pick, so
+ * the badge SQL cannot choose a different column than the task list.
+ */
+export function compareDoneColumnPick<T extends { title: string; order: number; id?: string }>(
+  left: T,
+  right: T,
+): number {
+  const leftDone = isDoneTitle(left.title) ? 0 : 1;
+  const rightDone = isDoneTitle(right.title) ? 0 : 1;
+  if (leftDone !== rightDone) return leftDone - rightDone;
+  if (leftDone === 0) {
+    if (left.order !== right.order) return left.order - right.order;
+    return compareOptionalId(left.id, right.id);
+  }
+  if (left.order !== right.order) return right.order - left.order;
+  return compareOptionalId(right.id, left.id);
+}
+
 /** Done column: title "Done" (any case), else the last column by order. */
-export function doneColumnFrom<T extends { title: string; order: number }>(columns: T[]): T | null {
+export function doneColumnFrom<T extends { title: string; order: number; id?: string }>(
+  columns: T[],
+): T | null {
   if (columns.length === 0) return null;
-  return (
-    columns.find((column) => isDoneTitle(column.title)) ??
-    [...columns].sort((left, right) => left.order - right.order).at(-1) ??
-    null
-  );
+  return [...columns].sort(compareDoneColumnPick)[0] ?? null;
 }
 
 /** First column by order that is not the Done column. None when every column is Done. */
@@ -77,15 +101,15 @@ const STATUS_BAR_CLASS: Record<ProjectGridStatus, string> = {
   DONE: 'bg-status-done',
 };
 
-/** Done cards / total cards. No cards → 0 of 0 / 0%. */
+/** Done cards / total cards from per-column counts. No cards → 0 of 0 / 0%. */
 export function projectProgress(columns: ProgressColumn[]): ProjectProgress {
-  const taskCount = columns.reduce((count, column) => count + column.cards.length, 0);
+  const taskCount = columns.reduce((count, column) => count + column.cardCount, 0);
   if (taskCount === 0) {
     return { taskCount: 0, doneCount: 0, percent: 0 };
   }
 
   const doneColumn = doneColumnFrom(columns);
-  const doneCount = doneColumn?.cards.length ?? 0;
+  const doneCount = doneColumn?.cardCount ?? 0;
   return {
     taskCount,
     doneCount,

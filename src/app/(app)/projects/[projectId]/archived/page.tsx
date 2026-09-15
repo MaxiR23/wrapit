@@ -3,8 +3,7 @@ import type { Metadata } from 'next';
 
 import ArchivedView from '@/components/archived/ArchivedView';
 import { getArchivedCardsForUser } from '@/lib/archivedQuery';
-import { canAdministerProject, type MembershipRole } from '@/lib/boardAccess';
-import { getArchivedProjectForUser, listProjectMembersForUser } from '@/lib/projects';
+import { getArchivedProjectForUser } from '@/lib/projects';
 import { ARCHIVED_PATH, SIGN_IN_PATH } from '@/lib/routes';
 import { getSession } from '@/lib/session';
 
@@ -32,17 +31,13 @@ export default async function ProjectArchivedPage({
     notFound();
   }
 
-  const members = await listProjectMembersForUser(archived.id, session.user.id);
-  const memberList = members ?? [];
-  const viewer = memberList.find((member) => member.userId === session.user.id);
-  const teamRole: MembershipRole = viewer?.role ?? 'MEMBER';
-
   return (
     <ArchivedView
       projectId={archived.id}
       projectTitle={archived.title}
       initialCards={archived.cards}
-      canAdminister={canAdministerProject(teamRole)}
+      initialTotalCount={archived.totalCount}
+      canAdminister={archived.canAdminister}
     />
   );
 }

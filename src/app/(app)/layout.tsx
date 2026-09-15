@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import ProjectsShell from '@/components/projects/ProjectsShell';
 import { countOpenMyTasksForUser } from '@/lib/myTasks';
-import { getNotificationsForUser } from '@/lib/notifications';
+import { getUnreadNotificationCountForUser } from '@/lib/notifications';
 import { prisma } from '@/lib/prisma';
 import { SIGN_IN_PATH } from '@/lib/routes';
 import { getSession } from '@/lib/session';
@@ -18,8 +18,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(SIGN_IN_PATH);
   }
 
-  const [notifications, openTaskCount] = await Promise.all([
-    getNotificationsForUser(session.user.id),
+  const [unreadCount, openTaskCount] = await Promise.all([
+    getUnreadNotificationCountForUser(session.user.id),
     countOpenMyTasksForUser(prisma, session.user.id),
   ]);
 
@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         name: session.user.name,
         username: sessionUsername(session.user),
       }}
-      initialNotifications={notifications.items}
+      initialUnreadCount={unreadCount}
       openTaskCount={openTaskCount}
     >
       {children}

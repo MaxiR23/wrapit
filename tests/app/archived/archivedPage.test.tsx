@@ -69,7 +69,7 @@ describe('Archived projects page', () => {
     getSession.mockResolvedValue({
       user: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
     });
-    listArchivedProjectsForUser.mockResolvedValue([]);
+    listArchivedProjectsForUser.mockResolvedValue({ projects: [], totalCount: 0 });
   });
 
   it('renders Archived for a signed-in user', async () => {

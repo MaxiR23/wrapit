@@ -4,18 +4,11 @@ import type { Metadata } from 'next';
 import ProjectBoard from '@/components/projects/ProjectBoard';
 import type { BoardCardData } from '@/components/projects/boardTypes';
 import RecordRecentProject from '@/components/projects/RecordRecentProject';
-import type { MembershipRole } from '@/lib/boardAccess';
 import { cardLabelFromRow, type LabelView } from '@/lib/labels';
 import type { BoardAccess } from '@/lib/membership';
-import { getProjectLabelsForUser } from '@/lib/projectLabels';
-import {
-  getArchivedProjectForUser,
-  getProjectForUser,
-  listProjectMembersForUser,
-} from '@/lib/projects';
+import { getArchivedProjectForUser, getBoardPageForUser } from '@/lib/projects';
 import { ARCHIVED_PATH, parseProjectCardId, SIGN_IN_PATH } from '@/lib/routes';
 import { getSession } from '@/lib/session';
-import { getUserPreferences } from '@/lib/userPreferences';
 
 function sessionUsername(user: { username?: unknown }): string {
   return typeof user.username === 'string' ? user.username : '';
@@ -26,13 +19,13 @@ function asCard(
     id: string;
     title: string;
     code: string;
-    description?: string | null;
     dueDate: Date | null;
     dueTimeZone?: string | null;
     labelId?: string | null;
     assignees?: Array<{ id: string; name: string; username: string }>;
-    comments?: BoardCardData['comments'];
-    subtasks?: BoardCardData['subtasks'];
+    commentCount?: number;
+    subtaskDone?: number;
+    subtaskTotal?: number;
   },
   labels: LabelView[],
 ): BoardCardData {
@@ -41,13 +34,13 @@ function asCard(
     id: card.id,
     title: card.title,
     code: card.code,
-    description: card.description ?? null,
     dueDate: card.dueDate,
     dueTimeZone: card.dueTimeZone ?? null,
     label: cardLabelFromRow(row),
     assignees: card.assignees ?? [],
-    comments: card.comments ?? [],
-    subtasks: card.subtasks ?? [],
+    commentCount: card.commentCount ?? 0,
+    subtaskDone: card.subtaskDone ?? 0,
+    subtaskTotal: card.subtaskTotal ?? 0,
   };
 }
 
@@ -67,8 +60,8 @@ export default async function ProjectDetailPage({
   const { projectId } = await params;
   const query = searchParams ? await searchParams : {};
   const initialOpenCardId = parseProjectCardId(query.card);
-  const project = await getProjectForUser(projectId, session.user.id);
-  if (!project) {
+  const board = await getBoardPageForUser(projectId, session.user.id);
+  if (!board) {
     const archived = await getArchivedProjectForUser(projectId, session.user.id);
     if (archived) {
       redirect(ARCHIVED_PATH);
@@ -76,53 +69,33 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const [members, labels, preferences] = await Promise.all([
-    listProjectMembersForUser(project.id, session.user.id),
-    getProjectLabelsForUser(project.id, session.user.id),
-    getUserPreferences(session.user.id),
-  ]);
   const username = sessionUsername(session.user);
-  const projectLabels = labels ?? [];
-  const memberList = members ?? [];
-  const viewer = memberList.find((member) => member.userId === session.user.id);
-  const boardAccess: BoardAccess = viewer?.access ?? 'VIEW';
-  const teamRole: MembershipRole = viewer?.role ?? 'MEMBER';
+  const boardAccess: BoardAccess = board.viewer?.access ?? 'VIEW';
+  const teamRole = board.viewer?.role ?? 'MEMBER';
 
   return (
     <>
-      <RecordRecentProject projectId={project.id} />
+      <RecordRecentProject projectId={board.id} />
       <ProjectBoard
-        title={project.title}
-        projectId={project.id}
-        labels={projectLabels}
+        title={board.title}
+        projectId={board.id}
+        labels={board.labels}
         currentUser={{
           id: session.user.id,
           name: session.user.name,
           username,
         }}
-        initialVisibility={preferences.boardVisibility}
+        initialVisibility={board.boardVisibility}
         boardAccess={boardAccess}
         teamRole={teamRole}
-        publicLinkEnabled={project.publicLinkEnabled === true}
+        publicLinkEnabled={board.publicLinkEnabled}
         initialOpenCardId={initialOpenCardId}
-        members={memberList.map((member) => ({
-          id: member.userId,
-          name: member.name,
-          username: member.username,
-        }))}
-        shareMembers={memberList.map((member) => ({
-          id: member.userId,
-          membershipId: member.membershipId,
-          name: member.name,
-          username: member.username,
-          role: member.role,
-          access: member.access,
-        }))}
-        columns={project.columns.map((column) => ({
+        members={board.members}
+        columns={board.columns.map((column) => ({
           id: column.id,
           title: column.title,
           order: column.order,
-          cards: column.cards.map((card) => asCard(card, projectLabels)),
+          cards: column.cards.map((card) => asCard(card, board.labels)),
         }))}
       />
     </>

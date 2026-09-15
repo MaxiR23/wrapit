@@ -8,6 +8,7 @@ import { formatRelativeTime } from '@/lib/relativeTime';
 
 export function NotificationsPanelContent({
   items,
+  loading = false,
   onMarkRead,
   onMarkAllRead,
   onAccept,
@@ -15,6 +16,7 @@ export function NotificationsPanelContent({
   onClose,
 }: {
   items: NotificationListItem[];
+  loading?: boolean;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onAccept: (invitationId: string) => void;
@@ -44,7 +46,11 @@ export function NotificationsPanelContent({
         ) : null}
       </div>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <p className="px-4 py-8 text-center text-[13.5px] text-muted-foreground">
+          Loading notifications
+        </p>
+      ) : items.length === 0 ? (
         <p className="px-4 py-8 text-center text-[13.5px] text-muted-foreground">
           No notifications
         </p>

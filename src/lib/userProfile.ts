@@ -1,3 +1,4 @@
+import { getAccountUser } from '@/lib/accountUser';
 import { prisma } from '@/lib/prisma';
 
 export const PROFILE_VISIBILITY_VALUES = ['anyone', 'team', 'admins'] as const;
@@ -182,7 +183,7 @@ export function profileVisibilityColumn(field: ProfileVisibilityField): string {
 
 /** Stored profile for the user, or empty defaults when no row exists yet. */
 export async function getUserProfileForUser(userId: string): Promise<UserProfileView | null> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await getAccountUser(userId);
   if (!user) return null;
 
   const row = await prisma.userProfile.findUnique({ where: { userId } });

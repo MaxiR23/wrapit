@@ -13,7 +13,7 @@ import {
   type ArchivedProject,
   type ArchivedTask,
 } from '@/lib/archived';
-import { commentCount, subtaskProgress } from '@/lib/cardCounters';
+import { commentCount, faceSubtaskProgress } from '@/lib/cardCounters';
 import { initials } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -56,7 +56,8 @@ export default function ArchivedDetail({
   const context = isProject
     ? archivedProjectDetailLine(project)
     : `${card?.label ? `${card.label.name} · ` : ''}${card ? archivedTaskDetailLine(card) : ''}`;
-  const progress = card ? subtaskProgress(card.subtasks) : null;
+  const progress = card ? faceSubtaskProgress(card) : null;
+  const subtasks = card?.subtasks ?? [];
 
   return (
     <div className="contents">
@@ -108,142 +109,151 @@ export default function ArchivedDetail({
           <p className="rounded-md bg-background px-3 py-2.5 text-[12.5px] text-muted-foreground">
             {copy.readOnly}
           </p>
-          {project ? (
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.projects.finalStatus}
-                </dt>
-                <dd className="mt-1 text-[13px]">{project.statusLabel}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.projects.progress}
-                </dt>
-                <dd className="mt-1 text-[13px] tabular-nums">{project.percent}%</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.projects.team}
-                </dt>
-                <dd className="mt-1 flex flex-wrap gap-1">
-                  {project.members.map((member) => (
-                    <span
-                      key={member.id}
-                      title={member.name || member.username}
-                      className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[9px] font-semibold"
-                    >
-                      {initials(member.name, member.username)}
-                    </span>
+          {(card != null && card.detailLoaded === false) ||
+          (project != null && project.detailLoaded === false) ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              {card ? 'Loading card' : 'Loading project'}
+            </p>
+          ) : (
+            <>
+              {project ? (
+                <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.projects.finalStatus}
+                    </dt>
+                    <dd className="mt-1 text-[13px]">{project.statusLabel}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.projects.progress}
+                    </dt>
+                    <dd className="mt-1 text-[13px] tabular-nums">{project.percent}%</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.projects.team}
+                    </dt>
+                    <dd className="mt-1 flex flex-wrap gap-1">
+                      {project.members.map((member) => (
+                        <span
+                          key={member.id}
+                          title={member.name || member.username}
+                          className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[9px] font-semibold"
+                        >
+                          {initials(member.name, member.username)}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.archived}
+                    </dt>
+                    <dd className="mt-1 text-[13px]">{archivedValue}</dd>
+                  </div>
+                </dl>
+              ) : card && progress ? (
+                <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.columnWhenArchived}
+                    </dt>
+                    <dd className="mt-1 text-[13px]">{card.column.title}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.subtasks}
+                    </dt>
+                    <dd className="mt-1 text-[13px] tabular-nums">
+                      {progress.done}/{progress.total}
+                    </dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                      {archivedCopy.archived}
+                    </dt>
+                    <dd className="mt-1 text-[13px]">{archivedValue}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              {project && project.description ? (
+                <section className="mt-5">
+                  <ul className="mt-2 flex flex-col gap-2">
+                    <li className="flex items-start gap-2.5">
+                      <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
+                      <span className="text-[13px] text-pretty">{project.description}</span>
+                    </li>
+                  </ul>
+                </section>
+              ) : null}
+              {project && project.columns.length > 0 ? (
+                <ul className="mt-5 flex flex-col gap-2">
+                  {project.columns.map((column) => (
+                    <li key={column.id} className="flex items-start gap-2.5">
+                      <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
+                      <span className="text-[13px]">
+                        {column.title}
+                        {column.cardCount > 0
+                          ? ` · ${column.cardCount === 1 ? '1 card' : `${column.cardCount} cards`}`
+                          : ''}
+                      </span>
+                    </li>
                   ))}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.archived}
-                </dt>
-                <dd className="mt-1 text-[13px]">{archivedValue}</dd>
-              </div>
-            </dl>
-          ) : card && progress ? (
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.columnWhenArchived}
-                </dt>
-                <dd className="mt-1 text-[13px]">{card.column.title}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.subtasks}
-                </dt>
-                <dd className="mt-1 text-[13px] tabular-nums">
-                  {progress.done}/{progress.total}
-                </dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                  {archivedCopy.archived}
-                </dt>
-                <dd className="mt-1 text-[13px]">{archivedValue}</dd>
-              </div>
-            </dl>
-          ) : null}
-          {project && project.description ? (
-            <section className="mt-5">
-              <ul className="mt-2 flex flex-col gap-2">
-                <li className="flex items-start gap-2.5">
-                  <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
-                  <span className="text-[13px] text-pretty">{project.description}</span>
-                </li>
-              </ul>
-            </section>
-          ) : null}
-          {project && project.columns.length > 0 ? (
-            <ul className="mt-5 flex flex-col gap-2">
-              {project.columns.map((column) => (
-                <li key={column.id} className="flex items-start gap-2.5">
-                  <span className="mt-1.5 size-[5px] shrink-0 rounded-full bg-muted-foreground" />
-                  <span className="text-[13px]">
-                    {column.title}
-                    {column.cardCount > 0
-                      ? ` · ${column.cardCount === 1 ? '1 card' : `${column.cardCount} cards`}`
-                      : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {card && card.subtasks.length > 0 ? (
-            <section className="mt-5">
-              <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                {archivedCopy.subtasks}
-              </h3>
-              <ul className="mt-2 flex flex-col gap-2">
-                {card.subtasks.map((subtask) => (
-                  <li key={subtask.id} className="flex items-start gap-2.5">
-                    <span
-                      className={cn(
-                        'mt-0.5 inline-flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border',
-                        subtask.done
-                          ? 'border-foreground bg-foreground text-primary-foreground'
-                          : 'border-border-strong',
-                      )}
-                    >
-                      {subtask.done ? <Check className="size-2.5" strokeWidth={3} /> : null}
-                    </span>
-                    <span
-                      className={cn(
-                        'text-[13px]',
-                        subtask.done ? 'text-muted-foreground' : 'text-foreground',
-                      )}
-                    >
-                      {subtask.text}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          {card && card.comments.length > 0 ? (
-            <section className="mt-5">
-              <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
-                {archivedCopy.comments(commentCount(card.comments))}
-              </h3>
-              <ul className="mt-2 flex flex-col gap-3">
-                {card.comments.map((comment) => (
-                  <li key={comment.id} className="flex items-start gap-2.5">
-                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
-                      {initials(comment.author.name, comment.author.username)}
-                    </span>
-                    <div className="text-[13px] text-pretty">
-                      <CardMarkdown text={comment.body} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+                </ul>
+              ) : null}
+              {subtasks.length > 0 ? (
+                <section className="mt-5">
+                  <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                    {archivedCopy.subtasks}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {subtasks.map((subtask) => (
+                      <li key={subtask.id} className="flex items-start gap-2.5">
+                        <span
+                          className={cn(
+                            'mt-0.5 inline-flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border',
+                            subtask.done
+                              ? 'border-foreground bg-foreground text-primary-foreground'
+                              : 'border-border-strong',
+                          )}
+                        >
+                          {subtask.done ? <Check className="size-2.5" strokeWidth={3} /> : null}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[13px]',
+                            subtask.done ? 'text-muted-foreground' : 'text-foreground',
+                          )}
+                        >
+                          {subtask.text ?? ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {card && (card.comments?.length ?? 0) > 0 ? (
+                <section className="mt-5">
+                  <h3 className="text-[11px] font-semibold tracking-[0.04em] text-subtle uppercase">
+                    {archivedCopy.comments(commentCount(card.comments))}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-3">
+                    {card.comments.map((comment) => (
+                      <li key={comment.id} className="flex items-start gap-2.5">
+                        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">
+                          {initials(comment.author.name, comment.author.username)}
+                        </span>
+                        <div className="text-[13px] text-pretty">
+                          <CardMarkdown text={comment.body} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </>
+          )}
         </div>
         <footer className="flex items-center gap-2 border-t border-border px-4 py-3 tablet:px-5">
           <button

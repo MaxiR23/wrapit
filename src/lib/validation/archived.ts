@@ -70,3 +70,33 @@ export const deleteArchivedProjectSchema = z.object({
   projectId: idSchema,
   title: z.string().min(1),
 });
+
+export const archivedListCursorSchema = z.object({
+  id: idSchema,
+  title: z.string().max(10_000),
+  archivedAt: z.string().refine((value) => !Number.isNaN(new Date(value).getTime())),
+});
+
+export const listArchivedCardsSchema = z.object({
+  projectId: idSchema,
+  query: z.string().max(200).optional(),
+  range: z.enum(['all', '7', '30', 'old']).optional(),
+  sort: z.enum(['date', 'name']).optional(),
+  cursor: archivedListCursorSchema.optional(),
+});
+
+export const listArchivedProjectsSchema = z.object({
+  query: z.string().max(200).optional(),
+  range: z.enum(['all', '7', '30', 'old']).optional(),
+  sort: z.enum(['date', 'name']).optional(),
+  cursor: archivedListCursorSchema.optional(),
+});
+
+export const archivedCardDetailSchema = z.object({
+  cardId: idSchema,
+});
+
+export const archivedCardsDetailSchema = z.object({
+  projectId: idSchema,
+  cardIds: cardIdsSchema,
+});

@@ -70,6 +70,21 @@ export async function seedProjectLabelsIfEmpty(
   return created.map(labelFromRow);
 }
 
+/**
+ * Labels for a project already proven accessible. Seeds defaults when none
+ * exist. Callers that have not checked membership must use
+ * getProjectLabelsForUser instead.
+ */
+export async function listOrSeedProjectLabels(projectId: string): Promise<LabelView[] | null> {
+  const db = prisma as unknown as ProjectLabelDb;
+  try {
+    return await db.$transaction((tx) => seedProjectLabelsIfEmpty(tx, projectId));
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return db.$transaction((tx) => loadExisting(tx, projectId));
+  }
+}
+
 /** Stored labels for a member's project, seeding defaults when none exist yet. */
 export async function getProjectLabelsForUser(
   projectId: string,
@@ -81,10 +96,5 @@ export async function getProjectLabelsForUser(
   });
   if (!project) return null;
 
-  try {
-    return await db.$transaction((tx) => seedProjectLabelsIfEmpty(tx, projectId));
-  } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
-    return db.$transaction((tx) => loadExisting(tx, projectId));
-  }
+  return listOrSeedProjectLabels(projectId);
 }

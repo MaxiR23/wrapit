@@ -1,4 +1,16 @@
 import { canAdministerProject, type MembershipRole } from '@/lib/boardAccess';
+import {
+  ARCHIVED_PAGE_SIZE,
+  archivedListOrderBy,
+  archivedProjectSearchWhere,
+  archivedRangeWhere,
+  withArchivedListCursor,
+  type ArchivedDateRange,
+  type ArchivedListCursor,
+  type ArchivedPerson,
+  type ArchivedProject,
+  type ArchivedSort,
+} from '@/lib/archived';
 import { archivedAccessibleByUser } from '@/lib/membership';
 import { prisma } from '@/lib/prisma';
 import {
@@ -7,7 +19,6 @@ import {
   projectProgress,
   projectStatusLabel,
 } from '@/lib/projectGrid';
-import type { ArchivedPerson, ArchivedProject } from '@/lib/archived';
 
 function asPerson(
   user: { id: string; name?: string; username?: string } | undefined,
@@ -25,33 +36,69 @@ function parseRole(value: unknown): MembershipRole {
   return 'MEMBER';
 }
 
+export type ArchivedProjectsQuery = {
+  query?: string;
+  range?: ArchivedDateRange;
+  sort?: ArchivedSort;
+  cursor?: ArchivedListCursor;
+  take?: number;
+  now?: Date;
+};
+
+export type ArchivedProjectsPage = {
+  projects: ArchivedProject[];
+  totalCount: number;
+};
+
 /**
- * Archived projects the user is a member of, with progress, team, and who
- * archived them. Newest archive first.
+ * Archived projects the user is a member of, with progress and team avatars.
+ * Search, range, and sort run in SQL. Description is omitted until detail.
  */
-export async function listArchivedProjectsForUser(userId: string): Promise<ArchivedProject[]> {
-  const projects = await prisma.project.findMany({
-    where: archivedAccessibleByUser(userId),
-    orderBy: [{ archivedAt: 'desc' }, { id: 'desc' }],
-  });
-  if (projects.length === 0) return [];
+export async function listArchivedProjectsForUser(
+  userId: string,
+  query: ArchivedProjectsQuery = {},
+): Promise<ArchivedProjectsPage> {
+  const now = query.now ?? new Date();
+  const range = query.range ?? 'all';
+  const sort = query.sort ?? 'date';
+  const take = query.take ?? ARCHIVED_PAGE_SIZE;
+  const rangeWhere = archivedRangeWhere(range, now);
+  const projectWhere = {
+    ...archivedAccessibleByUser(userId),
+    archivedAt: { not: null, ...rangeWhere.archivedAt },
+    ...archivedProjectSearchWhere(query.query ?? ''),
+  };
+
+  const [totalCount, projects] = await Promise.all([
+    prisma.project.count({ where: projectWhere }),
+    prisma.project.findMany({
+      where: withArchivedListCursor(projectWhere, sort, query.cursor),
+      orderBy: archivedListOrderBy(sort),
+      take,
+    }),
+  ]);
+  if (projects.length === 0) return { projects: [], totalCount };
 
   const projectIds = projects.map((project) => project.id);
-  const columns = await prisma.column.findMany({
-    where: { projectId: { in: projectIds } },
-    orderBy: { order: 'asc' },
-  });
+  const [columns, memberships] = await Promise.all([
+    prisma.column.findMany({
+      where: { projectId: { in: projectIds } },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.membership.findMany({
+      where: { projectId: { in: projectIds } },
+    }),
+  ]);
   const columnIds = columns.map((column) => column.id);
-  const cards =
+  const aggregates =
     columnIds.length === 0
       ? []
-      : await prisma.card.findMany({
-          where: { columnId: { in: columnIds } },
+      : await prisma.card.groupBy({
+          by: ['columnId'],
+          where: { columnId: { in: columnIds }, archivedAt: null },
+          _count: { _all: true },
         });
-  const visibleCards = cards.filter((card) => card.archivedAt == null);
-  const memberships = await prisma.membership.findMany({
-    where: { projectId: { in: projectIds } },
-  });
+  const countByColumnId = new Map(aggregates.map((row) => [row.columnId, row._count._all]));
 
   const userIds = [
     ...new Set([
@@ -68,13 +115,15 @@ export async function listArchivedProjectsForUser(userId: string): Promise<Archi
         });
   const usersById = new Map(users.map((user) => [user.id, user]));
 
-  return projects.flatMap((project) => {
+  const list = projects.flatMap((project) => {
     if (project.archivedAt == null) return [];
     const projectColumns = columns
       .filter((column) => column.projectId === project.id)
       .map((column) => ({
-        ...column,
-        cards: visibleCards.filter((card) => card.columnId === column.id),
+        id: column.id,
+        title: column.title,
+        order: column.order,
+        cardCount: countByColumnId.get(column.id) ?? 0,
       }));
     const progress = projectProgress(projectColumns);
     const status = parseProjectStatus(project.status);
@@ -98,7 +147,6 @@ export async function listArchivedProjectsForUser(userId: string): Promise<Archi
       {
         id: project.id,
         title: project.title,
-        description: project.description ?? null,
         status,
         statusLabel: projectStatusLabel(status),
         taskCount: progress.taskCount,
@@ -113,14 +161,30 @@ export async function listArchivedProjectsForUser(userId: string): Promise<Archi
         columns: projectColumns.map((column) => ({
           id: column.id,
           title: column.title,
-          cardCount: column.cards.length,
+          cardCount: column.cardCount,
         })),
         archivedAt: project.archivedAt,
         archivedBy: project.archivedById
           ? asPerson(usersById.get(project.archivedById), project.archivedById)
           : null,
         canAdminister: canAdministerProject(parseRole(myMembership?.role)),
+        detailLoaded: false,
       },
     ];
   });
+
+  return { projects: list, totalCount };
+}
+
+/** Description for an archived project the user can still access. */
+export async function getArchivedProjectDetailForUser(
+  projectId: string,
+  userId: string,
+): Promise<{ description: string | null } | null> {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, ...archivedAccessibleByUser(userId) },
+    select: { description: true },
+  });
+  if (!project) return null;
+  return { description: project.description ?? null };
 }

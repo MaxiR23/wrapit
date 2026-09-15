@@ -10,3 +10,7 @@ export const setProjectStarredSchema = z.object({
   projectId: idSchema,
   starred: z.boolean(),
 });
+
+export const listProjectMembersSchema = z.object({
+  projectId: idSchema,
+});

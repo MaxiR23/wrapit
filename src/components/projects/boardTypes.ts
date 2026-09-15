@@ -16,9 +16,9 @@ export type ShareMemberRoleState = Pick<ShareMember, 'role' | 'access'>;
 
 export type BoardSubtask = {
   id: string;
-  text: string;
+  text?: string;
   done: boolean;
-  order: number;
+  order?: number;
 };
 
 export type BoardComment = {
@@ -39,6 +39,10 @@ export type BoardCardData = {
   dueTimeZone?: string | null;
   comments?: BoardComment[];
   subtasks?: BoardSubtask[];
+  commentCount?: number;
+  subtaskDone?: number;
+  subtaskTotal?: number;
+  detailLoaded?: boolean;
   assignees?: BoardMember[];
   label?: { id: string; name: string; tone: LabelTone } | null;
 };

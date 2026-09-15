@@ -10,6 +10,10 @@
 // - A javascript: title does not become a link
 // - A bold title renders as strong; a list marker in a title stays characters
 // - Shows 0 comments and 0/0 subtasks when lists are empty
+// - Uses the preloaded comment count until comments are loaded
+// - Prefers loaded comments over a stale preloaded count
+// - Uses preloaded subtask progress until subtasks are loaded
+// - Prefers loaded subtasks over stale preloaded progress
 // - Shows a due label and the late token when the date is before today
 // - Shows the time of a due moment, converted into the viewer's zone
 // - Names the zone a moment was set in when the viewer reads another clock
@@ -21,6 +25,7 @@
 // What is covered:
 // - Present fields only, overdue styling, unknown tone omitted, due moments
 // - Recognised title links, unrecognised URLs, click does not open the card
+// - Preloaded vs loaded comment and subtask footer counts
 //
 // Run with: pnpm test:run tests/components/cards/BoardCard.test.tsx
 //
@@ -104,6 +109,61 @@ describe('BoardCard', () => {
     expect(screen.getByText('0')).toBeInTheDocument();
     expect(screen.getByText('0/0')).toBeInTheDocument();
     expect(screen.queryByText('Today')).not.toBeInTheDocument();
+  });
+
+  it('uses the preloaded comment count until comments are loaded', () => {
+    render(<BoardCard card={{ ...base, commentCount: 4 }} />);
+
+    expect(screen.getByText('4')).toBeInTheDocument();
+  });
+
+  it('prefers loaded comments over a stale preloaded count', () => {
+    render(
+      <BoardCard
+        card={{
+          ...base,
+          commentCount: 4,
+          comments: [
+            {
+              id: 'c1',
+              body: 'One',
+              createdAt: new Date('2026-08-01'),
+              editedAt: null,
+              author: { id: 'user-ada', name: 'Ada', username: 'ada' },
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.queryByText('4')).not.toBeInTheDocument();
+  });
+
+  it('uses preloaded subtask progress until subtasks are loaded', () => {
+    render(<BoardCard card={{ ...base, subtaskDone: 2, subtaskTotal: 5 }} />);
+
+    expect(screen.getByText('2/5')).toBeInTheDocument();
+  });
+
+  it('prefers loaded subtasks over stale preloaded progress', () => {
+    render(
+      <BoardCard
+        card={{
+          ...base,
+          subtaskDone: 2,
+          subtaskTotal: 5,
+          subtasks: [
+            { id: 's1', done: true },
+            { id: 's2', done: false },
+            { id: 's3', done: false },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('1/3')).toBeInTheDocument();
+    expect(screen.queryByText('2/5')).not.toBeInTheDocument();
   });
 
   it('marks an overdue due date with the late token', () => {

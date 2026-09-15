@@ -161,6 +161,10 @@ export const updateCardLabelSchema = z.object({
   labelId: idSchema.optional().nullable(),
 });
 
+export const getCardDetailSchema = z.object({
+  cardId: idSchema,
+});
+
 /**
  * Validates the card fields and returns the first error for each invalid
  * field, ready to render next to its input. An empty object means valid input.

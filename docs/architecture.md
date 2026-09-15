@@ -38,11 +38,11 @@ and the page both call it; one request validates once. `React.cache` is
 request-scoped and does not survive to the next navigation. Server actions
 still call `auth.api.getSession` themselves — they are a different request.
 Any other read that the layout and a page would both do on one request goes
-through `React.cache` the same way. Then the page (and the layout, for shell
-data) call a lib helper
+through `React.cache` the same way (`getSession`, `getAccountUser` on `/account`).
+Then the page (and the layout, for shell data) call a lib helper
 that scopes Prisma to that user — for example `listProjectsForUser` /
 `listProjectSummariesForUser` / `listRecentProjectsForUser` /
-`getProjectForUser` in `src/lib/projects.ts`,
+`getBoardPageForUser` in `src/lib/projects.ts`,
 and `getUserPreferences` in `src/lib/userPreferences.ts` /
 `getUserProfileForUser` in `src/lib/userProfile.ts`. Missing or
 inaccessible projects return `null`; the page turns that into `notFound()`. Recents are the
@@ -57,6 +57,25 @@ already-loaded summaries in the client by title (case-insensitive includes).
 Starred summaries sit in a Starred section above the main grid/list; recents
 render as chips near the top. Zero projects render `ProjectsEmptyState` instead
 of that list (distinct from an empty search).
+The live board first paint is a slim payload: live cards with comment counts
+and aggregated subtask progress, member identities for avatars, and the viewer's
+membership for capabilities. The card query selects only face fields, so
+description never leaves the database on that read; subtasks are grouped for
+done/total rather than loaded as rows. Comment bodies, description, and share
+admin fields load when those dialogs open (`getCardDetail`, `listProjectMembers`).
+Hydrating card detail updates the displayed card only. It does not enter
+`pendingCardWritesRef`, which exists so this user's own field edits survive a
+columns refresh. Share members land in display state with a cancelled-flag
+guard; they never touch that map. The board page omits `shareMembers`, so
+changing `projectId` resets the lazy list and `shareListReady` instead of
+waiting for a new array reference.
+Archived lists are the same: first paint has counts and progress, not bodies.
+The archived card query selects face fields so description never leaves the
+database on that read, and groups subtasks by cardId and done, matching the
+live board. Opening a row loads detail into the list row; export loads the selected cards'
+details before serializing so a file is never written from the slim rows.
+Export hydrates in `MAX_ARCHIVED_BATCH` chunks so a selection larger than that
+limit still downloads; restore and delete keep the cap.
 
 **Writes** go through server actions under `src/actions/`. Each action checks
 the real session, validates input (bounded identifiers with `idSchema` before
@@ -169,24 +188,33 @@ so opening a project cannot fail navigation. Failures that should not leak inter
 return a fixed generic message (`GENERIC_ERROR_MESSAGE` in `src/lib/messages.ts`).
 
 Notification reads load in the authenticated layout (`src/app/(app)/layout.tsx`) via
-`getNotificationsForUser` (session recipient only) so the bell badge is correct
-on first paint of the shell. The panel refetches through `listNotifications`
-when opened. Accepting an invitation from the panel calls `router.refresh()` so the
+`getUnreadNotificationCountForUser` (session recipient only) so the bell badge is
+correct on first paint of the shell. The list is not loaded until the panel opens;
+`NotificationsProvider` seeds the count and fetches through `listNotifications`
+on open, showing a loading state so the empty copy does not flash. That list
+uses the same epoch as archived lists: `refresh` captures it, and mark-read,
+mark-all-read, accept, and reject advance it so a response that started before
+the mutation cannot restore unread rows or the badge count. Accepting an
+invitation from the panel calls `router.refresh()` so the
 mounted `/projects` grid picks up the new membership. Reject does not
 refresh. Mark-read writes (`markNotificationRead`, `markAllNotificationsRead`) only
 touch the session user's rows: `markNotificationRead` is one `updateMany` on
 `id` + `recipientId`. There is no polling and no websocket.
 
-Those layout reads (notifications and the open-task badge) run when the
+Those layout reads (unread count and the open-task badge) run when the
 authenticated shell first mounts. They stay stale until a full refresh or an
-existing client `router.refresh()`. `NotificationsProvider` keeps that list in
-client state, so a refresh must replace `items` when `initialItems` changes;
-the useState initializer does not run again on a mounted provider. The bell
+existing client `router.refresh()`. `NotificationsProvider` adopts a new layout
+count when it changes; the same count does not wipe a local mark-read. The bell
 does not update as you navigate.
-The open-task badge still uses `countOpenMyTasksForUser`; on `/tasks` that
-count shares `loadAssignedContext` with `listMyTasksForUser` through
-`React.cache` so the membership, project, column, and card queries run once
-on that request. The memo does not keep the badge fresh across navigations.
+The open-task badge is `countOpenMyTasksForUser`: one SQL count with the same
+membership and Done-column pick as `/tasks`. The Done column is
+`doneColumnFrom` / `compareDoneColumnPick` (one titled Done, else last by
+order; ties use id). The count query's `DISTINCT ON` is that comparator in
+SQL, and the in-memory test client calls `doneColumnFrom`, so the badge and
+the list cannot choose different columns. It does not share
+`loadAssignedContext` with the list. `React.cache` still memoizes assigned
+context for `listMyTasksForUser` internals on `/tasks` only. Neither memo keeps
+the badge fresh across navigations.
 
 **Auth in the browser** is the exception: sign up, sign in and sign out call
 `authClient` against `/api/auth/*`. Everything else that changes domain data uses
@@ -380,13 +408,20 @@ or `safe-inset-*`. They do not prove pixel size on a notched device.
 ## Authenticated layout and loading
 
 Signed-in routes sit in `src/app/(app)/`. That layout loads the session
-through `getSession`, then notifications and the open-task count, then
+through `getSession`, then an unread notification count and a SQL open-task
+count, then
 renders `ProjectsShell` around `{children}`. Path-dependent chrome (active nav,
 search copy, content pane)
 comes from `shellChromeForPath` inside a client `ShellFrame` that reads
 `usePathname`, so it updates on navigation without remounting the shell.
 `ProjectsSidebar` and `ProjectsMobileTabBar` sit under that client frame, so
 they join the client bundle; screen `children` stay Server Components.
+
+`ProjectBoard` always mounts both `BoardDesktop` (`hidden tablet:flex`) and
+`BoardMobile` (`tablet:hidden`). Unifying those trees is a follow-up: two DnD
+models, and it is a larger UI refactor than the first-paint fetch cuts.
+`ArchivedView` similarly maps each row twice (`tablet:hidden` vs
+`hidden tablet:block`); that is the same class of cost, not addressed here.
 
 Each querying page has a `loading.tsx` sibling. Next.js uses that as the
 Suspense fallback for the page slot only. Sidebar, topbar, phone header, and
@@ -403,6 +438,21 @@ provider stays mounted with the chrome, so a single query would leak from
 `/account` where the input is hidden. Clearing on every pathname change
 would also drop the query when opening a project from the filtered grid and
 coming back. Account has no scope: the query is always empty.
+Paged archived screens skip the first client refetch only when query, range,
+and sort already match the server defaults (`archivedListIsDefault`); a
+retained search must refetch so the rows and count match the query. That skip
+does not advance the list epoch. Pages are a keyset on the active sort
+(`archivedAt+id` for date, `title+id` for name), not an offset, so there is no
+skip cap that can leave remaining rows unreachable. The first page
+and load-more share one epoch so a response from a previous filter cannot
+append rows or overwrite `totalCount`. Restore and delete advance that epoch so
+a list request that started before the mutation cannot reinsert a removed row
+or restore the old count. When that discarded request was the current
+query/range/sort first page, the list refetches after the mutation settles so
+the screen does not keep the previous filter's rows and total. Failed restore
+and Undo insert rows with the same
+comparator as that sort, so a paged screen does not leave the row at the end
+until reload. `router.refresh` does not reinitialise client list state.
 
 ## File map
 
@@ -416,12 +466,14 @@ coming back. Account has no scope: the query is always empty.
     src/lib/email.ts                    Resend helpers (password-reset and verification emails)
     src/lib/emailLayout.ts              shared HTML + plain-text layout for those emails
     src/lib/prisma.ts                   shared Prisma client
-    src/lib/projects.ts                 list/load projects (detail + grid/list summaries + recents)
+    src/lib/projects.ts                 list/load projects (board page + grid/list summaries + recents)
+    src/lib/accountUser.ts              request-memoized User row for account profile and statuses
+    src/lib/cardDetail.ts               description, subtasks, and comments for an opened card (VIEW)
     src/lib/templates.ts                project template catalog (id, name, ordered column titles)
     src/lib/membership.ts               accessibleByUser, withBoardAccess, administeredByUser, archived counterparts, last-OWNER guard, unassign, owner backfill
     src/lib/boardAccess.ts              access labels, viewer capabilities, ownership display, public board URL
     src/lib/invitations.ts              invite-by-username checks, notification copy
-    src/lib/notifications.ts            list/mark-read for the session user's notifications
+    src/lib/notifications.ts            unread count and list/mark-read for the session user's notifications
     src/lib/relativeTime.ts             relative English time without a leading verb
     src/lib/log.ts                      server-side info log (never sent to the client)
     src/lib/userPreferences.ts          get-or-default user preferences (viewMode, board visibility)
@@ -443,7 +495,7 @@ coming back. Account has no scope: the query is always empty.
     src/lib/cardMarkdown.ts             closed markdown subset for card titles, descriptions, comments
     src/lib/markdownToolbar.ts          wrap a text selection with markdown markers
     src/lib/cardCounters.ts             comment count and subtask done/total from the card lists
-    src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters, open count; loadAssignedContext is React.cache
+    src/lib/myTasks.ts                  assigned cards across projects, due groups, AND filters; SQL open-task count; loadAssignedContext is React.cache for the list only
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/accountActivity.ts          account Activity tab projects + assigned counts
@@ -515,19 +567,26 @@ coming back. Account has no scope: the query is always empty.
     src/actions/deleteArchivedProject.ts permanently delete one archived project (typed title)
     src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks and projects
     src/lib/swipe.ts                    shared row-swipe thresholds and pointer gesture
-    src/lib/archivedQuery.ts            load archived cards for a member (server-only)
-    src/lib/archivedProjectsQuery.ts    load archived projects for a member (server-only)
+    src/lib/archivedQuery.ts            paginated archived cards for a member (counts on the list, bodies on detail, viewer canAdminister)
+    src/lib/archivedProjectsQuery.ts    paginated archived projects for a member (aggregates, no description)
     src/lib/archivedCopy.ts             English archived-screen copy
-    src/lib/archivedExport.ts           CSV/JSON export of loaded rows
+    src/lib/archivedExport.ts           CSV/JSON export; hydrate detail in MAX_ARCHIVED_BATCH chunks
     src/lib/archivedScope.ts            tasks and projects scope adapters
     src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
-    src/lib/validation/archived.ts      restore, rearchive, delete, and archive-project schemas
+    src/lib/validation/archived.ts      restore, rearchive, delete, list, and detail schemas
     src/actions/createSubtask.ts        append a subtask on an accessible card
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
     src/actions/createComment.ts        append a comment as the session user
     src/actions/updateComment.ts        author edits own comment (COMMENT+; occupancy on body)
     src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
+    src/actions/getCardDetail.ts        VIEW-gated card description, subtasks, comments
+    src/actions/listProjectMembers.ts   membership-gated share member list
+    src/actions/listArchivedCards.ts    filtered, paginated archived cards
+    src/actions/listArchivedProjects.ts filtered, paginated archived projects
+    src/actions/getArchivedCardDetail.ts archived card description, subtasks, comments
+    src/actions/getArchivedCardsDetail.ts batch archived card detail for export
+    src/actions/getArchivedProjectDetail.ts archived project description
     src/actions/listMyActivityEvents.ts  session user's events across current memberships
     src/actions/deleteCard.ts           delete a live card (occupancy on archivedAt null)
     src/actions/moveCard.ts             append a card to another column (occupancy guard)
@@ -537,7 +596,7 @@ coming back. Account has no scope: the query is always empty.
     src/actions/deleteLabel.ts          delete a label; reassign cards; refuse the last remaining
     src/app/api/auth/[...all]/route.ts  Better Auth catch-all
     src/app/page.tsx                    / redirect-only: session to /projects, else /sign-in
-    src/app/(app)/layout.tsx            authenticated shell: session, notifications, open-task count
+    src/app/(app)/layout.tsx            authenticated shell: session, unread count, SQL open-task count
     src/app/(app)/projects/page.tsx     recents, starred, grid/list, empty state
     src/app/(app)/projects/loading.tsx  projects-grid slot fallback
     src/app/(app)/tasks/page.tsx        My tasks: assigned cards across projects
@@ -546,7 +605,7 @@ coming back. Account has no scope: the query is always empty.
     src/app/(app)/account/loading.tsx   account slot fallback
     src/app/(app)/projects/[projectId]/page.tsx  project board (member only; archived project redirects to /archived; else 404; records recent; ?card= opens detail)
     src/app/(app)/projects/[projectId]/loading.tsx  board slot fallback
-    src/app/(app)/projects/[projectId]/archived/page.tsx  archived tasks (member only; archived project redirects)
+    src/app/(app)/projects/[projectId]/archived/page.tsx  archived tasks (member only; archived project redirects; canAdminister from getArchivedCardsForUser)
     src/app/(app)/projects/[projectId]/archived/loading.tsx  archived-tasks slot fallback
     src/app/(app)/archived/page.tsx     archived projects
     src/app/(app)/archived/loading.tsx  archived-projects slot fallback

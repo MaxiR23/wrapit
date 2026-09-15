@@ -4,7 +4,7 @@
 //
 // Tested:
 // - Layout plus the tasks page resolve the session once
-// - Layout plus the tasks page load assigned context once
+// - The open-task badge uses $queryRaw; the list loads assigned context once
 //
 // What is covered:
 // - Shared React.cache lookups on one composed render. jsdom's client React
@@ -89,11 +89,13 @@ describe('authenticated request memo', () => {
     });
     await db.cardAssignee.create({ data: { cardId: card.id, userId: 'user-ada' } });
     db.membership.findMany.mockClear();
+    db.$queryRaw.mockClear();
 
     render(await AppLayout({ children: await MyTasksPage() }));
 
     expect(getSessionFromAuth).toHaveBeenCalledTimes(1);
     expect(db.membership.findMany).toHaveBeenCalledTimes(1);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('heading', { name: 'My tasks' })).toBeInTheDocument();
     expect(screen.getByText('Open card')).toBeInTheDocument();
   });

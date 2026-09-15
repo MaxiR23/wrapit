@@ -6,6 +6,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { archiveCard } from '@/actions/archiveCard';
 import { deleteCard } from '@/actions/deleteCard';
 import { listActivityEvents } from '@/actions/listActivityEvents';
+import { listProjectMembers } from '@/actions/listProjectMembers';
 import { moveCard } from '@/actions/moveCard';
 import { updateBoardVisibility } from '@/actions/updateBoardVisibility';
 import CardDetailDialog from '@/components/cards/CardDetailDialog';
@@ -131,6 +132,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const [itemsByColumn, setItemsByColumn] = useState<ItemsByColumn>(initial.itemsByColumn);
   const [labels, setLabels] = useState(initialLabels);
   const [shareMembers, setShareMembers] = useState(initialShareMembers);
+  const [shareListReady, setShareListReady] = useState(initialShareMembers.length > 0);
   const [publicLinkEnabled, setPublicLinkEnabled] = useState(initialPublicLinkEnabled);
   const [filters, setFilters] = useState<BoardFilters>(emptyBoardFilters);
   const [visibility, setVisibility] = useState<BoardVisibility>(initialVisibility);
@@ -200,7 +202,32 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
 
   useEffect(() => {
     setShareMembers(initialShareMembers);
-  }, [initialShareMembers]);
+    setShareListReady(initialShareMembers.length > 0);
+  }, [projectId, initialShareMembers]);
+
+  useEffect(() => {
+    if (openPanel !== 'share' || shareListReady) return;
+    let cancelled = false;
+    void listProjectMembers({ projectId }).then((result) => {
+      if (cancelled) return;
+      if ('data' in result) {
+        setShareMembers(
+          result.data.members.map((member) => ({
+            id: member.userId,
+            membershipId: member.membershipId,
+            name: member.name,
+            username: member.username,
+            role: member.role,
+            access: member.access,
+          })),
+        );
+      }
+      setShareListReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openPanel, projectId, shareListReady]);
 
   useEffect(() => {
     setPublicLinkEnabled(initialPublicLinkEnabled);
@@ -260,7 +287,13 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   }
 
   const allColumns = columnsFromItems(columnMeta.current, itemsByColumn, cardsById.current);
-  const progress = projectProgress(allColumns);
+  const progress = projectProgress(
+    allColumns.map((column) => ({
+      title: column.title,
+      order: column.order,
+      cardCount: column.cards.length,
+    })),
+  );
   const visibleCards = filterBoardCards({
     cards: Object.values(cardsById.current),
     filters,
@@ -373,24 +406,29 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     setJumpToken((token) => token + 1);
   }
 
-  function bumpBoard() {
+  const bumpBoard = useCallback(() => {
     setItemsByColumn((current) => ({ ...current }));
-  }
+  }, []);
 
   function handleOpenCard(cardId: string, trigger: HTMLElement) {
     openTriggerRef.current = trigger;
     setOpenCardId(cardId);
   }
 
-  function patchOpenCard(patch: Partial<BoardCardData>) {
-    if (!openCardId) return;
-    const current = cardsById.current[openCardId];
-    if (!current) return;
-    const next = { ...current, ...patch };
-    cardsById.current = { ...cardsById.current, [openCardId]: next };
-    pendingCardWritesRef.current.set(openCardId, next);
-    bumpBoard();
-  }
+  const patchOpenCard = useCallback(
+    (patch: Partial<BoardCardData>, options?: { recordWrite?: boolean }) => {
+      if (!openCardId) return;
+      const current = cardsById.current[openCardId];
+      if (!current) return;
+      const next = { ...current, ...patch };
+      cardsById.current = { ...cardsById.current, [openCardId]: next };
+      if (options?.recordWrite !== false) {
+        pendingCardWritesRef.current.set(openCardId, next);
+      }
+      bumpBoard();
+    },
+    [openCardId, bumpBoard],
+  );
 
   function removeCardFromBoard(cardId: string) {
     pendingCardWritesRef.current.delete(cardId);
