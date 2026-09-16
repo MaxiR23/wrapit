@@ -106,6 +106,8 @@ describe('Project archived page', () => {
       cards: [card],
       totalCount: 1,
       canAdminister: true,
+      hasMore: false,
+      nextCursor: null,
     });
 
     renderPage(await ProjectArchivedPage(pageProps('project-1')));
@@ -122,6 +124,8 @@ describe('Project archived page', () => {
       cards: [card],
       totalCount: 1,
       canAdminister: false,
+      hasMore: false,
+      nextCursor: null,
     });
 
     renderPage(await ProjectArchivedPage(pageProps('project-1')));

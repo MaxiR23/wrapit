@@ -344,6 +344,24 @@ in `docs/kanban.md`.
   `docs/kanban.md`.
 - **Tests** — under `tests/`, mirroring `src/`. Conventions: `docs/testing.md`.
 
+## Pagination
+
+A new list that needs pages uses the shared module, not a domain cursor.
+
+1. The query calls `fetchPage` in `src/lib/pagination.ts` with a page size, an
+   order (one sort field plus an id tie-break), optional opaque cursor, filter
+   `where`, and `findMany`. It hydrates only `items`. It may still count the
+   unscoped filter for a subtitle; that count is not completeness.
+2. The action returns `PageResult` fields (`items` or the domain list, `hasMore`,
+   `nextCursor`) and maps `InvalidPageCursorError` to Unauthorized. The cursor
+   schema is an opaque string (`pageCursorSchema`). Decode binds the cursor to
+   the request order: a date-sort cursor on a name-sort request is rejected.
+3. The client stores `hasMore` and `nextCursor` from the response (after any
+   epoch check, in the same place as the rows) and renders
+   `src/components/pagination/LoadMore.tsx`. Load more sends `nextCursor` as
+   received and is disabled while that request is in flight. It does not
+   compute remaining and does not build a cursor.
+
 ## Projects shell on the phone
 
 Below `tablet` (600px) `ProjectsShell` pins the tab bar with `position: fixed`
@@ -450,9 +468,14 @@ and sort already match the server defaults (`archivedListIsDefault`); a
 retained search must refetch so the rows and count match the query. That skip
 does not advance the list epoch. Pages are a keyset on the active sort
 (`archivedAt+id` for date, `title+id` for name), not an offset, so there is no
-skip cap that can leave remaining rows unreachable. The first page
+skip cap that can leave remaining rows unreachable. Completeness is `hasMore`
+from fetching one row beyond the page size; `nextCursor` is an opaque string
+the server encodes from the last returned row and the active order. The client
+stores those fields and echoes the cursor; it does not compute remaining from
+`totalCount` and does not build a cursor. `totalCount` is the subtitle only.
+The first page
 and load-more share one epoch so a response from a previous filter cannot
-append rows or overwrite `totalCount`. Restore and delete advance that epoch so
+append rows or overwrite `totalCount`, `hasMore`, or `nextCursor`. Restore and delete advance that epoch so
 a list request that started before the mutation cannot reinsert a removed row
 or restore the old count. When that discarded request was the current
 query/range/sort first page, the list refetches after the mutation settles so
@@ -572,6 +595,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/actions/restoreArchivedProjects.ts restore archived projects; mint PROJECT undo token
     src/actions/rearchiveArchivedProjects.ts redeem project restore undo token
     src/actions/deleteArchivedProject.ts permanently delete one archived project (typed title)
+    src/lib/pagination.ts               shared keyset page: take+1, hasMore, opaque nextCursor bound to order
     src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks and projects
     src/lib/swipe.ts                    shared row-swipe thresholds and pointer gesture
     src/lib/archivedQuery.ts            paginated archived cards for a member (counts on the list, bodies on detail, viewer canAdminister)
@@ -580,6 +604,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/lib/archivedExport.ts           CSV/JSON export; hydrate detail in MAX_ARCHIVED_BATCH chunks
     src/lib/archivedScope.ts            tasks and projects scope adapters
     src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
+    src/lib/validation/pagination.ts    opaque page cursor string bound
     src/lib/validation/archived.ts      restore, rearchive, delete, list, and detail schemas
     src/actions/createSubtask.ts        append a subtask on an accessible card
     src/actions/updateSubtaskField.ts   persist subtask text or done
@@ -637,6 +662,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/components/cards/               board cards, new-task dialog, card detail, due date+time control, markdown and service-link text
     src/components/tasks/               My tasks list, rows, detail panel/sheet, two-step create
     src/components/archived/            archived list, row, detail, empty state, delete/export dialogs
+    src/components/pagination/          shared Load more control (hasMore + opaque nextCursor)
     src/components/ui/                  shadcn/ui primitives, including skeleton
     src/components/projects/searchScope.ts  pathname to per-screen search key; account has none
     src/components/projects/shellChrome.ts  pathname to shell chrome props

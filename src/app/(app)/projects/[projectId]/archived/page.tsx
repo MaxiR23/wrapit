@@ -37,6 +37,8 @@ export default async function ProjectArchivedPage({
       projectTitle={archived.title}
       initialCards={archived.cards}
       initialTotalCount={archived.totalCount}
+      initialHasMore={archived.hasMore}
+      initialNextCursor={archived.nextCursor}
       canAdminister={archived.canAdminister}
     />
   );

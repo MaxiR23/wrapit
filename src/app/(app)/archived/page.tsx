@@ -18,5 +18,12 @@ export default async function ArchivedProjectsPage() {
 
   const page = await listArchivedProjectsForUser(session.user.id);
 
-  return <ArchivedView initialProjects={page.projects} initialTotalCount={page.totalCount} />;
+  return (
+    <ArchivedView
+      initialProjects={page.projects}
+      initialTotalCount={page.totalCount}
+      initialHasMore={page.hasMore}
+      initialNextCursor={page.nextCursor}
+    />
+  );
 }

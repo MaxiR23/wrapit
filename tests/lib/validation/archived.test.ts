@@ -6,7 +6,7 @@
 // - Restore and delete card batches accept bounded unique ids
 // - Delete project requires a non-empty title and does not trim it
 // - Archive and restore project ids reject empty or oversized values
-// - Archived list schemas take a keyset cursor, not an offset
+// - Archived list schemas take an opaque cursor string, not an offset
 //
 // What is covered:
 // - Happy path, invalid id, typed-title occupancy input
@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { MAX_ID_LENGTH } from '@/lib/validation/id';
+import { PAGE_CURSOR_MAX } from '@/lib/validation/pagination';
 import {
   archiveProjectSchema,
   deleteArchivedProjectSchema,
@@ -64,52 +65,44 @@ describe('deleteArchivedProjectSchema', () => {
 });
 
 describe('listArchivedCardsSchema', () => {
-  it('accepts a keyset cursor and does not take an offset', () => {
+  it('accepts an opaque cursor string and does not take an offset', () => {
     expect(
       listArchivedCardsSchema.parse({
         projectId: 'project-1',
-        cursor: {
-          id: 'card-1',
-          title: 'Write tests',
-          archivedAt: '2026-08-09T10:00:00.000Z',
-        },
+        cursor: 'opaque-cursor',
       }),
     ).toEqual({
       projectId: 'project-1',
-      cursor: {
-        id: 'card-1',
-        title: 'Write tests',
-        archivedAt: '2026-08-09T10:00:00.000Z',
-      },
+      cursor: 'opaque-cursor',
     });
+    expect(listArchivedCardsSchema.parse({ projectId: 'project-1' })).not.toHaveProperty('offset');
   });
 
-  it('rejects an invalid cursor date', () => {
+  it('rejects an empty or oversized cursor', () => {
     expect(
       listArchivedCardsSchema.safeParse({
         projectId: 'project-1',
-        cursor: { id: 'card-1', title: 'Write tests', archivedAt: 'not-a-date' },
+        cursor: '',
+      }).success,
+    ).toBe(false);
+    expect(
+      listArchivedCardsSchema.safeParse({
+        projectId: 'project-1',
+        cursor: 'a'.repeat(PAGE_CURSOR_MAX + 1),
       }).success,
     ).toBe(false);
   });
 });
 
 describe('listArchivedProjectsSchema', () => {
-  it('accepts a keyset cursor and does not take an offset', () => {
+  it('accepts an opaque cursor string and does not take an offset', () => {
     expect(
       listArchivedProjectsSchema.parse({
-        cursor: {
-          id: 'project-1',
-          title: 'Sprint board',
-          archivedAt: '2026-08-09T10:00:00.000Z',
-        },
+        cursor: 'opaque-cursor',
       }),
     ).toEqual({
-      cursor: {
-        id: 'project-1',
-        title: 'Sprint board',
-        archivedAt: '2026-08-09T10:00:00.000Z',
-      },
+      cursor: 'opaque-cursor',
     });
+    expect(listArchivedProjectsSchema.parse({})).not.toHaveProperty('offset');
   });
 });

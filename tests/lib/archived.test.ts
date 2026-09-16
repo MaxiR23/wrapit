@@ -9,14 +9,16 @@
 // - Null archivedBy omits the by-line
 // - Search matches title or label; date range ANDs with search
 // - Sort by archive date (newest first) or name, with id as the name-sort tie-break
-// - A later page continues from the last row's cursor
+// - A later page continues from the server nextCursor
+// - A row inserted ahead of the cursor does not change hasMore for the next page
 // - Slice of 50 reports remaining
 // - Selected archived cards load description, comment bodies, authors, and subtask text
 // - Sets canAdminister from the viewer's membership role
 // - Rollback inserts restored rows in the active sort order
 //
 // What is covered:
-// - Query isolation, assembly, filters, sort, keyset page, volume slice, copy,
+// - Query isolation, assembly, filters, sort, keyset page, insert-ahead hasMore,
+//   volume slice, copy,
 //   deferred detail, viewer canAdminister from membership role, ordered insert
 //
 // Run with: pnpm test:run tests/lib/archived.test.ts
@@ -39,7 +41,6 @@ const {
   archivedByLine,
   archivedCountLabel,
   archivedEmptyCopy,
-  archivedListCursorFromItem,
   archivedTaskDetailLine,
   filterArchivedTasks,
   insertArchivedTasks,
@@ -265,14 +266,60 @@ describe('getArchivedCardsForUser', () => {
     expect(page?.totalCount).toBe(3);
     expect(page?.cards).toHaveLength(2);
     expect(page?.cards.map((card) => card.title)).toEqual(['Card 2', 'Card 1']);
+    expect(page?.hasMore).toBe(true);
+    expect(typeof page?.nextCursor).toBe('string');
 
-    const last = page?.cards[1];
     const rest = await getArchivedCardsForUser(project.id, 'user-ada', {
       take: 2,
-      cursor: last ? archivedListCursorFromItem(last) : undefined,
+      cursor: page?.nextCursor ?? undefined,
     });
     expect(rest?.totalCount).toBe(3);
     expect(rest?.cards.map((card) => card.title)).toEqual(['Card 0']);
+    expect(rest?.hasMore).toBe(false);
+    expect(rest?.nextCursor).toBeNull();
+  });
+
+  it('does not change hasMore for the next page when a row is inserted ahead of the cursor', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    for (let index = 0; index < 3; index += 1) {
+      await db.card.create({
+        data: {
+          title: `Card ${index}`,
+          code: `SB-${index}`,
+          order: index,
+          columnId: todo.id,
+          archivedAt: new Date(`2026-08-0${index + 1}T10:00:00.000Z`),
+        },
+      });
+    }
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada', { take: 2 });
+    expect(page?.hasMore).toBe(true);
+
+    await db.card.create({
+      data: {
+        title: 'Newest',
+        code: 'SB-9',
+        order: 9,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-09T10:00:00.000Z'),
+      },
+    });
+
+    const rest = await getArchivedCardsForUser(project.id, 'user-ada', {
+      take: 2,
+      cursor: page?.nextCursor ?? undefined,
+    });
+    expect(rest?.totalCount).toBe(4);
+    expect(rest?.cards.map((card) => card.title)).toEqual(['Card 0']);
+    expect(rest?.hasMore).toBe(false);
+    expect(rest?.nextCursor).toBeNull();
   });
 
   it('applies title search in the same query', async () => {

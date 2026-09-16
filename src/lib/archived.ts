@@ -152,54 +152,6 @@ export function archivedListOrderBy(
   return [{ archivedAt: 'desc' }, { id: 'desc' }];
 }
 
-export type ArchivedListCursor = {
-  id: string;
-  title: string;
-  archivedAt: string;
-};
-
-export function archivedListCursorFromItem(item: {
-  id: string;
-  title: string;
-  archivedAt: Date;
-}): ArchivedListCursor {
-  return {
-    id: item.id,
-    title: item.title,
-    archivedAt: item.archivedAt.toISOString(),
-  };
-}
-
-/** Keyset after `cursor` for the same order as `archivedListOrderBy`. */
-export function archivedListCursorWhere(
-  sort: ArchivedSort,
-  cursor?: ArchivedListCursor | null,
-): { OR: Array<Record<string, unknown>> } | null {
-  if (!cursor) return null;
-  const archivedAt = new Date(cursor.archivedAt);
-  if (sort === 'name') {
-    return {
-      OR: [
-        { title: { gt: cursor.title } },
-        { AND: [{ title: cursor.title }, { id: { gt: cursor.id } }] },
-      ],
-    };
-  }
-  return {
-    OR: [{ archivedAt: { lt: archivedAt } }, { AND: [{ archivedAt }, { id: { lt: cursor.id } }] }],
-  };
-}
-
-export function withArchivedListCursor<T extends Record<string, unknown>>(
-  where: T,
-  sort: ArchivedSort,
-  cursor?: ArchivedListCursor | null,
-): T | { AND: [T, { OR: Array<Record<string, unknown>> }] } {
-  const cursorWhere = archivedListCursorWhere(sort, cursor);
-  if (!cursorWhere) return where;
-  return { AND: [where, cursorWhere] };
-}
-
 /** Same comparator as SQL `archivedListOrderBy` (byte order, id tie-break). */
 export function compareArchivedItems<T extends { id: string; archivedAt: Date }>(
   left: T,

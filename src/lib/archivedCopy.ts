@@ -10,6 +10,7 @@ export const archivedCopy = {
   sortName: 'Sort: Name',
   clearFilters: 'Clear filters',
   loadOlder: (remaining: number) => `View older (${remaining})`,
+  loadMore: 'View older',
   restore: 'Restore',
   export: 'Export',
   delete: 'Delete permanently',

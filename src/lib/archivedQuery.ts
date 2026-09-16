@@ -2,12 +2,9 @@ import { canAdministerProject, type MembershipRole } from '@/lib/boardAccess';
 import {
   ARCHIVED_PAGE_SIZE,
   archivedCardSearchWhere,
-  archivedListOrderBy,
   archivedRangeWhere,
-  withArchivedListCursor,
   type ArchivedComment,
   type ArchivedDateRange,
-  type ArchivedListCursor,
   type ArchivedPerson,
   type ArchivedProjectPayload,
   type ArchivedSort,
@@ -16,6 +13,7 @@ import {
 import { getCardDetailForUser, loadCardDetailsByIds, type CardDetail } from '@/lib/cardDetail';
 import { cardLabelFromRow } from '@/lib/labels';
 import { accessibleByUser } from '@/lib/membership';
+import { fetchPage, type PaginationOrder } from '@/lib/pagination';
 import { prisma } from '@/lib/prisma';
 
 function asPerson(
@@ -34,11 +32,18 @@ function parseRole(value: unknown): MembershipRole {
   return 'MEMBER';
 }
 
+function archivedCardsOrder(sort: ArchivedSort): PaginationOrder {
+  if (sort === 'name') {
+    return { field: 'title', type: 'string', direction: 'asc', idDirection: 'asc' };
+  }
+  return { field: 'archivedAt', type: 'date', direction: 'desc', idDirection: 'desc' };
+}
+
 export type ArchivedCardsQuery = {
   query?: string;
   range?: ArchivedDateRange;
   sort?: ArchivedSort;
-  cursor?: ArchivedListCursor;
+  cursor?: string;
   take?: number;
   now?: Date;
 };
@@ -46,6 +51,8 @@ export type ArchivedCardsQuery = {
 export type ArchivedCardsPage = ArchivedProjectPayload & {
   totalCount: number;
   canAdminister: boolean;
+  hasMore: boolean;
+  nextCursor: string | null;
 };
 
 const ARCHIVED_LIST_CARD_SELECT = {
@@ -102,18 +109,32 @@ export async function getArchivedCardsForUser(
   };
 
   if (columnIds.length === 0) {
-    return { id: project.id, title: project.title, cards: [], totalCount: 0, canAdminister };
+    return {
+      id: project.id,
+      title: project.title,
+      cards: [],
+      totalCount: 0,
+      canAdminister,
+      hasMore: false,
+      nextCursor: null,
+    };
   }
 
-  const [totalCount, cards] = await Promise.all([
+  const [totalCount, page] = await Promise.all([
     prisma.card.count({ where: cardWhere }),
-    prisma.card.findMany({
-      where: withArchivedListCursor(cardWhere, sort, query.cursor),
-      orderBy: archivedListOrderBy(sort),
-      take,
-      select: ARCHIVED_LIST_CARD_SELECT,
+    fetchPage({
+      pageSize: take,
+      order: archivedCardsOrder(sort),
+      cursor: query.cursor,
+      where: cardWhere,
+      findMany: (args) =>
+        prisma.card.findMany({
+          ...args,
+          select: ARCHIVED_LIST_CARD_SELECT,
+        }),
     }),
   ]);
+  const cards = page.items;
   const cardIds = cards.map((card) => card.id);
 
   const labelIds = [
@@ -212,6 +233,8 @@ export async function getArchivedCardsForUser(
     cards: listCards,
     totalCount,
     canAdminister,
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
   };
 }
 
