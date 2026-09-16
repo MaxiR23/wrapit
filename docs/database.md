@@ -200,9 +200,11 @@ Passwords live on `Account`, not on `User`. See `docs/auth.md`.
 `pnpm db:deploy` runs `prisma migrate deploy`: it applies pending migrations
 without prompting and without creating new ones. Use that against any
 non-local database (Vercel production, a preview DB, a shared staging
-instance). `pnpm build` runs `db:deploy` and `db:generate` before
-`next build`, so a Vercel deploy cannot ship schema that the database has
-not caught up with. Skipping deploy after a merge that adds a migration
+instance). Locally, apply schema with `pnpm db:migrate`. On Vercel,
+`vercel.json` runs `db:deploy` before `pnpm build`, so a deploy cannot
+ship schema that the database has not caught up with. `pnpm build` itself
+only generates the client and runs `next build`; it does not migrate.
+Skipping deploy after a merge that adds a migration
 leaves the app selecting columns that do not exist; authenticated pages
 that read `Membership` (including `/projects` and `/account`) then 500.
 

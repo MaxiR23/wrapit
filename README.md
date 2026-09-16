@@ -54,7 +54,7 @@ could not already open themselves.
 ## Commands
 
     pnpm dev              dev server at :3000
-    pnpm build            apply pending migrations, generate client, production build
+    pnpm build            generate client, production build
     pnpm start            serve the production build
     pnpm lint             ESLint
     pnpm format           Prettier (write)
@@ -65,10 +65,13 @@ could not already open themselves.
     pnpm db:up            start Postgres in Docker
     pnpm db:down          stop the container
     pnpm db:migrate       create and apply a migration (local/dev)
-    pnpm db:deploy        apply pending migrations (production / CI)
+    pnpm db:deploy        apply pending migrations (Vercel via vercel.json)
     pnpm db:generate      regenerate the Prisma Client
     pnpm db:studio        open Prisma Studio
     pnpm db:reset         drop and recreate the database
+
+Locally, apply migrations with `pnpm db:migrate`. On Vercel, `vercel.json`
+runs `pnpm db:deploy` before `pnpm build`.
 
 ## Layout
 
