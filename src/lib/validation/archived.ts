@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '@/lib/validation/id';
+import { pageCursorSchema } from '@/lib/validation/pagination';
 
 export const MAX_ARCHIVED_BATCH = 200;
 
@@ -71,25 +72,19 @@ export const deleteArchivedProjectSchema = z.object({
   title: z.string().min(1),
 });
 
-export const archivedListCursorSchema = z.object({
-  id: idSchema,
-  title: z.string().max(10_000),
-  archivedAt: z.string().refine((value) => !Number.isNaN(new Date(value).getTime())),
-});
-
 export const listArchivedCardsSchema = z.object({
   projectId: idSchema,
   query: z.string().max(200).optional(),
   range: z.enum(['all', '7', '30', 'old']).optional(),
   sort: z.enum(['date', 'name']).optional(),
-  cursor: archivedListCursorSchema.optional(),
+  cursor: pageCursorSchema.optional(),
 });
 
 export const listArchivedProjectsSchema = z.object({
   query: z.string().max(200).optional(),
   range: z.enum(['all', '7', '30', 'old']).optional(),
   sort: z.enum(['date', 'name']).optional(),
-  cursor: archivedListCursorSchema.optional(),
+  cursor: pageCursorSchema.optional(),
 });
 
 export const archivedCardDetailSchema = z.object({

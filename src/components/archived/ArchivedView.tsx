@@ -24,6 +24,7 @@ import ArchivedDetail from '@/components/archived/ArchivedDetail';
 import ArchivedEmptyState from '@/components/archived/ArchivedEmptyState';
 import ArchivedExportDialog from '@/components/archived/ArchivedExportDialog';
 import ArchivedRow from '@/components/archived/ArchivedRow';
+import LoadMore from '@/components/pagination/LoadMore';
 import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardToast';
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
@@ -32,7 +33,6 @@ import {
   ARCHIVED_PROJECTS_EMPTY,
   applyArchivedCardDetail,
   archivedCountLabel,
-  archivedListCursorFromItem,
   archivedListIsDefault,
   archivedPhoneSelectedLabel,
   archivedProjectCountLabel,
@@ -68,16 +68,38 @@ function hasArchivedProjects(data: {
   projects?: unknown;
   cards?: unknown;
   totalCount: number;
-}): data is { projects: ArchivedProject[]; totalCount: number } {
-  return Array.isArray(data.projects);
+  hasMore?: unknown;
+  nextCursor?: unknown;
+}): data is {
+  projects: ArchivedProject[];
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+} {
+  return (
+    Array.isArray(data.projects) &&
+    typeof data.hasMore === 'boolean' &&
+    (data.nextCursor === null || typeof data.nextCursor === 'string')
+  );
 }
 
 function hasArchivedCards(data: {
   projects?: unknown;
   cards?: unknown;
   totalCount: number;
-}): data is { cards: ArchivedTask[]; totalCount: number } {
-  return Array.isArray(data.cards);
+  hasMore?: unknown;
+  nextCursor?: unknown;
+}): data is {
+  cards: ArchivedTask[];
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+} {
+  return (
+    Array.isArray(data.cards) &&
+    typeof data.hasMore === 'boolean' &&
+    (data.nextCursor === null || typeof data.nextCursor === 'string')
+  );
 }
 
 function downloadText(filename: string, text: string, mime: string) {
@@ -98,6 +120,8 @@ export default function ArchivedView({
   initialCards = [],
   initialProjects,
   initialTotalCount,
+  initialHasMore = false,
+  initialNextCursor = null,
   canAdminister = false,
 }: {
   projectId?: string;
@@ -105,6 +129,8 @@ export default function ArchivedView({
   initialCards?: ArchivedTask[];
   initialProjects?: ArchivedProject[];
   initialTotalCount?: number;
+  initialHasMore?: boolean;
+  initialNextCursor?: string | null;
   canAdminister?: boolean;
 }) {
   const isProjects = initialProjects != null;
@@ -119,6 +145,8 @@ export default function ArchivedView({
   const [sort, setSort] = useState<ArchivedSort>('date');
   const [limit, setLimit] = useState(ARCHIVED_PAGE_SIZE);
   const [totalCount, setTotalCount] = useState(initialTotalCount ?? 0);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -152,7 +180,7 @@ export default function ArchivedView({
   const { shown, remaining } = paged
     ? {
         shown: isProjects ? filteredProjects : filteredCards,
-        remaining: Math.max(0, totalCount - (isProjects ? projects.length : cards.length)),
+        remaining: 0,
       }
     : isProjects
       ? sliceArchivedTasks(filteredProjects, limit)
@@ -186,11 +214,15 @@ export default function ArchivedView({
       if (isProjects && hasArchivedProjects(result.data)) {
         setProjects(result.data.projects.map(reviveArchivedProject));
         setTotalCount(result.data.totalCount);
+        setHasMore(result.data.hasMore);
+        setNextCursor(result.data.nextCursor);
         return;
       }
       if (!isProjects && hasArchivedCards(result.data)) {
         setCards(result.data.cards.map(reviveArchivedTask));
         setTotalCount(result.data.totalCount);
+        setHasMore(result.data.hasMore);
+        setNextCursor(result.data.nextCursor);
       }
     });
     return () => {
@@ -241,24 +273,22 @@ export default function ArchivedView({
     };
   }, [openProject]);
 
-  async function loadOlder() {
+  async function loadOlder(cursor?: string) {
     if (!paged) {
       setLimit((current) => current + ARCHIVED_PAGE_SIZE);
       return;
     }
+    if (!cursor) return;
     const epoch = listEpochRef.current;
-    const loaded = isProjects ? projects : cards;
-    const last = loaded[loaded.length - 1];
-    const cursor = last ? archivedListCursorFromItem(last) : undefined;
     const result = isProjects
-      ? await listArchivedProjects({ query, range, sort, ...(cursor ? { cursor } : {}) })
+      ? await listArchivedProjects({ query, range, sort, cursor })
       : projectId
         ? await listArchivedCards({
             projectId,
             query,
             range,
             sort,
-            ...(cursor ? { cursor } : {}),
+            cursor,
           })
         : { error: 'Unauthorized' as const };
     if (epoch !== listEpochRef.current || 'error' in result) return;
@@ -273,6 +303,8 @@ export default function ArchivedView({
         ];
       });
       setTotalCount(nextTotal);
+      setHasMore(result.data.hasMore);
+      setNextCursor(result.data.nextCursor);
       return;
     }
     if (!isProjects && hasArchivedCards(result.data)) {
@@ -286,6 +318,8 @@ export default function ArchivedView({
         ];
       });
       setTotalCount(nextTotal);
+      setHasMore(result.data.hasMore);
+      setNextCursor(result.data.nextCursor);
     }
   }
 
@@ -876,7 +910,18 @@ export default function ArchivedView({
         </div>
       )}
 
-      {remaining > 0 ? (
+      {paged ? (
+        <LoadMore
+          hasMore={hasMore}
+          nextCursor={nextCursor}
+          onLoadMore={(cursor) => loadOlder(cursor)}
+          label={archivedCopy.loadMore}
+          className={cn(
+            shellFocusClassName,
+            'h-11 w-full rounded-md border border-border bg-surface text-[13px] font-medium tablet:mx-auto tablet:w-auto tablet:px-5 disabled:opacity-50',
+          )}
+        />
+      ) : remaining > 0 ? (
         <button
           type="button"
           onClick={() => void loadOlder()}

@@ -22,12 +22,16 @@
 // - A failed first restore puts its own rows back after a second restore started
 // - A failed restore or a successful Undo puts the row back in date order on a
 //   paged list
+// - Load more follows hasMore from the response, not totalCount, sends the
+//   server cursor, and stops after hasMore is false (cards and projects)
+// - A second click while load more is pending does not reuse the same cursor
 //
 // What is covered:
 // - Empty states, filter-clears-selection, tab-bar offset on sticky chrome,
 //   MEMBER permissions, export dialog, deferred-detail export, retained search
 //   on a server-paged list, stale load-more after a filter change, restore undo
-//   timing, stale-failure rollback, filter refetch after mutation invalidation
+//   timing, stale-failure rollback, filter refetch after mutation invalidation,
+//   in-flight load more
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedView.test.tsx
 //
@@ -35,7 +39,7 @@
 
 import { useLayoutEffect, type ReactElement, type ReactNode } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { ArchivedProject, ArchivedTask } from '@/lib/archived';
@@ -46,17 +50,29 @@ const deleteArchivedCards = vi.fn();
 const restoreArchivedProjects = vi.fn();
 const rearchiveArchivedProjects = vi.fn();
 const deleteArchivedProject = vi.fn();
-type ListArchivedCardsResult = { data: { cards: ArchivedTask[]; totalCount: number } };
-const listArchivedCards = vi.fn<
-  (input?: {
-    cursor?: { id: string; title: string; archivedAt: string };
-  }) => Promise<ListArchivedCardsResult>
->(async () => ({
-  data: { cards: [], totalCount: 0 },
-}));
+type ListArchivedCardsResult = {
+  data: {
+    cards: ArchivedTask[];
+    totalCount: number;
+    hasMore: boolean;
+    nextCursor: string | null;
+  };
+};
+const listArchivedCards = vi.fn<(input?: { cursor?: string }) => Promise<ListArchivedCardsResult>>(
+  async () => ({
+    data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null },
+  }),
+);
 const listArchivedProjects = vi.fn(
-  async (): Promise<{ data: { projects: ArchivedProject[]; totalCount: number } }> => ({
-    data: { projects: [], totalCount: 0 },
+  async (): Promise<{
+    data: {
+      projects: ArchivedProject[];
+      totalCount: number;
+      hasMore: boolean;
+      nextCursor: string | null;
+    };
+  }> => ({
+    data: { projects: [], totalCount: 0, hasMore: false, nextCursor: null },
   }),
 );
 const getArchivedCardDetail = vi.fn(async () => ({ error: 'Unauthorized' as const }));
@@ -350,7 +366,7 @@ describe('ArchivedView', () => {
 
   it('shows matching rows and the matching count for a retained query on a paged list', async () => {
     listArchivedCards.mockResolvedValue({
-      data: { cards: [card], totalCount: 1 },
+      data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null },
     });
     renderPaged(
       <ArchivedView
@@ -386,7 +402,7 @@ describe('ArchivedView', () => {
           olderResolves.push(resolve);
         });
       }
-      return { data: { cards: [card], totalCount: 1 } };
+      return { data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null } };
     });
     renderView(
       <ArchivedView
@@ -394,11 +410,13 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card, other]}
         initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
         canAdminister
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /View older \(2\)/ }));
+    await user.click(screen.getByRole('button', { name: 'View older' }));
     await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
     expect(await screen.findByText('1 archived task')).toBeInTheDocument();
     expect(screen.queryByText('Ship the grid')).not.toBeInTheDocument();
@@ -406,7 +424,9 @@ describe('ArchivedView', () => {
     await waitFor(() => {
       expect(olderResolves).toHaveLength(1);
     });
-    olderResolves[0]!({ data: { cards: [older], totalCount: 99 } });
+    olderResolves[0]!({
+      data: { cards: [older], totalCount: 99, hasMore: false, nextCursor: null },
+    });
 
     await waitFor(() => {
       expect(screen.queryAllByText('Ancient work')).toHaveLength(0);
@@ -424,7 +444,7 @@ describe('ArchivedView', () => {
           olderResolves.push(resolve);
         });
       }
-      return { data: { cards: [card], totalCount: 1 } };
+      return { data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null } };
     });
     renderView(
       <ArchivedView
@@ -432,11 +452,13 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card, other]}
         initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
         canAdminister
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /View older \(2\)/ }));
+    await user.click(screen.getByRole('button', { name: 'View older' }));
     await user.click(
       within(archivedRow('Write tests')).getAllByRole('button', { name: 'Restore' })[0]!,
     );
@@ -446,7 +468,9 @@ describe('ArchivedView', () => {
     await waitFor(() => {
       expect(olderResolves).toHaveLength(1);
     });
-    olderResolves[0]!({ data: { cards: [card], totalCount: 99 } });
+    olderResolves[0]!({
+      data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
+    });
 
     await waitFor(() => {
       expect(screen.queryAllByText('Write tests')).toHaveLength(0);
@@ -464,7 +488,7 @@ describe('ArchivedView', () => {
           olderResolves.push(resolve);
         });
       }
-      return { data: { cards: [card], totalCount: 1 } };
+      return { data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null } };
     });
     renderView(
       <ArchivedView
@@ -472,11 +496,13 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card, other]}
         initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
         canAdminister
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /View older \(2\)/ }));
+    await user.click(screen.getByRole('button', { name: 'View older' }));
     await user.click(
       within(archivedRow('Write tests')).getAllByRole('button', { name: 'Delete permanently' })[0]!,
     );
@@ -488,7 +514,9 @@ describe('ArchivedView', () => {
     await waitFor(() => {
       expect(olderResolves).toHaveLength(1);
     });
-    olderResolves[0]!({ data: { cards: [card], totalCount: 99 } });
+    olderResolves[0]!({
+      data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
+    });
 
     await waitFor(() => {
       expect(screen.queryAllByText('Write tests')).toHaveLength(0);
@@ -504,14 +532,14 @@ describe('ArchivedView', () => {
       [];
     listArchivedCards.mockImplementation(async (input) => {
       if (input?.cursor) {
-        return { data: { cards: [], totalCount: 0 } };
+        return { data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null } };
       }
       if (firstPageResolves.length === 0) {
         return new Promise<ListArchivedCardsResult>((resolve) => {
           firstPageResolves.push(resolve);
         });
       }
-      return { data: { cards: [other], totalCount: 1 } };
+      return { data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null } };
     });
     restoreArchivedCards.mockImplementation(
       () =>
@@ -542,7 +570,9 @@ describe('ArchivedView', () => {
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
     expect(screen.getByText('3 archived tasks')).toBeInTheDocument();
 
-    firstPageResolves[0]!({ data: { cards: [card], totalCount: 99 } });
+    firstPageResolves[0]!({
+      data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
+    });
     await waitFor(() => {
       expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
     });
@@ -565,14 +595,14 @@ describe('ArchivedView', () => {
     const deleteResolves: Array<(value: { data: { ids: string[] } }) => void> = [];
     listArchivedCards.mockImplementation(async (input) => {
       if (input?.cursor) {
-        return { data: { cards: [], totalCount: 0 } };
+        return { data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null } };
       }
       if (firstPageResolves.length === 0) {
         return new Promise<ListArchivedCardsResult>((resolve) => {
           firstPageResolves.push(resolve);
         });
       }
-      return { data: { cards: [other], totalCount: 1 } };
+      return { data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null } };
     });
     deleteArchivedCards.mockImplementation(
       () =>
@@ -603,7 +633,9 @@ describe('ArchivedView', () => {
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
     expect(screen.getByText('3 archived tasks')).toBeInTheDocument();
 
-    firstPageResolves[0]!({ data: { cards: [card], totalCount: 99 } });
+    firstPageResolves[0]!({
+      data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
+    });
     await waitFor(() => {
       expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
     });
@@ -825,6 +857,97 @@ describe('ArchivedView', () => {
     });
     expect(shownTitleOrder(['Newest', 'Middle', 'Oldest'])).toEqual(['Newest', 'Middle', 'Oldest']);
   });
+
+  it('hides Load more when hasMore is false even if totalCount is higher than loaded rows', () => {
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card]}
+        initialTotalCount={99}
+        initialHasMore={false}
+        initialNextCursor={null}
+        canAdminister
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('sends the server cursor and makes no further request after hasMore is false', async () => {
+    const user = userEvent.setup();
+    listArchivedCards.mockResolvedValue({
+      data: { cards: [other], totalCount: 2, hasMore: false, nextCursor: null },
+    });
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card]}
+        initialTotalCount={2}
+        initialHasMore
+        initialNextCursor="cursor-from-server"
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View older' }));
+    await waitFor(() => {
+      expect(listArchivedCards).toHaveBeenCalledWith({
+        projectId: 'project-1',
+        query: '',
+        range: 'all',
+        sort: 'date',
+        cursor: 'cursor-from-server',
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+    });
+    expect(listArchivedCards).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send the same cursor again while load more is pending', async () => {
+    const olderResolves: Array<(value: ListArchivedCardsResult) => void> = [];
+    listArchivedCards.mockImplementation(
+      async () =>
+        new Promise<ListArchivedCardsResult>((resolve) => {
+          olderResolves.push(resolve);
+        }),
+    );
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card]}
+        initialTotalCount={2}
+        initialHasMore
+        initialNextCursor="cursor-from-server"
+        canAdminister
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: 'View older' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(listArchivedCards).toHaveBeenCalledTimes(1);
+    expect(listArchivedCards).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      query: '',
+      range: 'all',
+      sort: 'date',
+      cursor: 'cursor-from-server',
+    });
+    expect(button).toBeDisabled();
+
+    olderResolves[0]!({
+      data: { cards: [other], totalCount: 2, hasMore: false, nextCursor: null },
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+    });
+  });
 });
 
 const archivedProject: ArchivedProject = {
@@ -905,5 +1028,52 @@ describe('ArchivedView projects scope', () => {
         title: 'Sprint board',
       });
     });
+  });
+
+  it('hides Load more when hasMore is false even if totalCount is higher than loaded rows', () => {
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={99}
+        initialHasMore={false}
+        initialNextCursor={null}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('sends the server cursor and makes no further request after hasMore is false', async () => {
+    const user = userEvent.setup();
+    const olderProject: ArchivedProject = {
+      ...archivedProject,
+      id: 'project-2',
+      title: 'Older board',
+    };
+    listArchivedProjects.mockResolvedValue({
+      data: { projects: [olderProject], totalCount: 2, hasMore: false, nextCursor: null },
+    });
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={2}
+        initialHasMore
+        initialNextCursor="cursor-from-server"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View older' }));
+    await waitFor(() => {
+      expect(listArchivedProjects).toHaveBeenCalledWith({
+        query: '',
+        range: 'all',
+        sort: 'date',
+        cursor: 'cursor-from-server',
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+    });
+    expect(listArchivedProjects).toHaveBeenCalledTimes(1);
   });
 });

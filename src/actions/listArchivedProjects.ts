@@ -7,6 +7,7 @@ import {
   type ArchivedProjectsPage,
 } from '@/lib/archivedProjectsQuery';
 import { auth } from '@/lib/auth';
+import { InvalidPageCursorError } from '@/lib/pagination';
 import { listArchivedProjectsSchema } from '@/lib/validation/archived';
 
 type ListArchivedProjectsResult = { data: ArchivedProjectsPage } | { error: string };
@@ -16,7 +17,7 @@ export async function listArchivedProjects(
     query?: string;
     range?: 'all' | '7' | '30' | 'old';
     sort?: 'date' | 'name';
-    cursor?: { id: string; title: string; archivedAt: string };
+    cursor?: string;
   } = {},
 ): Promise<ListArchivedProjectsResult> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -29,6 +30,13 @@ export async function listArchivedProjects(
     return { error: 'Unauthorized' };
   }
 
-  const data = await listArchivedProjectsForUser(session.user.id, parsed.data);
-  return { data };
+  try {
+    const data = await listArchivedProjectsForUser(session.user.id, parsed.data);
+    return { data };
+  } catch (error) {
+    if (error instanceof InvalidPageCursorError) {
+      return { error: 'Unauthorized' };
+    }
+    throw error;
+  }
 }

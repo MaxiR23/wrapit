@@ -1,17 +1,15 @@
 import { canAdministerProject, type MembershipRole } from '@/lib/boardAccess';
 import {
   ARCHIVED_PAGE_SIZE,
-  archivedListOrderBy,
   archivedProjectSearchWhere,
   archivedRangeWhere,
-  withArchivedListCursor,
   type ArchivedDateRange,
-  type ArchivedListCursor,
   type ArchivedPerson,
   type ArchivedProject,
   type ArchivedSort,
 } from '@/lib/archived';
 import { archivedAccessibleByUser } from '@/lib/membership';
+import { fetchPage, type PaginationOrder } from '@/lib/pagination';
 import { prisma } from '@/lib/prisma';
 import {
   parseProjectStatus,
@@ -36,11 +34,18 @@ function parseRole(value: unknown): MembershipRole {
   return 'MEMBER';
 }
 
+function archivedProjectsOrder(sort: ArchivedSort): PaginationOrder {
+  if (sort === 'name') {
+    return { field: 'title', type: 'string', direction: 'asc', idDirection: 'asc' };
+  }
+  return { field: 'archivedAt', type: 'date', direction: 'desc', idDirection: 'desc' };
+}
+
 export type ArchivedProjectsQuery = {
   query?: string;
   range?: ArchivedDateRange;
   sort?: ArchivedSort;
-  cursor?: ArchivedListCursor;
+  cursor?: string;
   take?: number;
   now?: Date;
 };
@@ -48,6 +53,8 @@ export type ArchivedProjectsQuery = {
 export type ArchivedProjectsPage = {
   projects: ArchivedProject[];
   totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
 };
 
 /**
@@ -69,15 +76,20 @@ export async function listArchivedProjectsForUser(
     ...archivedProjectSearchWhere(query.query ?? ''),
   };
 
-  const [totalCount, projects] = await Promise.all([
+  const [totalCount, page] = await Promise.all([
     prisma.project.count({ where: projectWhere }),
-    prisma.project.findMany({
-      where: withArchivedListCursor(projectWhere, sort, query.cursor),
-      orderBy: archivedListOrderBy(sort),
-      take,
+    fetchPage({
+      pageSize: take,
+      order: archivedProjectsOrder(sort),
+      cursor: query.cursor,
+      where: projectWhere,
+      findMany: (args) => prisma.project.findMany(args),
     }),
   ]);
-  if (projects.length === 0) return { projects: [], totalCount };
+  const projects = page.items;
+  if (projects.length === 0) {
+    return { projects: [], totalCount, hasMore: page.hasMore, nextCursor: page.nextCursor };
+  }
 
   const projectIds = projects.map((project) => project.id);
   const [columns, memberships] = await Promise.all([
@@ -173,7 +185,7 @@ export async function listArchivedProjectsForUser(
     ];
   });
 
-  return { projects: list, totalCount };
+  return { projects: list, totalCount, hasMore: page.hasMore, nextCursor: page.nextCursor };
 }
 
 /** Description for an archived project the user can still access. */
