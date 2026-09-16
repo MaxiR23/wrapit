@@ -7,6 +7,8 @@
 // - Omits live projects
 // - Sets canAdminister from OWNER/ADMIN membership
 // - A later page continues from the server nextCursor
+// - Exclude ids are omitted from rows and totalCount
+// - Count and page stay on one snapshot if a row is restored between the reads
 // - A row inserted ahead of the cursor does not change hasMore for the next page
 //
 // What is covered:
@@ -25,7 +27,8 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { listArchivedProjectsForUser } = await import('@/lib/archivedProjectsQuery');
+const { countArchivedProjectsForUser, listArchivedProjectsForUser } =
+  await import('@/lib/archivedProjectsQuery');
 
 describe('listArchivedProjectsForUser', () => {
   beforeEach(() => {
@@ -175,5 +178,71 @@ describe('listArchivedProjectsForUser', () => {
     expect(rest.projects.map((project) => project.title)).toEqual(['Alpha board']);
     expect(rest.hasMore).toBe(false);
     expect(rest.nextCursor).toBeNull();
+  });
+
+  it('omits excludeIds from rows and totalCount', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const kept = await seedAccessibleProject(db, {
+      title: 'Kept board',
+      userId: 'user-ada',
+    });
+    const excluded = await seedAccessibleProject(db, {
+      title: 'Excluded board',
+      userId: 'user-ada',
+    });
+    await db.project.update({
+      where: { id: kept.id },
+      data: { archivedAt: new Date('2026-08-02T10:00:00.000Z') },
+    });
+    await db.project.update({
+      where: { id: excluded.id },
+      data: { archivedAt: new Date('2026-08-01T10:00:00.000Z') },
+    });
+
+    const page = await listArchivedProjectsForUser('user-ada', { excludeIds: [excluded.id] });
+    expect(page.totalCount).toBe(1);
+    expect(page.projects.map((project) => project.id)).toEqual([kept.id]);
+    expect(await countArchivedProjectsForUser('user-ada', { excludeIds: [excluded.id] })).toEqual({
+      totalCount: 1,
+    });
+  });
+
+  it('keeps count and page in one snapshot when a row is restored between the reads', async () => {
+    await db.user.create({
+      data: { id: 'user-ada', name: 'Ada Lovelace', username: 'ada' },
+    });
+    const kept = await seedAccessibleProject(db, {
+      title: 'Kept board',
+      userId: 'user-ada',
+    });
+    const restored = await seedAccessibleProject(db, {
+      title: 'Restored board',
+      userId: 'user-ada',
+    });
+    await db.project.update({
+      where: { id: kept.id },
+      data: { archivedAt: new Date('2026-08-02T10:00:00.000Z') },
+    });
+    await db.project.update({
+      where: { id: restored.id },
+      data: { archivedAt: new Date('2026-08-01T10:00:00.000Z') },
+    });
+
+    const originalCount = db.project.count.getMockImplementation() as (args?: {
+      where?: Record<string, unknown>;
+    }) => Promise<number>;
+    db.project.count.mockImplementation(async (args) => {
+      const total = await originalCount(args);
+      const row = db.project.rows.find((project) => project.id === restored.id);
+      if (row) row.archivedAt = null;
+      return total;
+    });
+
+    const page = await listArchivedProjectsForUser('user-ada');
+    const ids = page.projects.map((project) => project.id);
+    expect(ids.includes(restored.id)).toBe(true);
+    expect(page.totalCount).toBe(2);
   });
 });

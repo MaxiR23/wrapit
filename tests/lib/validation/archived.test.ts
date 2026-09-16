@@ -7,6 +7,7 @@
 // - Delete project requires a non-empty title and does not trim it
 // - Archive and restore project ids reject empty or oversized values
 // - Archived list schemas take an opaque cursor string, not an offset
+// - Exclude ids are unique and capped at the archived batch limit
 //
 // What is covered:
 // - Happy path, invalid id, typed-title occupancy input
@@ -21,9 +22,11 @@ import { MAX_ID_LENGTH } from '@/lib/validation/id';
 import { PAGE_CURSOR_MAX } from '@/lib/validation/pagination';
 import {
   archiveProjectSchema,
+  countArchivedCardsSchema,
   deleteArchivedProjectSchema,
   listArchivedCardsSchema,
   listArchivedProjectsSchema,
+  MAX_ARCHIVED_BATCH,
   restoreArchivedProjectsSchema,
 } from '@/lib/validation/archived';
 
@@ -104,5 +107,22 @@ describe('listArchivedProjectsSchema', () => {
       cursor: 'opaque-cursor',
     });
     expect(listArchivedProjectsSchema.parse({})).not.toHaveProperty('offset');
+  });
+});
+
+describe('excludeIds', () => {
+  it('dedupes and rejects more than the archived batch cap', () => {
+    expect(
+      listArchivedCardsSchema.parse({
+        projectId: 'project-1',
+        excludeIds: ['card-1', 'card-1'],
+      }).excludeIds,
+    ).toEqual(['card-1']);
+    expect(
+      countArchivedCardsSchema.safeParse({
+        projectId: 'project-1',
+        excludeIds: Array.from({ length: MAX_ARCHIVED_BATCH + 1 }, (_, index) => `id-${index}`),
+      }).success,
+    ).toBe(false);
   });
 });

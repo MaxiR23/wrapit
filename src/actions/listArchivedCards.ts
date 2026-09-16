@@ -15,6 +15,7 @@ export async function listArchivedCards(input: {
   range?: 'all' | '7' | '30' | 'old';
   sort?: 'date' | 'name';
   cursor?: string;
+  excludeIds?: string[];
 }): Promise<ListArchivedCardsResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -32,6 +33,7 @@ export async function listArchivedCards(input: {
       range: parsed.data.range,
       sort: parsed.data.sort,
       cursor: parsed.data.cursor,
+      excludeIds: parsed.data.excludeIds,
     });
     if (!page) {
       return { error: 'Unauthorized' };

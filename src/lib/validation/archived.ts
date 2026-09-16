@@ -78,6 +78,7 @@ export const listArchivedCardsSchema = z.object({
   range: z.enum(['all', '7', '30', 'old']).optional(),
   sort: z.enum(['date', 'name']).optional(),
   cursor: pageCursorSchema.optional(),
+  excludeIds: z.array(idSchema).max(MAX_ARCHIVED_BATCH).transform(uniqueIds).optional(),
 });
 
 export const listArchivedProjectsSchema = z.object({
@@ -85,6 +86,20 @@ export const listArchivedProjectsSchema = z.object({
   range: z.enum(['all', '7', '30', 'old']).optional(),
   sort: z.enum(['date', 'name']).optional(),
   cursor: pageCursorSchema.optional(),
+  excludeIds: z.array(idSchema).max(MAX_ARCHIVED_BATCH).transform(uniqueIds).optional(),
+});
+
+export const countArchivedCardsSchema = z.object({
+  projectId: idSchema,
+  query: z.string().max(200).optional(),
+  range: z.enum(['all', '7', '30', 'old']).optional(),
+  excludeIds: z.array(idSchema).max(MAX_ARCHIVED_BATCH).transform(uniqueIds).optional(),
+});
+
+export const countArchivedProjectsSchema = z.object({
+  query: z.string().max(200).optional(),
+  range: z.enum(['all', '7', '30', 'old']).optional(),
+  excludeIds: z.array(idSchema).max(MAX_ARCHIVED_BATCH).transform(uniqueIds).optional(),
 });
 
 export const archivedCardDetailSchema = z.object({
