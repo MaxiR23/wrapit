@@ -388,6 +388,34 @@ export function applyArchivedCardDetail(
 export const ARCHIVED_DEFAULT_RANGE: ArchivedDateRange = 'all';
 export const ARCHIVED_DEFAULT_SORT: ArchivedSort = 'date';
 
+export type ArchivedListFilter = {
+  query: string;
+  range: ArchivedDateRange;
+  sort: ArchivedSort;
+};
+
+export const ARCHIVED_DEFAULT_LIST_FILTER: ArchivedListFilter = {
+  query: '',
+  range: ARCHIVED_DEFAULT_RANGE,
+  sort: ARCHIVED_DEFAULT_SORT,
+};
+
+export function archivedListFilter(
+  query: string,
+  range: ArchivedDateRange,
+  sort: ArchivedSort,
+): ArchivedListFilter {
+  return { query, range, sort };
+}
+
+/** Request identity: the strings sent to the list actions, not trimmed search. */
+export function archivedListFiltersEqual(
+  left: ArchivedListFilter,
+  right: ArchivedListFilter,
+): boolean {
+  return left.query === right.query && left.range === right.range && left.sort === right.sort;
+}
+
 /** True when query, range, and sort match the archived list's first-paint query. */
 export function archivedListIsDefault(
   query: string,

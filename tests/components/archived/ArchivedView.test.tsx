@@ -11,10 +11,21 @@
 // - Export opens a CSV/JSON dialog
 // - Exporting without opening a card writes description, comments, and subtask text
 // - A retained query on a paged list shows matching rows and the matching count
+// - After a filter change and before the first page, leftover rows and the count
+//   are dimmed and inert, View older is absent, and no empty state is shown
+// - Load more clicked before a filter change is discarded whether it arrives
+//   before or after the new first page; rows, count, and View older match the
+//   new filter
+// - A first page for a previous filter that resolves late changes nothing
+// - No results appears only after the server responds for the current filter
+// - A filter change closes open detail and resets swipe
+// - Selection, open, swipe, and row actions do nothing while pending
+// - A failed first page shows an inline error and Retry; retry loads the current
+//   filter and the list becomes live (error result and rejected promise)
 // - A load-more response that arrives after the filter changed is discarded
 // - A list response that started before a restore or delete does not reinsert
 //   the row or overwrite the count
-// - An in-flight query, range, or sort request discarded by restore or delete
+// - An in-flight first page discarded by Undo during a pending filter change
 //   is restarted after the mutation so the screen does not keep the previous
 //   filter's rows and total
 // - Restore removes the row, shows Undo only after success, and undo puts it back
@@ -29,8 +40,9 @@
 // What is covered:
 // - Empty states, filter-clears-selection, tab-bar offset on sticky chrome,
 //   MEMBER permissions, export dialog, deferred-detail export, retained search
-//   on a server-paged list, stale load-more after a filter change, restore undo
-//   timing, stale-failure rollback, filter refetch after mutation invalidation,
+//   on a server-paged list, pending leftover list bound to its filter, stale
+//   first page and load more, first-page error retry, restore undo timing,
+//   stale-failure rollback, filter refetch after mutation invalidation,
 //   in-flight load more
 //
 // Run with: pnpm test:run tests/components/archived/ArchivedView.test.tsx
@@ -43,6 +55,7 @@ import { render, screen, waitFor, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 
 import type { ArchivedProject, ArchivedTask } from '@/lib/archived';
+import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 
 const restoreArchivedCards = vi.fn();
 const rearchiveArchivedCards = vi.fn();
@@ -50,31 +63,53 @@ const deleteArchivedCards = vi.fn();
 const restoreArchivedProjects = vi.fn();
 const rearchiveArchivedProjects = vi.fn();
 const deleteArchivedProject = vi.fn();
-type ListArchivedCardsResult = {
-  data: {
-    cards: ArchivedTask[];
-    totalCount: number;
-    hasMore: boolean;
-    nextCursor: string | null;
-  };
+type ListArchivedCardsInput = {
+  projectId?: string;
+  query?: string;
+  range?: string;
+  sort?: string;
+  cursor?: string;
 };
-const listArchivedCards = vi.fn<(input?: { cursor?: string }) => Promise<ListArchivedCardsResult>>(
-  async () => ({
-    data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null },
-  }),
-);
-const listArchivedProjects = vi.fn(
-  async (): Promise<{
-    data: {
-      projects: ArchivedProject[];
-      totalCount: number;
-      hasMore: boolean;
-      nextCursor: string | null;
-    };
-  }> => ({
-    data: { projects: [], totalCount: 0, hasMore: false, nextCursor: null },
-  }),
-);
+type ListArchivedCardsResult =
+  | {
+      data: {
+        cards: ArchivedTask[];
+        totalCount: number;
+        hasMore: boolean;
+        nextCursor: string | null;
+      };
+    }
+  | { error: string };
+type ListArchivedProjectsInput = {
+  query?: string;
+  range?: string;
+  sort?: string;
+  cursor?: string;
+};
+type ListArchivedProjectsResult =
+  | {
+      data: {
+        projects: ArchivedProject[];
+        totalCount: number;
+        hasMore: boolean;
+        nextCursor: string | null;
+      };
+    }
+  | { error: string };
+type Held<T> = {
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+const listArchivedCards = vi.fn<
+  (input?: ListArchivedCardsInput) => Promise<ListArchivedCardsResult>
+>(async () => ({
+  data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null },
+}));
+const listArchivedProjects = vi.fn<
+  (input?: ListArchivedProjectsInput) => Promise<ListArchivedProjectsResult>
+>(async () => ({
+  data: { projects: [], totalCount: 0, hasMore: false, nextCursor: null },
+}));
 const getArchivedCardDetail = vi.fn(async () => ({ error: 'Unauthorized' as const }));
 const getArchivedProjectDetail = vi.fn(async () => ({ error: 'Unauthorized' as const }));
 const getArchivedCardsDetail = vi.fn(
@@ -183,6 +218,47 @@ function shownTitleOrder(titles: string[]) {
     order.push(title);
   }
   return order;
+}
+
+function holdCardPages() {
+  const first: Held<ListArchivedCardsResult>[] = [];
+  const older: Held<ListArchivedCardsResult>[] = [];
+  listArchivedCards.mockImplementation(async (input) => {
+    if (input?.cursor) {
+      return new Promise<ListArchivedCardsResult>((resolve, reject) => {
+        older.push({ resolve, reject });
+      });
+    }
+    return new Promise<ListArchivedCardsResult>((resolve, reject) => {
+      first.push({ resolve, reject });
+    });
+  });
+  return { first, older };
+}
+
+function holdProjectPages() {
+  const first: Held<ListArchivedProjectsResult>[] = [];
+  const older: Held<ListArchivedProjectsResult>[] = [];
+  listArchivedProjects.mockImplementation(async (input) => {
+    if (input?.cursor) {
+      return new Promise<ListArchivedProjectsResult>((resolve, reject) => {
+        older.push({ resolve, reject });
+      });
+    }
+    return new Promise<ListArchivedProjectsResult>((resolve, reject) => {
+      first.push({ resolve, reject });
+    });
+  });
+  return { first, older };
+}
+
+function expectPendingArchivedList(countLabel: string, rowTitle: string) {
+  const count = screen.getByText(countLabel);
+  expect(count.closest('[aria-busy="true"]')).not.toBeNull();
+  expect(count.closest('.opacity-60')).not.toBeNull();
+  expect(archivedRow(rowTitle).closest('.opacity-60')).not.toBeNull();
+  expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  expect(screen.queryByText('No results')).not.toBeInTheDocument();
 }
 
 describe('ArchivedView', () => {
@@ -392,18 +468,179 @@ describe('ArchivedView', () => {
     expect(screen.queryByText('Ship the grid')).not.toBeInTheDocument();
   });
 
-  it('discards a load-more response that arrives after the filter changed', async () => {
+  it('dims leftover rows and the count after a filter change until the first page arrives', async () => {
+    const user = userEvent.setup();
+    const { first } = holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+    expect(screen.getAllByText('Ship the grid').length).toBeGreaterThan(0);
+
+    first[0]!.resolve({
+      data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('1 archived task')).toBeInTheDocument();
+    expect(screen.getByText('1 archived task').closest('[aria-busy="true"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('does not select, open, swipe, or restore leftover rows while the new filter is pending', async () => {
+    const user = userEvent.setup();
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    HTMLElement.prototype.releasePointerCapture = vi.fn();
+    HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
+    holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(listArchivedCards).toHaveBeenCalled();
+    });
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+
+    await user.click(
+      within(archivedRow('Write tests')).getAllByRole('button', { name: 'Restore' })[0]!,
+    );
+    expect(restoreArchivedCards).not.toHaveBeenCalled();
+    await user.click(within(archivedRow('Write tests')).getByLabelText('Select Write tests'));
+    expect(screen.queryByText('1 task selected')).not.toBeInTheDocument();
+    await user.click(archivedRow('Write tests'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(archivedRow('Write tests'), { pointerId: 1, clientX: 40, clientY: 10 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 120, clientY: 10 });
+    expect(archivedRow('Write tests')).toHaveStyle({ transform: 'none' });
+  });
+
+  it('closes open detail and resets swipe when the filter changes', async () => {
+    const user = userEvent.setup();
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    HTMLElement.prototype.releasePointerCapture = vi.fn();
+    HTMLElement.prototype.hasPointerCapture = vi.fn(() => false);
+    holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        canAdminister
+      />,
+    );
+
+    await user.click(archivedRow('Write tests'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    fireEvent.pointerDown(archivedRow('Write tests'), { pointerId: 1, clientX: 40, clientY: 10 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 100, clientY: 10 });
+    expect(archivedRow('Write tests')).toHaveStyle({ transform: 'translateX(60px)' });
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(archivedRow('Write tests')).toHaveStyle({ transform: 'none' });
+  });
+
+  it('shows No results only after the current filter first page is empty', async () => {
+    const user = userEvent.setup();
+    const { first } = holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[]}
+        initialTotalCount={0}
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expect(screen.queryByText('No results')).not.toBeInTheDocument();
+    expect(screen.getByText('0 archived tasks').closest('[aria-busy="true"]')).not.toBeNull();
+
+    first[0]!.resolve({
+      data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('No results')).toBeInTheDocument();
+    expect(
+      screen.getByText('No archived item matches the search and date range.'),
+    ).toBeInTheDocument();
+  });
+
+  it('ignores a previous-filter first page that resolves after a later filter change', async () => {
+    const user = userEvent.setup();
+    const pages: Array<{ range?: string; held: Held<ListArchivedCardsResult> }> = [];
+    listArchivedCards.mockImplementation(async (input) => {
+      return new Promise<ListArchivedCardsResult>((resolve, reject) => {
+        pages.push({ range: input?.range, held: { resolve, reject } });
+      });
+    });
+    const seven: ArchivedTask = { ...card, id: 'card-7', title: 'Seven only', code: 'SB-7' };
+    const thirty: ArchivedTask = { ...card, id: 'card-30', title: 'Thirty only', code: 'SB-30' };
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await user.click(screen.getByRole('button', { name: /Last 30 days/ }));
+    await waitFor(() => {
+      expect(pages.map((page) => page.range)).toEqual(['7', '30']);
+    });
+
+    pages[0]!.held.resolve({
+      data: { cards: [seven], totalCount: 99, hasMore: true, nextCursor: 'stale-7' },
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Seven only')).not.toBeInTheDocument();
+    });
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+    expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
+
+    pages[1]!.held.resolve({
+      data: { cards: [thirty], totalCount: 2, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findAllByText('Thirty only')).not.toHaveLength(0);
+    expect(screen.getByText('2 archived tasks')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
+  });
+
+  it('discards a load-more response that arrives after the new first page', async () => {
     const user = userEvent.setup();
     const older: ArchivedTask = { ...other, id: 'card-3', title: 'Ancient work', code: 'SB-3' };
-    const olderResolves: Array<(value: ListArchivedCardsResult) => void> = [];
-    listArchivedCards.mockImplementation(async (input) => {
-      if (input?.cursor) {
-        return new Promise<ListArchivedCardsResult>((resolve) => {
-          olderResolves.push(resolve);
-        });
-      }
-      return { data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null } };
-    });
+    const { first, older: olderPages } = holdCardPages();
     renderView(
       <ArchivedView
         projectId="project-1"
@@ -418,21 +655,117 @@ describe('ArchivedView', () => {
 
     await user.click(screen.getByRole('button', { name: 'View older' }));
     await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+      expect(olderPages).toHaveLength(1);
+    });
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+
+    first[0]!.resolve({
+      data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null },
+    });
     expect(await screen.findByText('1 archived task')).toBeInTheDocument();
     expect(screen.queryByText('Ship the grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(olderResolves).toHaveLength(1);
+    olderPages[0]!.resolve({
+      data: { cards: [older], totalCount: 99, hasMore: true, nextCursor: 'cursor-stale' },
     });
-    olderResolves[0]!({
-      data: { cards: [older], totalCount: 99, hasMore: false, nextCursor: null },
-    });
-
     await waitFor(() => {
       expect(screen.queryAllByText('Ancient work')).toHaveLength(0);
     });
     expect(screen.getByText('1 archived task')).toBeInTheDocument();
     expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('discards a load-more response that arrives before the new first page', async () => {
+    const user = userEvent.setup();
+    const older: ArchivedTask = { ...other, id: 'card-3', title: 'Ancient work', code: 'SB-3' };
+    const { first, older: olderPages } = holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View older' }));
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+      expect(olderPages).toHaveLength(1);
+    });
+
+    olderPages[0]!.resolve({
+      data: { cards: [older], totalCount: 99, hasMore: true, nextCursor: 'cursor-stale' },
+    });
+    await waitFor(() => {
+      expect(screen.queryAllByText('Ancient work')).toHaveLength(0);
+    });
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+    expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
+
+    first[0]!.resolve({
+      data: { cards: [card], totalCount: 1, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('1 archived task')).toBeInTheDocument();
+    expect(screen.queryByText('Ship the grid')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('shows a retry control when the first page returns an error and retry loads the current filter', async () => {
+    const user = userEvent.setup();
+    const first: Held<ListArchivedCardsResult>[] = [];
+    listArchivedCards.mockImplementation(async (input) => {
+      if (input?.cursor) {
+        return { data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null } };
+      }
+      if (first.length === 0) {
+        return new Promise<ListArchivedCardsResult>((resolve, reject) => {
+          first.push({ resolve, reject });
+        });
+      }
+      return { data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null } };
+    });
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+        canAdminister
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    first[0]!.resolve({ error: 'Unauthorized' });
+    expect(await screen.findByRole('alert')).toHaveTextContent(GENERIC_ERROR_MESSAGE);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expectPendingArchivedList('4 archived tasks', 'Write tests');
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+
+    await user.click(
+      within(archivedRow('Write tests')).getAllByRole('button', { name: 'Restore' })[0]!,
+    );
+    expect(restoreArchivedCards).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('1 archived task')).toBeInTheDocument();
+    expect(screen.getAllByText('Ship the grid').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('1 archived task').closest('[aria-busy="true"]')).toBeNull();
   });
 
   it('does not reinsert a restored row or overwrite the count from a list that started before restore', async () => {
@@ -525,22 +858,11 @@ describe('ArchivedView', () => {
     expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
   });
 
-  it('refetches the current filter after restore discards an in-flight list request', async () => {
+  it('keeps an optimistic restore on leftover rows while the new filter is pending', async () => {
     const user = userEvent.setup();
-    const firstPageResolves: Array<(value: ListArchivedCardsResult) => void> = [];
+    const { first } = holdCardPages();
     const restoreResolves: Array<(value: { data: { ids: string[]; undoToken: string } }) => void> =
       [];
-    listArchivedCards.mockImplementation(async (input) => {
-      if (input?.cursor) {
-        return { data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null } };
-      }
-      if (firstPageResolves.length === 0) {
-        return new Promise<ListArchivedCardsResult>((resolve) => {
-          firstPageResolves.push(resolve);
-        });
-      }
-      return { data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null } };
-    });
     restoreArchivedCards.mockImplementation(
       () =>
         new Promise<{ data: { ids: string[]; undoToken: string } }>((resolve) => {
@@ -557,53 +879,69 @@ describe('ArchivedView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
-    await waitFor(() => {
-      expect(firstPageResolves).toHaveLength(1);
-    });
-    expect(screen.getAllByText('Write tests').length).toBeGreaterThan(0);
-    expect(screen.getByText('4 archived tasks')).toBeInTheDocument();
-
     await user.click(
       within(archivedRow('Write tests')).getAllByRole('button', { name: 'Restore' })[0]!,
     );
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
     expect(screen.getByText('3 archived tasks')).toBeInTheDocument();
 
-    firstPageResolves[0]!({
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expectPendingArchivedList('3 archived tasks', 'Ship the grid');
+    expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
+    restoreResolves[0]!({ data: { ids: ['card-1'], undoToken: 'undo-1' } });
+  });
+
+  it('discards an in-flight first page when Undo runs during a pending filter change', async () => {
+    const user = userEvent.setup();
+    const { first } = holdCardPages();
+    renderView(
+      <ArchivedView
+        projectId="project-1"
+        projectTitle="Sprint board"
+        initialCards={[card, other]}
+        initialTotalCount={4}
+        canAdminister
+      />,
+    );
+
+    await user.click(
+      within(archivedRow('Write tests')).getAllByRole('button', { name: 'Restore' })[0]!,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expectPendingArchivedList('3 archived tasks', 'Ship the grid');
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    first[0]!.resolve({
       data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
     });
     await waitFor(() => {
       expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
     });
-    expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
-    expect(screen.getByText('3 archived tasks')).toBeInTheDocument();
-    expect(listArchivedCards).toHaveBeenCalledTimes(1);
-
-    restoreResolves[0]!({ data: { ids: ['card-1'], undoToken: 'undo-1' } });
     await waitFor(() => {
-      expect(listArchivedCards).toHaveBeenCalledTimes(2);
+      expect(first).toHaveLength(2);
+    });
+    first[1]!.resolve({
+      data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null },
     });
     expect(await screen.findByText('1 archived task')).toBeInTheDocument();
     expect(screen.getAllByText('Ship the grid').length).toBeGreaterThan(0);
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
   });
 
-  it('refetches the current filter after delete discards an in-flight list request', async () => {
+  it('keeps an optimistic delete on leftover rows while the new filter is pending', async () => {
     const user = userEvent.setup();
-    const firstPageResolves: Array<(value: ListArchivedCardsResult) => void> = [];
+    const { first } = holdCardPages();
     const deleteResolves: Array<(value: { data: { ids: string[] } }) => void> = [];
-    listArchivedCards.mockImplementation(async (input) => {
-      if (input?.cursor) {
-        return { data: { cards: [], totalCount: 0, hasMore: false, nextCursor: null } };
-      }
-      if (firstPageResolves.length === 0) {
-        return new Promise<ListArchivedCardsResult>((resolve) => {
-          firstPageResolves.push(resolve);
-        });
-      }
-      return { data: { cards: [other], totalCount: 1, hasMore: false, nextCursor: null } };
-    });
     deleteArchivedCards.mockImplementation(
       () =>
         new Promise<{ data: { ids: string[] } }>((resolve) => {
@@ -620,11 +958,6 @@ describe('ArchivedView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
-    await waitFor(() => {
-      expect(firstPageResolves).toHaveLength(1);
-    });
-
     await user.click(
       within(archivedRow('Write tests')).getAllByRole('button', { name: 'Delete permanently' })[0]!,
     );
@@ -633,21 +966,13 @@ describe('ArchivedView', () => {
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
     expect(screen.getByText('3 archived tasks')).toBeInTheDocument();
 
-    firstPageResolves[0]!({
-      data: { cards: [card], totalCount: 99, hasMore: false, nextCursor: null },
-    });
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
     await waitFor(() => {
-      expect(screen.queryByText('99 archived tasks')).not.toBeInTheDocument();
+      expect(first).toHaveLength(1);
     });
-    expect(listArchivedCards).toHaveBeenCalledTimes(1);
-
-    deleteResolves[0]!({ data: { ids: ['card-1'] } });
-    await waitFor(() => {
-      expect(listArchivedCards).toHaveBeenCalledTimes(2);
-    });
-    expect(await screen.findByText('1 archived task')).toBeInTheDocument();
-    expect(screen.getAllByText('Ship the grid').length).toBeGreaterThan(0);
+    expectPendingArchivedList('3 archived tasks', 'Ship the grid');
     expect(screen.queryByText('Write tests')).not.toBeInTheDocument();
+    deleteResolves[0]!({ data: { ids: ['card-1'] } });
   });
 
   it('restores a task and undoes from the toast', async () => {
@@ -967,6 +1292,12 @@ const archivedProject: ArchivedProject = {
   canAdminister: true,
 };
 
+const olderArchivedProject: ArchivedProject = {
+  ...archivedProject,
+  id: 'project-2',
+  title: 'Older board',
+};
+
 describe('ArchivedView projects scope', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1075,5 +1406,234 @@ describe('ArchivedView projects scope', () => {
       expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
     });
     expect(listArchivedProjects).toHaveBeenCalledTimes(1);
+  });
+
+  it('dims leftover rows and the count after a filter change until the first page arrives', async () => {
+    const user = userEvent.setup();
+    const { first } = holdProjectPages();
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject, olderArchivedProject]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+    expect(screen.getAllByText('Older board').length).toBeGreaterThan(0);
+
+    first[0]!.resolve({
+      data: { projects: [archivedProject], totalCount: 1, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('1 archived project')).toBeInTheDocument();
+    expect(screen.getByText('1 archived project').closest('[aria-busy="true"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('does not restore leftover projects while the new filter is pending', async () => {
+    const user = userEvent.setup();
+    holdProjectPages();
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(listArchivedProjects).toHaveBeenCalled();
+    });
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+    await user.click(
+      within(archivedRow('Sprint board')).getAllByRole('button', { name: 'Restore' })[0]!,
+    );
+    expect(restoreArchivedProjects).not.toHaveBeenCalled();
+    await user.click(archivedRow('Sprint board'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows No results only after the current filter first page is empty', async () => {
+    const user = userEvent.setup();
+    const { first } = holdProjectPages();
+    renderView(<ArchivedView initialProjects={[]} initialTotalCount={0} />);
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    expect(screen.queryByText('No results')).not.toBeInTheDocument();
+    expect(screen.getByText('0 archived projects').closest('[aria-busy="true"]')).not.toBeNull();
+
+    first[0]!.resolve({
+      data: { projects: [], totalCount: 0, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('No results')).toBeInTheDocument();
+  });
+
+  it('ignores a previous-filter first page that resolves after a later filter change', async () => {
+    const user = userEvent.setup();
+    const pages: Array<{ range?: string; held: Held<ListArchivedProjectsResult> }> = [];
+    listArchivedProjects.mockImplementation(async (input) => {
+      return new Promise<ListArchivedProjectsResult>((resolve, reject) => {
+        pages.push({ range: input?.range, held: { resolve, reject } });
+      });
+    });
+    const seven: ArchivedProject = { ...archivedProject, id: 'project-7', title: 'Seven only' };
+    const thirty: ArchivedProject = { ...archivedProject, id: 'project-30', title: 'Thirty only' };
+    renderView(<ArchivedView initialProjects={[archivedProject]} initialTotalCount={4} />);
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await user.click(screen.getByRole('button', { name: /Last 30 days/ }));
+    await waitFor(() => {
+      expect(pages.map((page) => page.range)).toEqual(['7', '30']);
+    });
+
+    pages[0]!.held.resolve({
+      data: { projects: [seven], totalCount: 99, hasMore: true, nextCursor: 'stale-7' },
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('Seven only')).not.toBeInTheDocument();
+    });
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+
+    pages[1]!.held.resolve({
+      data: { projects: [thirty], totalCount: 2, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findAllByText('Thirty only')).not.toHaveLength(0);
+    expect(screen.getByText('2 archived projects')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('discards a load-more response that arrives after the new first page', async () => {
+    const user = userEvent.setup();
+    const { first, older } = holdProjectPages();
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View older' }));
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+      expect(older).toHaveLength(1);
+    });
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+
+    first[0]!.resolve({
+      data: { projects: [archivedProject], totalCount: 1, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('1 archived project')).toBeInTheDocument();
+
+    older[0]!.resolve({
+      data: {
+        projects: [olderArchivedProject],
+        totalCount: 99,
+        hasMore: true,
+        nextCursor: 'cursor-stale',
+      },
+    });
+    await waitFor(() => {
+      expect(screen.queryAllByText('Older board')).toHaveLength(0);
+    });
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+    expect(screen.queryByText('99 archived projects')).not.toBeInTheDocument();
+  });
+
+  it('discards a load-more response that arrives before the new first page', async () => {
+    const user = userEvent.setup();
+    const { first, older } = holdProjectPages();
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View older' }));
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+      expect(older).toHaveLength(1);
+    });
+
+    older[0]!.resolve({
+      data: {
+        projects: [olderArchivedProject],
+        totalCount: 99,
+        hasMore: true,
+        nextCursor: 'cursor-stale',
+      },
+    });
+    await waitFor(() => {
+      expect(screen.queryAllByText('Older board')).toHaveLength(0);
+    });
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+
+    first[0]!.resolve({
+      data: { projects: [archivedProject], totalCount: 1, hasMore: false, nextCursor: null },
+    });
+    expect(await screen.findByText('1 archived project')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View older' })).not.toBeInTheDocument();
+  });
+
+  it('shows a retry control when the first page rejects and retry loads the current filter', async () => {
+    const user = userEvent.setup();
+    const first: Held<ListArchivedProjectsResult>[] = [];
+    listArchivedProjects.mockImplementation(async (input) => {
+      if (input?.cursor) {
+        return { data: { projects: [], totalCount: 0, hasMore: false, nextCursor: null } };
+      }
+      if (first.length === 0) {
+        return new Promise<ListArchivedProjectsResult>((resolve, reject) => {
+          first.push({ resolve, reject });
+        });
+      }
+      return {
+        data: { projects: [olderArchivedProject], totalCount: 1, hasMore: false, nextCursor: null },
+      };
+    });
+    renderView(
+      <ArchivedView
+        initialProjects={[archivedProject]}
+        initialTotalCount={4}
+        initialHasMore
+        initialNextCursor="cursor-page-1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /Last 7 days/ }));
+    await waitFor(() => {
+      expect(first).toHaveLength(1);
+    });
+    first[0]!.reject(new Error('network'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(GENERIC_ERROR_MESSAGE);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expectPendingArchivedList('4 archived projects', 'Sprint board');
+
+    await user.click(
+      within(archivedRow('Sprint board')).getAllByRole('button', { name: 'Restore' })[0]!,
+    );
+    expect(restoreArchivedProjects).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('1 archived project')).toBeInTheDocument();
+    expect(screen.getAllByText('Older board').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('1 archived project').closest('[aria-busy="true"]')).toBeNull();
   });
 });

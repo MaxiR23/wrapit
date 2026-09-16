@@ -15,11 +15,13 @@
 // - Selected archived cards load description, comment bodies, authors, and subtask text
 // - Sets canAdminister from the viewer's membership role
 // - Rollback inserts restored rows in the active sort order
+// - List filters compare query, range, and sort as requested, without trimming
 //
 // What is covered:
 // - Query isolation, assembly, filters, sort, keyset page, insert-ahead hasMore,
 //   volume slice, copy,
-//   deferred detail, viewer canAdminister from membership role, ordered insert
+//   deferred detail, viewer canAdminister from membership role, ordered insert,
+//   list-filter identity
 //
 // Run with: pnpm test:run tests/lib/archived.test.ts
 //
@@ -43,6 +45,8 @@ const {
   archivedEmptyCopy,
   archivedTaskDetailLine,
   filterArchivedTasks,
+  archivedListFilter,
+  archivedListFiltersEqual,
   insertArchivedTasks,
   matchesArchivedSearch,
   sliceArchivedTasks,
@@ -567,5 +571,13 @@ describe('archived helpers', () => {
       shown: items.slice(0, ARCHIVED_PAGE_SIZE),
       remaining: 3,
     });
+  });
+
+  it('treats list filters as equal only when query, range, and sort match as requested', () => {
+    const base = archivedListFilter('grid', '7', 'date');
+    expect(archivedListFiltersEqual(base, archivedListFilter('grid', '7', 'date'))).toBe(true);
+    expect(archivedListFiltersEqual(base, archivedListFilter(' grid', '7', 'date'))).toBe(false);
+    expect(archivedListFiltersEqual(base, archivedListFilter('grid', '30', 'date'))).toBe(false);
+    expect(archivedListFiltersEqual(base, archivedListFilter('grid', '7', 'name'))).toBe(false);
   });
 });
