@@ -473,13 +473,19 @@ from fetching one row beyond the page size; `nextCursor` is an opaque string
 the server encodes from the last returned row and the active order. The client
 stores those fields and echoes the cursor; it does not compute remaining from
 `totalCount` and does not build a cursor. `totalCount` is the subtitle only.
-The first page
-and load-more share one epoch so a response from a previous filter cannot
-append rows or overwrite `totalCount`, `hasMore`, or `nextCursor`. Restore and delete advance that epoch so
-a list request that started before the mutation cannot reinsert a removed row
-or restore the old count. When that discarded request was the current
-query/range/sort first page, the list refetches after the mutation settles so
-the screen does not keep the previous filter's rows and total. Failed restore
+The on-screen page is valid only for the filter it was fetched with
+(`query`, `range`, `sort`). While that stamp differs from the current
+controls, leftover rows and the count stay visible but pending: dimmed,
+inert, `aria-busy`, no empty state, and no View older. A first-page
+`{ error }` or rejected promise keeps that pending list and shows an inline
+retry in place of View older; retry bumps the existing list-generation
+refetch. Apply requires the list epoch **and** the requested filter to still
+be current. First page and load-more still share one epoch so restore and
+delete can discard an overlapping request; they advance that epoch so a list
+that started before the mutation cannot reinsert a removed row or restore
+the old count. When that discarded request was the current query/range/sort
+first page, the list refetches after the mutation settles so the screen does
+not keep the previous filter's rows and total. Failed restore
 and Undo insert rows with the same
 comparator as that sort, so a paged screen does not leave the row at the end
 until reload. `router.refresh` does not reinitialise client list state.

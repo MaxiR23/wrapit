@@ -11,6 +11,7 @@ export const archivedCopy = {
   clearFilters: 'Clear filters',
   loadOlder: (remaining: number) => `View older (${remaining})`,
   loadMore: 'View older',
+  retry: 'Retry',
   restore: 'Restore',
   export: 'Export',
   delete: 'Delete permanently',

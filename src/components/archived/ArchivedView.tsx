@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpDown, Clock, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -29,10 +29,13 @@ import BoardToast, { type BoardToastMessage } from '@/components/projects/BoardT
 import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
+  ARCHIVED_DEFAULT_LIST_FILTER,
   ARCHIVED_PAGE_SIZE,
   ARCHIVED_PROJECTS_EMPTY,
   applyArchivedCardDetail,
   archivedCountLabel,
+  archivedListFilter,
+  archivedListFiltersEqual,
   archivedListIsDefault,
   archivedPhoneSelectedLabel,
   archivedProjectCountLabel,
@@ -46,6 +49,7 @@ import {
   reviveArchivedTask,
   sliceArchivedTasks,
   type ArchivedDateRange,
+  type ArchivedListFilter,
   type ArchivedProject,
   type ArchivedSort,
   type ArchivedTask,
@@ -147,6 +151,8 @@ export default function ArchivedView({
   const [totalCount, setTotalCount] = useState(initialTotalCount ?? 0);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [listFilter, setListFilter] = useState<ArchivedListFilter>(ARCHIVED_DEFAULT_LIST_FILTER);
+  const [listError, setListError] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -167,7 +173,17 @@ export default function ArchivedView({
     setLimit(ARCHIVED_PAGE_SIZE);
     setSelectedIds([]);
     setSelectionMode(false);
+    setOpenId(null);
+    setSwipe(null);
   }
+
+  const currentFilter = archivedListFilter(query, range, sort);
+  const currentFilterRef = useRef(currentFilter);
+  useLayoutEffect(() => {
+    currentFilterRef.current = currentFilter;
+  });
+  const listPending = paged && !archivedListFiltersEqual(listFilter, currentFilter);
+  const rowLive = !listPending;
 
   const filteredCards = useMemo(
     () => (paged ? cards : filterArchivedTasks(cards, { query, range, sort, now })),
@@ -199,32 +215,57 @@ export default function ArchivedView({
       skipNextListFetch.current = false;
       return;
     }
+    const requested = archivedListFilter(query, range, sort);
     const epoch = ++listEpochRef.current;
     filterFetchInFlightRef.current = true;
+    setListError(false);
+
+    function requestIsCurrent(): boolean {
+      return (
+        epoch === listEpochRef.current &&
+        archivedListFiltersEqual(requested, currentFilterRef.current)
+      );
+    }
+
+    function failFirstPage() {
+      if (!requestIsCurrent()) return;
+      filterFetchInFlightRef.current = false;
+      setListError(true);
+    }
+
     void (
       isProjects
         ? listArchivedProjects({ query, range, sort })
         : projectId
           ? listArchivedCards({ projectId, query, range, sort })
           : Promise.resolve({ error: 'Unauthorized' as const })
-    ).then((result) => {
-      if (epoch !== listEpochRef.current) return;
-      filterFetchInFlightRef.current = false;
-      if ('error' in result) return;
-      if (isProjects && hasArchivedProjects(result.data)) {
-        setProjects(result.data.projects.map(reviveArchivedProject));
-        setTotalCount(result.data.totalCount);
-        setHasMore(result.data.hasMore);
-        setNextCursor(result.data.nextCursor);
-        return;
-      }
-      if (!isProjects && hasArchivedCards(result.data)) {
-        setCards(result.data.cards.map(reviveArchivedTask));
-        setTotalCount(result.data.totalCount);
-        setHasMore(result.data.hasMore);
-        setNextCursor(result.data.nextCursor);
-      }
-    });
+    )
+      .then((result) => {
+        if (!requestIsCurrent()) return;
+        filterFetchInFlightRef.current = false;
+        if ('error' in result) {
+          setListError(true);
+          return;
+        }
+        setListError(false);
+        setListFilter(requested);
+        if (isProjects && hasArchivedProjects(result.data)) {
+          setProjects(result.data.projects.map(reviveArchivedProject));
+          setTotalCount(result.data.totalCount);
+          setHasMore(result.data.hasMore);
+          setNextCursor(result.data.nextCursor);
+          return;
+        }
+        if (!isProjects && hasArchivedCards(result.data)) {
+          setCards(result.data.cards.map(reviveArchivedTask));
+          setTotalCount(result.data.totalCount);
+          setHasMore(result.data.hasMore);
+          setNextCursor(result.data.nextCursor);
+        }
+      })
+      .catch(() => {
+        failFirstPage();
+      });
     return () => {
       filterFetchInFlightRef.current = false;
       if (listEpochRef.current === epoch) {
@@ -278,7 +319,8 @@ export default function ArchivedView({
       setLimit((current) => current + ARCHIVED_PAGE_SIZE);
       return;
     }
-    if (!cursor) return;
+    if (listPending || !cursor) return;
+    const requested = archivedListFilter(query, range, sort);
     const epoch = listEpochRef.current;
     const result = isProjects
       ? await listArchivedProjects({ query, range, sort, cursor })
@@ -292,6 +334,7 @@ export default function ArchivedView({
           })
         : { error: 'Unauthorized' as const };
     if (epoch !== listEpochRef.current || 'error' in result) return;
+    if (!archivedListFiltersEqual(requested, currentFilterRef.current)) return;
     if (isProjects && hasArchivedProjects(result.data)) {
       const nextProjects = result.data.projects;
       const nextTotal = result.data.totalCount;
@@ -332,12 +375,16 @@ export default function ArchivedView({
     setRange(next);
     setLimit(ARCHIVED_PAGE_SIZE);
     clearSelection();
+    setOpenId(null);
+    setSwipe(null);
   }
 
   function toggleSort() {
     setSort((current) => (current === 'date' ? 'name' : 'date'));
     setLimit(ARCHIVED_PAGE_SIZE);
     clearSelection();
+    setOpenId(null);
+    setSwipe(null);
   }
 
   function onSearchChange(value: string) {
@@ -633,7 +680,7 @@ export default function ArchivedView({
       : null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4" aria-busy={listPending || undefined}>
       <ScreenHeader
         breadcrumb={
           <>
@@ -670,7 +717,7 @@ export default function ArchivedView({
           </>
         }
         title={archivedCopy.title}
-        subtitle={countLabel}
+        subtitle={<span className={cn(listPending && 'opacity-60')}>{countLabel}</span>}
       >
         <div className="hidden items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-[11px] lg:flex">
           <Clock className="size-[15px] shrink-0 text-subtle" strokeWidth={1.5} />
@@ -822,7 +869,7 @@ export default function ArchivedView({
         </div>
       ) : null}
 
-      {shown.length === 0 ? (
+      {shown.length === 0 && !listPending ? (
         <ArchivedEmptyState
           projectTitle={projectTitle}
           filtered={filtersOn}
@@ -832,14 +879,25 @@ export default function ArchivedView({
             changeRange('all');
           }}
         />
-      ) : (
-        <div className="overflow-hidden rounded-md border border-border bg-card">
+      ) : shown.length === 0 ? null : (
+        <div
+          inert={listPending || undefined}
+          className={cn(
+            'overflow-hidden rounded-md border border-border bg-card',
+            listPending && 'opacity-60',
+          )}
+        >
           <div className="hidden grid-cols-[30px_minmax(0,1fr)_104px_88px_96px_120px_156px] gap-2.5 bg-surface px-4 py-[11px] text-[11px] font-semibold tracking-[0.05em] text-muted-foreground uppercase lg:grid">
             <input
               type="checkbox"
               checked={allShownSelected}
+              disabled={listPending}
               aria-label={archivedCopy.selectAll}
-              onChange={() => setSelectedIds(allShownSelected ? [] : shown.map((item) => item.id))}
+              onChange={() =>
+                rowLive
+                  ? setSelectedIds(allShownSelected ? [] : shown.map((item) => item.id))
+                  : undefined
+              }
               className="size-[17px] rounded-xs border border-border-strong accent-foreground"
             />
             {isProjects ? (
@@ -869,18 +927,24 @@ export default function ArchivedView({
                 project={isProjects ? (item as ArchivedProject) : undefined}
                 selected={selectedIds.includes(item.id)}
                 selectionMode={selectionMode}
-                swipeEnabled
+                swipeEnabled={rowLive}
                 canAdminister={isProjects ? (item as ArchivedProject).canAdminister : canAdminister}
-                dx={swipe?.id === item.id ? swipe.dx : 0}
-                tween={swipe?.id === item.id ? swipe.tween : false}
-                onOpen={() => setOpenId(item.id)}
-                onToggleSelect={() => toggleSelected(item.id)}
-                onRestore={() => void runRestore([item.id])}
-                onExport={() => setExportIds([item.id])}
-                onDelete={() => setPendingDeleteIds([item.id])}
-                onLongPress={() => enterSelection(item.id)}
-                onSwipeChange={(dx) => setSwipe({ id: item.id, dx, tween: false })}
-                onSwipeEnd={(dx) => setSwipe(dx === 0 ? null : { id: item.id, dx, tween: true })}
+                dx={rowLive && swipe?.id === item.id ? swipe.dx : 0}
+                tween={rowLive && swipe?.id === item.id ? swipe.tween : false}
+                onOpen={rowLive ? () => setOpenId(item.id) : () => {}}
+                onToggleSelect={rowLive ? () => toggleSelected(item.id) : () => {}}
+                onRestore={rowLive ? () => void runRestore([item.id]) : () => {}}
+                onExport={rowLive ? () => setExportIds([item.id]) : () => {}}
+                onDelete={rowLive ? () => setPendingDeleteIds([item.id]) : () => {}}
+                onLongPress={rowLive ? () => enterSelection(item.id) : () => {}}
+                onSwipeChange={
+                  rowLive ? (dx) => setSwipe({ id: item.id, dx, tween: false }) : () => {}
+                }
+                onSwipeEnd={
+                  rowLive
+                    ? (dx) => setSwipe(dx === 0 ? null : { id: item.id, dx, tween: true })
+                    : () => {}
+                }
               />
             ))}
           </div>
@@ -896,12 +960,12 @@ export default function ArchivedView({
                 canAdminister={isProjects ? (item as ArchivedProject).canAdminister : canAdminister}
                 dx={0}
                 tween={false}
-                onOpen={() => setOpenId(item.id)}
-                onToggleSelect={() => toggleSelected(item.id)}
-                onRestore={() => void runRestore([item.id])}
-                onExport={() => setExportIds([item.id])}
-                onDelete={() => setPendingDeleteIds([item.id])}
-                onLongPress={() => enterSelection(item.id)}
+                onOpen={rowLive ? () => setOpenId(item.id) : () => {}}
+                onToggleSelect={rowLive ? () => toggleSelected(item.id) : () => {}}
+                onRestore={rowLive ? () => void runRestore([item.id]) : () => {}}
+                onExport={rowLive ? () => setExportIds([item.id]) : () => {}}
+                onDelete={rowLive ? () => setPendingDeleteIds([item.id]) : () => {}}
+                onLongPress={rowLive ? () => enterSelection(item.id) : () => {}}
                 onSwipeChange={() => {}}
                 onSwipeEnd={() => {}}
               />
@@ -910,7 +974,23 @@ export default function ArchivedView({
         </div>
       )}
 
-      {paged ? (
+      {paged && listPending && listError ? (
+        <div className="flex flex-col items-center gap-2">
+          <p role="alert" className="text-sm text-destructive">
+            {GENERIC_ERROR_MESSAGE}
+          </p>
+          <button
+            type="button"
+            onClick={() => setListGeneration((current) => current + 1)}
+            className={cn(
+              shellFocusClassName,
+              'h-11 w-full rounded-md border border-border bg-surface text-[13px] font-medium tablet:mx-auto tablet:w-auto tablet:px-5',
+            )}
+          >
+            {archivedCopy.retry}
+          </button>
+        </div>
+      ) : paged && !listPending ? (
         <LoadMore
           hasMore={hasMore}
           nextCursor={nextCursor}
