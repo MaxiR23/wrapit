@@ -66,6 +66,8 @@ function matchesValue(actual: unknown, condition: unknown): boolean {
         return !matchesValue(actual, expected);
       case 'in':
         return (expected as unknown[]).includes(actual);
+      case 'notIn':
+        return !(expected as unknown[]).includes(actual);
       case 'lt':
         return compareValues(actual, expected) < 0;
       case 'gt':
@@ -90,6 +92,7 @@ const SCALAR_WHERE_OPS = new Set([
   'equals',
   'not',
   'in',
+  'notIn',
   'lt',
   'gt',
   'lte',
@@ -370,6 +373,49 @@ function createModel(getRelated: (field: string, row: Row) => Row[] = () => []) 
 
 type ModelDelegate = ReturnType<typeof createModel>;
 
+function getRelatedFromModels(
+  models: Record<string, ModelDelegate>,
+  field: string,
+  row: Row,
+): Row[] {
+  switch (field) {
+    case 'project':
+      return (models.project?.rows ?? []).filter((project) => project.id === row.projectId);
+    case 'memberships':
+      return (models.membership?.rows ?? []).filter(
+        (membership) => membership.projectId === row.id,
+      );
+    case 'owner':
+      return (models.user?.rows ?? []).filter((user) => user.id === row.ownerId);
+    case 'statuses':
+      return (models.userStatus?.rows ?? []).filter((status) => status.userId === row.id);
+    case 'labels':
+      return (models.label?.rows ?? []).filter((label) => label.projectId === row.id);
+    case 'label':
+      return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
+    case 'card':
+      return (models.card?.rows ?? []).filter((card) => card.id === row.cardId);
+    case 'column':
+      return (models.column?.rows ?? []).filter((column) => column.id === row.columnId);
+    case 'assignees':
+      return (models.cardAssignee?.rows ?? []).filter((assignee) => assignee.cardId === row.id);
+    case 'subtasks':
+      return (models.subtask?.rows ?? []).filter((subtask) => subtask.cardId === row.id);
+    case 'comments':
+      return (models.comment?.rows ?? []).filter((comment) => comment.cardId === row.id);
+    case 'activityEvents':
+      return (models.activityEvent?.rows ?? []).filter((event) => event.projectId === row.id);
+    case 'actor':
+      return (models.user?.rows ?? []).filter((user) => user.id === row.actorId);
+    case 'restoreUndoTokens':
+      return (models.restoreUndoToken?.rows ?? []).filter(
+        (token) => token.projectId === row.id || token.userId === row.id,
+      );
+    default:
+      return [];
+  }
+}
+
 function countOpenAssignedCards(models: Record<string, ModelDelegate>, userId: string): number {
   const memberProjectIds = new Set(
     (models.membership?.rows ?? [])
@@ -431,44 +477,7 @@ function wrapModelForTransaction(model: ModelDelegate, takeSnapshot: () => void)
 export function createPrismaFake() {
   const models: Record<string, ModelDelegate> = {};
   const userRowLocks = new Map<string, Promise<void>>();
-  const getRelated = (field: string, row: Row): Row[] => {
-    switch (field) {
-      case 'project':
-        return (models.project?.rows ?? []).filter((project) => project.id === row.projectId);
-      case 'memberships':
-        return (models.membership?.rows ?? []).filter(
-          (membership) => membership.projectId === row.id,
-        );
-      case 'owner':
-        return (models.user?.rows ?? []).filter((user) => user.id === row.ownerId);
-      case 'statuses':
-        return (models.userStatus?.rows ?? []).filter((status) => status.userId === row.id);
-      case 'labels':
-        return (models.label?.rows ?? []).filter((label) => label.projectId === row.id);
-      case 'label':
-        return (models.label?.rows ?? []).filter((label) => label.id === row.labelId);
-      case 'card':
-        return (models.card?.rows ?? []).filter((card) => card.id === row.cardId);
-      case 'column':
-        return (models.column?.rows ?? []).filter((column) => column.id === row.columnId);
-      case 'assignees':
-        return (models.cardAssignee?.rows ?? []).filter((assignee) => assignee.cardId === row.id);
-      case 'subtasks':
-        return (models.subtask?.rows ?? []).filter((subtask) => subtask.cardId === row.id);
-      case 'comments':
-        return (models.comment?.rows ?? []).filter((comment) => comment.cardId === row.id);
-      case 'activityEvents':
-        return (models.activityEvent?.rows ?? []).filter((event) => event.projectId === row.id);
-      case 'actor':
-        return (models.user?.rows ?? []).filter((user) => user.id === row.actorId);
-      case 'restoreUndoTokens':
-        return (models.restoreUndoToken?.rows ?? []).filter(
-          (token) => token.projectId === row.id || token.userId === row.id,
-        );
-      default:
-        return [];
-    }
-  };
+  const getRelated = (field: string, row: Row): Row[] => getRelatedFromModels(models, field, row);
 
   async function acquireUserRowLock(userId: string): Promise<() => void> {
     let unlockNext = () => {};
@@ -686,9 +695,25 @@ export function createPrismaFake() {
   const client = {
     ...fake,
     $queryRaw: queryRaw([]),
-    $transaction: vi.fn(async (arg: unknown) => {
+    $transaction: vi.fn(async (arg: unknown, options?: { isolationLevel?: string }) => {
       if (typeof arg === 'function') {
         const unlocks: Array<() => void> = [];
+        if (options?.isolationLevel === 'RepeatableRead') {
+          const txModels: Record<string, ModelDelegate> = {};
+          const getRelatedTx = (field: string, row: Row): Row[] =>
+            getRelatedFromModels(txModels, field, row);
+          for (const [name, model] of Object.entries(fake)) {
+            const txModel = createModel(getRelatedTx);
+            txModel.rows.push(...model.rows.map((row) => ({ ...row })));
+            txModels[name] = txModel;
+          }
+          const tx = { ...txModels, $queryRaw: queryRaw(unlocks) };
+          try {
+            return await arg(tx);
+          } finally {
+            for (const unlock of unlocks) unlock();
+          }
+        }
         const rollback: { rows: Record<string, Row[]> | null } = { rows: null };
         const takeSnapshot = () => {
           if (rollback.rows) return;

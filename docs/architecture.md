@@ -473,6 +473,31 @@ from fetching one row beyond the page size; `nextCursor` is an opaque string
 the server encodes from the last returned row and the active order. The client
 stores those fields and echoes the cursor; it does not compute remaining from
 `totalCount` and does not build a cursor. `totalCount` is the subtitle only.
+Each list page is one Repeatable Read snapshot: `count` and `fetchPage` share
+a transaction so they agree on whether an id is included. List and count-only
+requests send capped pending hidden ids (`excludeIds`, max 200, sorted). Shown
+rows are accumulated server rows minus those hidden ids. Shown count uses the
+last list or count-only `totalCount`. A list writer subtracts hidden ids that
+are in that response's items and were not in its `excludeIds`. A count-only
+writer is exact only for the ids it sent; leftover `lastPageIds` are not
+subtracted. Each list and count-only request takes a sequence number at start.
+A response writes `totalCount` (and a list response writes `lastPageIds`) only
+when its sequence is newer than the last writer; an older list still applies
+its rows and its `hasMore`/`nextCursor`. If the last count writer did not send
+every currently hidden capped id, the client starts a count-only request with
+the current capped set. At most one count-only request is in flight per hidden
+set; requests stop once the last count writer sent every currently hidden
+capped id. Ambiguous list responses keep their rows and refresh the count;
+they never collapse View older. A too-narrow response (it excluded an id
+marked stale by failure or undo) is not applied. After a failed hide, or after
+a successful undo, a count-only request uses the current capped exclude ids so
+the subtitle is not left excluding the unhidden row. The list collapses to the
+first page only after a failed mutation, or after a successful undo whose row
+is not in the accumulated rows. Mutations update the pending-hidden reducer;
+they do not bump the list epoch, splice rows, or adjust `totalCount`. Failed
+restore and Undo still insert on the non-paged path, and Undo on the paged path
+unhides so the row reappears from leftover rows, using the same comparator as
+the active sort. `router.refresh` does not reinitialise client list state.
 The on-screen page is valid only for the filter it was fetched with
 (`query`, `range`, `sort`). While that stamp differs from the current
 controls, leftover rows and the count stay visible but pending: dimmed,
@@ -480,15 +505,7 @@ inert, `aria-busy`, no empty state, and no View older. A first-page
 `{ error }` or rejected promise keeps that pending list and shows an inline
 retry in place of View older; retry bumps the existing list-generation
 refetch. Apply requires the list epoch **and** the requested filter to still
-be current. First page and load-more still share one epoch so restore and
-delete can discard an overlapping request; they advance that epoch so a list
-that started before the mutation cannot reinsert a removed row or restore
-the old count. When that discarded request was the current query/range/sort
-first page, the list refetches after the mutation settles so the screen does
-not keep the previous filter's rows and total. Failed restore
-and Undo insert rows with the same
-comparator as that sort, so a paged screen does not leave the row at the end
-until reload. `router.refresh` does not reinitialise client list state.
+be current.
 
 ## File map
 
@@ -603,6 +620,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/actions/deleteArchivedProject.ts permanently delete one archived project (typed title)
     src/lib/pagination.ts               shared keyset page: take+1, hasMore, opaque nextCursor bound to order
     src/lib/archived.ts                 filter, sort, slice, and copy for archived tasks and projects
+    src/lib/pendingHidden.ts            pending hidden ids for paged archived lists; shownCount
     src/lib/swipe.ts                    shared row-swipe thresholds and pointer gesture
     src/lib/archivedQuery.ts            paginated archived cards for a member (counts on the list, bodies on detail, viewer canAdminister)
     src/lib/archivedProjectsQuery.ts    paginated archived projects for a member (aggregates, no description)
@@ -611,7 +629,7 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/lib/archivedScope.ts            tasks and projects scope adapters
     src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
     src/lib/validation/pagination.ts    opaque page cursor string bound
-    src/lib/validation/archived.ts      restore, rearchive, delete, list, and detail schemas
+    src/lib/validation/archived.ts      restore, rearchive, delete, list, count, and detail schemas
     src/actions/createSubtask.ts        append a subtask on an accessible card
     src/actions/updateSubtaskField.ts   persist subtask text or done
     src/actions/deleteSubtask.ts        delete a subtask
@@ -620,8 +638,10 @@ until reload. `router.refresh` does not reinitialise client list state.
     src/actions/listActivityEvents.ts   member-only project activity page (VIEW+)
     src/actions/getCardDetail.ts        VIEW-gated card description, subtasks, comments
     src/actions/listProjectMembers.ts   membership-gated share member list
-    src/actions/listArchivedCards.ts    filtered, paginated archived cards
-    src/actions/listArchivedProjects.ts filtered, paginated archived projects
+    src/actions/listArchivedCards.ts    filtered, paginated archived cards (excludeIds)
+    src/actions/listArchivedProjects.ts filtered, paginated archived projects (excludeIds)
+    src/actions/countArchivedCards.ts   count-only archived cards (same filter and excludeIds)
+    src/actions/countArchivedProjects.ts count-only archived projects (same filter and excludeIds)
     src/actions/getArchivedCardDetail.ts archived card description, subtasks, comments
     src/actions/getArchivedCardsDetail.ts batch archived card detail for export
     src/actions/getArchivedProjectDetail.ts archived project description

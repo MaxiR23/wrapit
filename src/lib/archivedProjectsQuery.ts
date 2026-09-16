@@ -48,7 +48,31 @@ export type ArchivedProjectsQuery = {
   cursor?: string;
   take?: number;
   now?: Date;
+  excludeIds?: string[];
 };
+
+function excludeIdWhere(
+  excludeIds: string[] | undefined,
+): { id: { notIn: string[] } } | Record<string, never> {
+  if (excludeIds == null || excludeIds.length === 0) return {};
+  return { id: { notIn: excludeIds } };
+}
+
+function archivedProjectListWhere(input: {
+  userId: string;
+  query: string;
+  range: ArchivedDateRange;
+  now: Date;
+  excludeIds?: string[];
+}) {
+  const rangeWhere = archivedRangeWhere(input.range, input.now);
+  return {
+    ...archivedAccessibleByUser(input.userId),
+    archivedAt: { not: null, ...rangeWhere.archivedAt },
+    ...archivedProjectSearchWhere(input.query),
+    ...excludeIdWhere(input.excludeIds),
+  };
+}
 
 export type ArchivedProjectsPage = {
   projects: ArchivedProject[];
@@ -69,23 +93,30 @@ export async function listArchivedProjectsForUser(
   const range = query.range ?? 'all';
   const sort = query.sort ?? 'date';
   const take = query.take ?? ARCHIVED_PAGE_SIZE;
-  const rangeWhere = archivedRangeWhere(range, now);
-  const projectWhere = {
-    ...archivedAccessibleByUser(userId),
-    archivedAt: { not: null, ...rangeWhere.archivedAt },
-    ...archivedProjectSearchWhere(query.query ?? ''),
-  };
+  const projectWhere = archivedProjectListWhere({
+    userId,
+    query: query.query ?? '',
+    range,
+    now,
+    excludeIds: query.excludeIds,
+  });
 
-  const [totalCount, page] = await Promise.all([
-    prisma.project.count({ where: projectWhere }),
-    fetchPage({
-      pageSize: take,
-      order: archivedProjectsOrder(sort),
-      cursor: query.cursor,
-      where: projectWhere,
-      findMany: (args) => prisma.project.findMany(args),
-    }),
-  ]);
+  const { totalCount, page } = await prisma.$transaction(
+    async (tx) => {
+      const [count, fetched] = await Promise.all([
+        tx.project.count({ where: projectWhere }),
+        fetchPage({
+          pageSize: take,
+          order: archivedProjectsOrder(sort),
+          cursor: query.cursor,
+          where: projectWhere,
+          findMany: (args) => tx.project.findMany(args),
+        }),
+      ]);
+      return { totalCount: count, page: fetched };
+    },
+    { isolationLevel: 'RepeatableRead' },
+  );
   const projects = page.items;
   if (projects.length === 0) {
     return { projects: [], totalCount, hasMore: page.hasMore, nextCursor: page.nextCursor };
@@ -186,6 +217,22 @@ export async function listArchivedProjectsForUser(
   });
 
   return { projects: list, totalCount, hasMore: page.hasMore, nextCursor: page.nextCursor };
+}
+
+export async function countArchivedProjectsForUser(
+  userId: string,
+  query: ArchivedProjectsQuery = {},
+): Promise<{ totalCount: number }> {
+  const totalCount = await prisma.project.count({
+    where: archivedProjectListWhere({
+      userId,
+      query: query.query ?? '',
+      range: query.range ?? 'all',
+      now: query.now ?? new Date(),
+      excludeIds: query.excludeIds,
+    }),
+  });
+  return { totalCount };
 }
 
 /** Description for an archived project the user can still access. */

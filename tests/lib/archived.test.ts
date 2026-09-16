@@ -10,6 +10,8 @@
 // - Search matches title or label; date range ANDs with search
 // - Sort by archive date (newest first) or name, with id as the name-sort tie-break
 // - A later page continues from the server nextCursor
+// - Exclude ids are omitted from rows and totalCount
+// - Count and page stay on one snapshot if a row is restored between the reads
 // - A row inserted ahead of the cursor does not change hasMore for the next page
 // - Slice of 50 reports remaining
 // - Selected archived cards load description, comment bodies, authors, and subtask text
@@ -35,7 +37,7 @@ import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
 const db = createPrismaFake();
 vi.mock('@/lib/prisma', () => ({ prisma: db }));
 
-const { getArchivedCardsForUser, getArchivedCardsDetailForUser } =
+const { countArchivedCardsForUser, getArchivedCardsForUser, getArchivedCardsDetailForUser } =
   await import('@/lib/archivedQuery');
 const {
   ARCHIVED_PAGE_SIZE,
@@ -123,24 +125,13 @@ describe('getArchivedCardsForUser', () => {
     db.card.findMany.mockClear();
     db.subtask.findMany.mockClear();
     db.subtask.groupBy.mockClear();
+    db.$transaction.mockClear();
 
     const result = await getArchivedCardsForUser(project.id, 'user-ada');
 
-    expect(db.card.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: {
-          id: true,
-          title: true,
-          code: true,
-          labelId: true,
-          columnId: true,
-          archivedAt: true,
-          archivedById: true,
-        },
-      }),
-    );
-    const cardSelect = db.card.findMany.mock.calls[0]?.[0]?.select as Record<string, unknown>;
-    expect(cardSelect).not.toHaveProperty('description');
+    expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'RepeatableRead',
+    });
     expect(db.subtask.findMany).not.toHaveBeenCalled();
     expect(db.subtask.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -281,6 +272,93 @@ describe('getArchivedCardsForUser', () => {
     expect(rest?.cards.map((card) => card.title)).toEqual(['Card 0']);
     expect(rest?.hasMore).toBe(false);
     expect(rest?.nextCursor).toBeNull();
+  });
+
+  it('omits excludeIds from rows and totalCount', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const kept = await db.card.create({
+      data: {
+        title: 'Kept',
+        code: 'SB-1',
+        order: 1,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-02T10:00:00.000Z'),
+      },
+    });
+    const excluded = await db.card.create({
+      data: {
+        title: 'Excluded',
+        code: 'SB-2',
+        order: 2,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-01T10:00:00.000Z'),
+      },
+    });
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada', {
+      excludeIds: [excluded.id],
+    });
+    expect(page?.totalCount).toBe(1);
+    expect(page?.cards.map((card) => card.id)).toEqual([kept.id]);
+
+    const counted = await countArchivedCardsForUser(project.id, 'user-ada', {
+      excludeIds: [excluded.id],
+    });
+    expect(counted).toEqual({ totalCount: 1 });
+  });
+
+  it('keeps count and page in one snapshot when a row is restored between the reads', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const kept = await db.card.create({
+      data: {
+        title: 'Kept',
+        code: 'SB-1',
+        order: 1,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-02T10:00:00.000Z'),
+      },
+    });
+    const restored = await db.card.create({
+      data: {
+        title: 'Restored mid-read',
+        code: 'SB-2',
+        order: 2,
+        columnId: todo.id,
+        archivedAt: new Date('2026-08-01T10:00:00.000Z'),
+      },
+    });
+
+    const originalCount = db.card.count.getMockImplementation() as (args?: {
+      where?: Record<string, unknown>;
+    }) => Promise<number>;
+    db.card.count.mockImplementation(async (args) => {
+      const total = await originalCount(args);
+      const row = db.card.rows.find((card) => card.id === restored.id);
+      if (row) {
+        row.archivedAt = null;
+        row.archivedById = null;
+      }
+      return total;
+    });
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada');
+    const ids = page?.cards.map((card) => card.id) ?? [];
+    const includesRestored = ids.includes(restored.id);
+    expect(page?.totalCount).toBe(includesRestored ? 2 : 1);
+    expect(ids.includes(kept.id)).toBe(true);
+    expect(includesRestored).toBe(true);
   });
 
   it('does not change hasMore for the next page when a row is inserted ahead of the cursor', async () => {

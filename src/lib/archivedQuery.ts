@@ -46,7 +46,31 @@ export type ArchivedCardsQuery = {
   cursor?: string;
   take?: number;
   now?: Date;
+  excludeIds?: string[];
 };
+
+function excludeIdWhere(
+  excludeIds: string[] | undefined,
+): { id: { notIn: string[] } } | Record<string, never> {
+  if (excludeIds == null || excludeIds.length === 0) return {};
+  return { id: { notIn: excludeIds } };
+}
+
+function archivedCardListWhere(input: {
+  columnIds: string[];
+  query: string;
+  range: ArchivedDateRange;
+  now: Date;
+  excludeIds?: string[];
+}) {
+  const rangeWhere = archivedRangeWhere(input.range, input.now);
+  return {
+    columnId: { in: input.columnIds },
+    archivedAt: { not: null, ...rangeWhere.archivedAt },
+    ...archivedCardSearchWhere(input.query),
+    ...excludeIdWhere(input.excludeIds),
+  };
+}
 
 export type ArchivedCardsPage = ArchivedProjectPayload & {
   totalCount: number;
@@ -99,14 +123,13 @@ export async function getArchivedCardsForUser(
   const sort = query.sort ?? 'date';
   const take = query.take ?? ARCHIVED_PAGE_SIZE;
   const search = query.query ?? '';
-  const rangeWhere = archivedRangeWhere(range, now);
-  const searchWhere = archivedCardSearchWhere(search);
-
-  const cardWhere = {
-    columnId: { in: columnIds },
-    archivedAt: { not: null, ...rangeWhere.archivedAt },
-    ...searchWhere,
-  };
+  const cardWhere = archivedCardListWhere({
+    columnIds,
+    query: search,
+    range,
+    now,
+    excludeIds: query.excludeIds,
+  });
 
   if (columnIds.length === 0) {
     return {
@@ -120,20 +143,26 @@ export async function getArchivedCardsForUser(
     };
   }
 
-  const [totalCount, page] = await Promise.all([
-    prisma.card.count({ where: cardWhere }),
-    fetchPage({
-      pageSize: take,
-      order: archivedCardsOrder(sort),
-      cursor: query.cursor,
-      where: cardWhere,
-      findMany: (args) =>
-        prisma.card.findMany({
-          ...args,
-          select: ARCHIVED_LIST_CARD_SELECT,
+  const { totalCount, page } = await prisma.$transaction(
+    async (tx) => {
+      const [count, fetched] = await Promise.all([
+        tx.card.count({ where: cardWhere }),
+        fetchPage({
+          pageSize: take,
+          order: archivedCardsOrder(sort),
+          cursor: query.cursor,
+          where: cardWhere,
+          findMany: (args) =>
+            tx.card.findMany({
+              ...args,
+              select: ARCHIVED_LIST_CARD_SELECT,
+            }),
         }),
-    }),
-  ]);
+      ]);
+      return { totalCount: count, page: fetched };
+    },
+    { isolationLevel: 'RepeatableRead' },
+  );
   const cards = page.items;
   const cardIds = cards.map((card) => card.id);
 
@@ -236,6 +265,35 @@ export async function getArchivedCardsForUser(
     hasMore: page.hasMore,
     nextCursor: page.nextCursor,
   };
+}
+
+export async function countArchivedCardsForUser(
+  projectId: string,
+  userId: string,
+  query: ArchivedCardsQuery = {},
+): Promise<{ totalCount: number } | null> {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, ...accessibleByUser(userId) },
+  });
+  if (!project) return null;
+
+  const columns = await prisma.column.findMany({
+    where: { projectId: project.id },
+    select: { id: true },
+  });
+  const columnIds = columns.map((column) => column.id);
+  if (columnIds.length === 0) return { totalCount: 0 };
+
+  const totalCount = await prisma.card.count({
+    where: archivedCardListWhere({
+      columnIds,
+      query: query.query ?? '',
+      range: query.range ?? 'all',
+      now: query.now ?? new Date(),
+      excludeIds: query.excludeIds,
+    }),
+  });
+  return { totalCount };
 }
 
 /**

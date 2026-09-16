@@ -18,6 +18,7 @@ export async function listArchivedProjects(
     range?: 'all' | '7' | '30' | 'old';
     sort?: 'date' | 'name';
     cursor?: string;
+    excludeIds?: string[];
   } = {},
 ): Promise<ListArchivedProjectsResult> {
   const session = await auth.api.getSession({ headers: await headers() });
