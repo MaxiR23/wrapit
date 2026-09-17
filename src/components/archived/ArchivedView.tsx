@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpDown, Clock, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -32,7 +32,6 @@ import { useProjectsSearch } from '@/components/projects/ProjectsSearch';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
   ARCHIVED_DEFAULT_LIST_FILTER,
-  ARCHIVED_PAGE_SIZE,
   ARCHIVED_PROJECTS_EMPTY,
   applyArchivedCardDetail,
   archivedCountLabel,
@@ -43,13 +42,8 @@ import {
   archivedProjectCountLabel,
   archivedProjectSelectedLabel,
   archivedSelectedLabel,
-  filterArchivedProjects,
-  filterArchivedTasks,
-  insertArchivedProjects,
-  insertArchivedTasks,
   reviveArchivedProject,
   reviveArchivedTask,
-  sliceArchivedTasks,
   type ArchivedDateRange,
   type ArchivedListFilter,
   type ArchivedProject,
@@ -150,13 +144,12 @@ export default function ArchivedView({
   projectTitle?: string;
   initialCards?: ArchivedTask[];
   initialProjects?: ArchivedProject[];
-  initialTotalCount?: number;
+  initialTotalCount: number;
   initialHasMore?: boolean;
   initialNextCursor?: string | null;
   canAdminister?: boolean;
 }) {
   const isProjects = initialProjects != null;
-  const paged = initialTotalCount != null;
   const router = useRouter();
   const { query, setQuery } = useProjectsSearch();
   const [cards, setCards] = useState(() => initialCards.map(reviveArchivedTask));
@@ -165,8 +158,7 @@ export default function ArchivedView({
   );
   const [range, setRange] = useState<ArchivedDateRange>('all');
   const [sort, setSort] = useState<ArchivedSort>('date');
-  const [limit, setLimit] = useState(ARCHIVED_PAGE_SIZE);
-  const [totalCount, setTotalCount] = useState(initialTotalCount ?? 0);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [listFilter, setListFilter] = useState<ArchivedListFilter>(ARCHIVED_DEFAULT_LIST_FILTER);
@@ -178,7 +170,6 @@ export default function ArchivedView({
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [exportIds, setExportIds] = useState<string[] | null>(null);
   const [toast, setToast] = useState<BoardToastMessage | null>(null);
-  const [now] = useState(() => new Date());
   const cardGenRef = useRef(new Map<string, number>());
   const opCounterRef = useRef(0);
   const skipNextListFetch = useRef(archivedListIsDefault(query, range, sort));
@@ -200,7 +191,6 @@ export default function ArchivedView({
   const [queryEpoch, setQueryEpoch] = useState(query);
   if (query !== queryEpoch) {
     setQueryEpoch(query);
-    setLimit(ARCHIVED_PAGE_SIZE);
     setSelectedIds([]);
     setSelectionMode(false);
     setOpenId(null);
@@ -218,7 +208,7 @@ export default function ArchivedView({
     cardsRef.current = cards;
     projectsRef.current = projects;
   });
-  const listPending = paged && !archivedListFiltersEqual(listFilter, currentFilter);
+  const listPending = !archivedListFiltersEqual(listFilter, currentFilter);
   const rowLive = !listPending;
   const hiddenIdSet = pendingHidden.byId;
   const displayCount = shownCount({
@@ -229,24 +219,7 @@ export default function ArchivedView({
     countKind,
   });
 
-  const filteredCards = useMemo(
-    () => (paged ? cards : filterArchivedTasks(cards, { query, range, sort, now })),
-    [paged, cards, query, range, sort, now],
-  );
-  const filteredProjects = useMemo(
-    () => (paged ? projects : filterArchivedProjects(projects, { query, range, sort, now })),
-    [paged, projects, query, range, sort, now],
-  );
-  const { shown, remaining } = paged
-    ? {
-        shown: (isProjects ? filteredProjects : filteredCards).filter(
-          (item) => !hiddenIdSet.has(item.id),
-        ),
-        remaining: 0,
-      }
-    : isProjects
-      ? sliceArchivedTasks(filteredProjects, limit)
-      : sliceArchivedTasks(filteredCards, limit);
+  const shown = (isProjects ? projects : cards).filter((item) => !hiddenIdSet.has(item.id));
   const selectedShown = shown.filter((item) => selectedIds.includes(item.id));
   const allShownSelected = shown.length > 0 && selectedShown.length === shown.length;
   const filtersOn = query.trim() !== '' || range !== 'all';
@@ -260,7 +233,6 @@ export default function ArchivedView({
   }
 
   function startCountOnly(state: PendingHiddenState = pendingHiddenRef.current, force = false) {
-    if (!paged) return;
     const excludeIds = currentCappedHidden(state);
     const needsRefresh =
       force ||
@@ -372,7 +344,6 @@ export default function ArchivedView({
   }
 
   useEffect(() => {
-    if (!paged) return;
     if (skipNextListFetch.current) {
       skipNextListFetch.current = false;
       return;
@@ -456,7 +427,7 @@ export default function ArchivedView({
         listEpochRef.current += 1;
       }
     };
-  }, [paged, isProjects, projectId, query, range, sort, listGeneration]);
+  }, [isProjects, projectId, query, range, sort, listGeneration]);
 
   useEffect(() => {
     if (!openCard || openCard.detailLoaded) return;
@@ -498,12 +469,8 @@ export default function ArchivedView({
     };
   }, [openProject]);
 
-  async function loadOlder(cursor?: string) {
-    if (!paged) {
-      setLimit((current) => current + ARCHIVED_PAGE_SIZE);
-      return;
-    }
-    if (listPending || !cursor) return;
+  async function loadOlder(cursor: string) {
+    if (listPending) return;
     const requested = archivedListFilter(query, range, sort);
     const epoch = listEpochRef.current;
     const seq = ++requestSeqRef.current;
@@ -574,7 +541,6 @@ export default function ArchivedView({
 
   function changeRange(next: ArchivedDateRange) {
     setRange(next);
-    setLimit(ARCHIVED_PAGE_SIZE);
     clearSelection();
     setOpenId(null);
     setSwipe(null);
@@ -582,7 +548,6 @@ export default function ArchivedView({
 
   function toggleSort() {
     setSort((current) => (current === 'date' ? 'name' : 'date'));
-    setLimit(ARCHIVED_PAGE_SIZE);
     clearSelection();
     setOpenId(null);
     setSwipe(null);
@@ -668,21 +633,6 @@ export default function ArchivedView({
     collapseIfMissing(ids);
   }
 
-  /**
-   * Optimistic archive writes: a superseded success is dropped. A failure
-   * always rolls back that operation's own rows, even if a later write on
-   * other cards has started. Do not gate failure handling on a global
-   * generation — that is how a first restore that failed after a second
-   * started left rows missing until reload.
-   */
-  function putCardsBack(removed: ArchivedTask[]) {
-    setCards((current) => insertArchivedTasks(current, removed, sort));
-  }
-
-  function putProjectsBack(removed: ArchivedProject[]) {
-    setProjects((current) => insertArchivedProjects(current, removed, sort));
-  }
-
   function canRestoreIds(ids: string[]): boolean {
     if (isProjects) {
       return ids.length > 0 && projectsByIds(ids).every((project) => project.canAdminister);
@@ -699,19 +649,14 @@ export default function ArchivedView({
     setSwipe(null);
     if (isProjects) {
       const removed = projectsByIds(ids);
-      if (paged) {
-        hideIds(opId, ids);
-      } else {
-        setProjects((current) => current.filter((project) => !ids.includes(project.id)));
-      }
+      hideIds(opId, ids);
       const result = await restoreArchivedProjects({ projectIds: ids });
       if ('error' in result) {
-        if (paged) failHide(opId, ids);
-        else putProjectsBack(removed);
+        failHide(opId, ids);
         setToast({ message: result.error, role: 'alert' });
         return;
       }
-      if (paged) confirmIds(opId);
+      confirmIds(opId);
       if (!gensAreCurrent(gens)) return;
       const message =
         removed.length === 1 && removed[0]
@@ -721,7 +666,7 @@ export default function ArchivedView({
         message,
         role: 'status',
         onUndo: () => {
-          void runUndoProjects(ids, removed, result.data.undoToken, opId);
+          void runUndoProjects(ids, result.data.undoToken, opId);
         },
       });
       router.refresh();
@@ -729,19 +674,14 @@ export default function ArchivedView({
     }
     if (!projectId) return;
     const removed = cardsByIds(ids);
-    if (paged) {
-      hideIds(opId, ids);
-    } else {
-      setCards((current) => current.filter((card) => !ids.includes(card.id)));
-    }
+    hideIds(opId, ids);
     const result = await restoreArchivedCards({ projectId, cardIds: ids });
     if ('error' in result) {
-      if (paged) failHide(opId, ids);
-      else putCardsBack(removed);
+      failHide(opId, ids);
       setToast({ message: result.error, role: 'alert' });
       return;
     }
-    if (paged) confirmIds(opId);
+    confirmIds(opId);
     if (!gensAreCurrent(gens)) return;
     const message =
       removed.length === 1 && removed[0]
@@ -752,56 +692,38 @@ export default function ArchivedView({
       message,
       role: 'status',
       onUndo: () => {
-        void runUndo(ids, removed, undoToken, opId);
+        void runUndo(ids, undoToken, opId);
       },
     });
     router.refresh();
   }
 
-  async function runUndo(
-    ids: string[],
-    removed: ArchivedTask[],
-    token: string,
-    restoreOpId: string,
-  ) {
+  async function runUndo(ids: string[], token: string, restoreOpId: string) {
     const gens = bumpCardGens(ids);
     setToast(null);
-    if (paged) unhideIds(restoreOpId, ids);
-    putCardsBack(removed);
+    unhideIds(restoreOpId, ids);
     const result = await rearchiveArchivedCards({ token });
     if ('error' in result) {
-      if (paged) hideIds(nextOpId(), ids);
-      else {
-        setCards((current) => current.filter((card) => !ids.includes(card.id)));
-      }
+      hideIds(nextOpId(), ids);
       setToast({ message: result.error, role: 'alert' });
       return;
     }
-    if (paged) startCountOnly(pendingHiddenRef.current, true);
+    startCountOnly(pendingHiddenRef.current, true);
     if (!gensAreCurrent(gens)) return;
     router.refresh();
   }
 
-  async function runUndoProjects(
-    ids: string[],
-    removed: ArchivedProject[],
-    token: string,
-    restoreOpId: string,
-  ) {
+  async function runUndoProjects(ids: string[], token: string, restoreOpId: string) {
     const gens = bumpCardGens(ids);
     setToast(null);
-    if (paged) unhideIds(restoreOpId, ids);
-    putProjectsBack(removed);
+    unhideIds(restoreOpId, ids);
     const result = await rearchiveArchivedProjects({ token });
     if ('error' in result) {
-      if (paged) hideIds(nextOpId(), ids);
-      else {
-        setProjects((current) => current.filter((project) => !ids.includes(project.id)));
-      }
+      hideIds(nextOpId(), ids);
       setToast({ message: result.error, role: 'alert' });
       return;
     }
-    if (paged) startCountOnly(pendingHiddenRef.current, true);
+    startCountOnly(pendingHiddenRef.current, true);
     if (!gensAreCurrent(gens)) return;
     router.refresh();
   }
@@ -812,18 +734,16 @@ export default function ArchivedView({
     const opId = nextOpId();
     const removed = cardsByIds(ids);
     setPendingDeleteIds(null);
-    if (paged) hideIds(opId, ids);
-    else setCards((current) => current.filter((card) => !ids.includes(card.id)));
+    hideIds(opId, ids);
     setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
     setOpenId((current) => (current && ids.includes(current) ? null : current));
     const result = await deleteArchivedCards({ projectId, cardIds: ids });
     if ('error' in result) {
-      if (paged) failHide(opId, ids);
-      else putCardsBack(removed);
+      failHide(opId, ids);
       setToast({ message: result.error, role: 'alert' });
       return;
     }
-    if (paged) confirmIds(opId);
+    confirmIds(opId);
     if (!gensAreCurrent(gens)) return;
     const message =
       removed.length === 1 && removed[0]
@@ -839,18 +759,16 @@ export default function ArchivedView({
     const gens = bumpCardGens([id]);
     const opId = nextOpId();
     setPendingDeleteIds(null);
-    if (paged) hideIds(opId, [id]);
-    else setProjects((current) => current.filter((project) => project.id !== id));
+    hideIds(opId, [id]);
     setSelectedIds((current) => current.filter((item) => item !== id));
     setOpenId((current) => (current === id ? null : current));
     const result = await deleteArchivedProject({ projectId: id, title });
     if ('error' in result) {
-      if (paged) failHide(opId, [id]);
-      else putProjectsBack([target]);
+      failHide(opId, [id]);
       setToast({ message: result.error, role: 'alert' });
       return;
     }
-    if (paged) confirmIds(opId);
+    confirmIds(opId);
     if (!gensAreCurrent(gens)) return;
     setToast({ message: archivedCopy.projects.deletedOne(target.title), role: 'alert' });
     router.refresh();
@@ -897,8 +815,8 @@ export default function ArchivedView({
       ? undefined
       : archivedCopy.adminOnly;
   const countLabel = isProjects
-    ? archivedProjectCountLabel(paged ? displayCount : filteredProjects.length)
-    : archivedCountLabel(paged ? displayCount : filteredCards.length);
+    ? archivedProjectCountLabel(displayCount)
+    : archivedCountLabel(displayCount);
   const selectedLabel = isProjects
     ? archivedProjectSelectedLabel(selectedIds.length)
     : archivedSelectedLabel(selectedIds.length);
@@ -1208,7 +1126,7 @@ export default function ArchivedView({
         </div>
       )}
 
-      {paged && listPending && listError ? (
+      {listPending && listError ? (
         <div className="flex flex-col items-center gap-2">
           <p role="alert" className="text-sm text-destructive">
             {GENERIC_ERROR_MESSAGE}
@@ -1224,7 +1142,7 @@ export default function ArchivedView({
             {archivedCopy.retry}
           </button>
         </div>
-      ) : paged && !listPending ? (
+      ) : !listPending ? (
         <LoadMore
           hasMore={hasMore}
           nextCursor={nextCursor}
@@ -1235,17 +1153,6 @@ export default function ArchivedView({
             'h-11 w-full rounded-md border border-border bg-surface text-[13px] font-medium tablet:mx-auto tablet:w-auto tablet:px-5 disabled:opacity-50',
           )}
         />
-      ) : remaining > 0 ? (
-        <button
-          type="button"
-          onClick={() => void loadOlder()}
-          className={cn(
-            shellFocusClassName,
-            'h-11 w-full rounded-md border border-border bg-surface text-[13px] font-medium tablet:mx-auto tablet:w-auto tablet:px-5',
-          )}
-        >
-          {archivedCopy.loadOlder(remaining)}
-        </button>
       ) : null}
 
       {selectedIds.length > 0 ? (

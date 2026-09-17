@@ -13,16 +13,13 @@
 // - Exclude ids are omitted from rows and totalCount
 // - Count and page stay on one snapshot if a row is restored between the reads
 // - A row inserted ahead of the cursor does not change hasMore for the next page
-// - Slice of 50 reports remaining
 // - Selected archived cards load description, comment bodies, authors, and subtask text
 // - Sets canAdminister from the viewer's membership role
-// - Rollback inserts restored rows in the active sort order
 // - List filters compare query, range, and sort as requested, without trimming
 //
 // What is covered:
 // - Query isolation, assembly, filters, sort, keyset page, insert-ahead hasMore,
-//   volume slice, copy,
-//   deferred detail, viewer canAdminister from membership role, ordered insert,
+//   copy, deferred detail, viewer canAdminister from membership role,
 //   list-filter identity
 //
 // Run with: pnpm test:run tests/lib/archived.test.ts
@@ -40,18 +37,12 @@ vi.mock('@/lib/prisma', () => ({ prisma: db }));
 const { countArchivedCardsForUser, getArchivedCardsForUser, getArchivedCardsDetailForUser } =
   await import('@/lib/archivedQuery');
 const {
-  ARCHIVED_PAGE_SIZE,
-  archivedAgeDays,
   archivedByLine,
   archivedCountLabel,
   archivedEmptyCopy,
   archivedTaskDetailLine,
-  filterArchivedTasks,
   archivedListFilter,
   archivedListFiltersEqual,
-  insertArchivedTasks,
-  matchesArchivedSearch,
-  sliceArchivedTasks,
 } = await import('@/lib/archived');
 
 const now = new Date('2026-08-26T12:00:00.000Z');
@@ -436,6 +427,53 @@ describe('getArchivedCardsForUser', () => {
     expect(page?.totalCount).toBe(1);
     expect(page?.cards.map((card) => card.title)).toEqual(['Sidebar variants']);
   });
+
+  it('combines case-insensitive label search with date range and sorts name ties by id', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const design = await db.label.create({
+      data: { name: 'Design', tone: 'blue', projectId: project.id },
+    });
+    const recent = await Promise.all(
+      ['2026-08-19', '2026-08-20'].map((day, index) =>
+        db.card.create({
+          data: {
+            title: 'Sidebar variants',
+            code: `SB-${index}`,
+            order: index,
+            columnId: todo.id,
+            labelId: design.id,
+            archivedAt: new Date(`${day}T12:00:00.000Z`),
+          },
+        }),
+      ),
+    );
+    await db.card.create({
+      data: {
+        title: 'Sidebar variants',
+        code: 'SB-old',
+        order: 3,
+        columnId: todo.id,
+        labelId: design.id,
+        archivedAt: new Date('2026-07-01T12:00:00.000Z'),
+      },
+    });
+
+    const page = await getArchivedCardsForUser(project.id, 'user-ada', {
+      query: 'DESIGN',
+      range: '7',
+      sort: 'name',
+      now,
+    });
+
+    expect(page?.totalCount).toBe(2);
+    expect(page?.cards.map((card) => card.id)).toEqual(recent.map((card) => card.id).sort());
+  });
 });
 
 describe('getArchivedCardsDetailForUser', () => {
@@ -511,92 +549,7 @@ describe('getArchivedCardsDetailForUser', () => {
   });
 });
 
-describe('filterArchivedTasks', () => {
-  const design = {
-    id: 't1',
-    title: 'Sidebar variants',
-    code: 'SB-1',
-    description: null,
-    archivedAt: new Date('2026-08-20T00:00:00.000Z'),
-    archivedBy: null,
-    column: { id: 'col-1', title: 'To do' },
-    label: { id: 'l1', name: 'Design', tone: 'blue' as const },
-    assignees: [],
-    subtasks: [],
-    comments: [],
-  };
-  const bug = {
-    ...design,
-    id: 't2',
-    title: 'Safari drag',
-    archivedAt: new Date('2026-07-01T00:00:00.000Z'),
-    label: { id: 'l2', name: 'Bug', tone: 'red' as const },
-  };
-
-  it('matches title or label case-insensitively', () => {
-    expect(matchesArchivedSearch(design, 'SIDE')).toBe(true);
-    expect(matchesArchivedSearch(design, 'design')).toBe(true);
-    expect(matchesArchivedSearch(design, 'bug')).toBe(false);
-  });
-
-  it('combines search and date range with AND and sorts', () => {
-    const cards = [design, bug];
-    expect(
-      filterArchivedTasks(cards, { query: '', range: 'all', sort: 'date', now }).map(
-        (card) => card.id,
-      ),
-    ).toEqual(['t1', 't2']);
-    expect(
-      filterArchivedTasks(cards, { query: '', range: 'all', sort: 'name', now }).map(
-        (card) => card.id,
-      ),
-    ).toEqual(['t2', 't1']);
-    expect(
-      filterArchivedTasks(cards, { query: 'design', range: '30', sort: 'date', now }).map(
-        (card) => card.id,
-      ),
-    ).toEqual(['t1']);
-    expect(
-      filterArchivedTasks(cards, { query: 'design', range: 'old', sort: 'date', now }),
-    ).toEqual([]);
-  });
-
-  it('breaks name ties by id the same way the paged list does', () => {
-    const sameTitle = {
-      ...design,
-      title: 'Sidebar variants',
-    };
-    const earlierId = { ...sameTitle, id: 't0', archivedAt: new Date('2026-08-01T00:00:00.000Z') };
-    const laterId = { ...sameTitle, id: 't9', archivedAt: new Date('2026-08-21T00:00:00.000Z') };
-    expect(
-      filterArchivedTasks([laterId, earlierId], { query: '', range: 'all', sort: 'name', now }).map(
-        (card) => card.id,
-      ),
-    ).toEqual(['t0', 't9']);
-  });
-
-  it('inserts restored rows using the active date comparator', () => {
-    const newest = {
-      ...design,
-      id: 'n',
-      title: 'Newest',
-      archivedAt: new Date('2026-08-21T00:00:00.000Z'),
-    };
-    const oldest = bug;
-    const middle = design;
-    expect(insertArchivedTasks([newest, oldest], [middle], 'date').map((card) => card.id)).toEqual([
-      'n',
-      't1',
-      't2',
-    ]);
-  });
-});
-
 describe('archived helpers', () => {
-  it('counts age in whole days', () => {
-    expect(archivedAgeDays(new Date('2026-08-19T12:00:00.000Z'), now)).toBe(7);
-  });
-
   it('labels counts and empty copy in English', () => {
     expect(archivedCountLabel(1)).toBe('1 archived task');
     expect(archivedCountLabel(3)).toBe('3 archived tasks');
@@ -641,14 +594,6 @@ describe('archived helpers', () => {
         subtaskTotal: 3,
       }),
     ).toBe('2/3 subtasks · 6 comments');
-  });
-
-  it('slices to the page size and reports remaining', () => {
-    const items = Array.from({ length: ARCHIVED_PAGE_SIZE + 3 }, (_, index) => index);
-    expect(sliceArchivedTasks(items, ARCHIVED_PAGE_SIZE)).toEqual({
-      shown: items.slice(0, ARCHIVED_PAGE_SIZE),
-      remaining: 3,
-    });
   });
 
   it('treats list filters as equal only when query, range, and sort match as requested', () => {

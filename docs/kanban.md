@@ -485,7 +485,6 @@ src/lib/archivedQuery.ts                load archived cards for a member; viewer
 src/lib/archivedProjectsQuery.ts        load archived projects for a member
 src/lib/archivedCopy.ts                 English archived-screen copy
 src/lib/archivedExport.ts               client-side CSV/JSON from loaded rows
-src/lib/archivedScope.ts                tasks and projects scope adapters
 src/lib/restoreUndo.ts                  undo-token id, ttl, expired-row cleanup
 src/lib/validation/archived.ts          restore, rearchive, delete, archive-project, list cursor
 src/app/projects/[projectId]/archived/page.tsx  archived tasks route (member only)

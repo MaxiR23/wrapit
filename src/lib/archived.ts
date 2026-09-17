@@ -95,13 +95,8 @@ export type ArchivedProject = {
   detailLoaded?: boolean;
 };
 
-export function archivedAgeDays(archivedAt: Date, now = new Date()): number {
-  return Math.floor((now.getTime() - archivedAt.getTime()) / DAY_MS);
-}
-
 /**
- * Prisma `archivedAt` bounds that match archivedAgeDays: floor((now - t) / DAY)
- * <= 7 is t > now - 8 days, not now - 7 days.
+ * Whole-day archive-age bounds: <= 7 includes times later than now - 8 days.
  */
 export function archivedRangeWhere(
   range: ArchivedDateRange,
@@ -150,129 +145,6 @@ export function archivedListOrderBy(
 ): Array<{ title: 'asc' } | { archivedAt: 'desc' } | { id: 'asc' | 'desc' }> {
   if (sort === 'name') return [{ title: 'asc' }, { id: 'asc' }];
   return [{ archivedAt: 'desc' }, { id: 'desc' }];
-}
-
-/** Same comparator as SQL `archivedListOrderBy` (byte order, id tie-break). */
-export function compareArchivedItems<T extends { id: string; archivedAt: Date }>(
-  left: T,
-  right: T,
-  sort: ArchivedSort,
-  nameOf: (item: T) => string,
-): number {
-  if (sort === 'name') {
-    const leftName = nameOf(left);
-    const rightName = nameOf(right);
-    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
-    if (left.id !== right.id) return left.id < right.id ? -1 : 1;
-    return 0;
-  }
-  const byDate = right.archivedAt.getTime() - left.archivedAt.getTime();
-  if (byDate !== 0) return byDate;
-  if (left.id === right.id) return 0;
-  return left.id < right.id ? 1 : -1;
-}
-
-export function insertArchivedItems<T extends { id: string; archivedAt: Date }>(
-  current: T[],
-  incoming: T[],
-  sort: ArchivedSort,
-  nameOf: (item: T) => string,
-): T[] {
-  const existing = new Set(current.map((item) => item.id));
-  const merged = [...current, ...incoming.filter((item) => !existing.has(item.id))];
-  return merged.slice().sort((left, right) => compareArchivedItems(left, right, sort, nameOf));
-}
-
-export function insertArchivedTasks(
-  current: ArchivedTask[],
-  incoming: ArchivedTask[],
-  sort: ArchivedSort,
-): ArchivedTask[] {
-  return insertArchivedItems(current, incoming, sort, (card) => card.title);
-}
-
-export function insertArchivedProjects(
-  current: ArchivedProject[],
-  incoming: ArchivedProject[],
-  sort: ArchivedSort,
-): ArchivedProject[] {
-  return insertArchivedItems(current, incoming, sort, (project) => project.title);
-}
-
-export function matchesArchivedSearch(card: ArchivedTask, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  if (card.title.toLowerCase().includes(needle)) return true;
-  return (card.label?.name ?? '').toLowerCase().includes(needle);
-}
-
-export function matchesArchivedName(name: string, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return name.toLowerCase().includes(needle);
-}
-
-export function matchesArchivedRange(
-  item: { archivedAt: Date },
-  range: ArchivedDateRange,
-  now = new Date(),
-): boolean {
-  if (range === 'all') return true;
-  const ago = archivedAgeDays(item.archivedAt, now);
-  if (range === '7') return ago <= 7;
-  if (range === '30') return ago <= 30;
-  return ago > 30;
-}
-
-export function filterArchivedItems<T extends { id: string; archivedAt: Date }>(
-  items: T[],
-  input: {
-    query: string;
-    range: ArchivedDateRange;
-    sort: ArchivedSort;
-    now?: Date;
-    matchesSearch: (item: T, query: string) => boolean;
-    nameOf: (item: T) => string;
-  },
-): T[] {
-  const now = input.now ?? new Date();
-  const matched = items.filter(
-    (item) =>
-      input.matchesSearch(item, input.query) && matchesArchivedRange(item, input.range, now),
-  );
-  return matched
-    .slice()
-    .sort((left, right) => compareArchivedItems(left, right, input.sort, input.nameOf));
-}
-
-export function filterArchivedTasks(
-  cards: ArchivedTask[],
-  input: { query: string; range: ArchivedDateRange; sort: ArchivedSort; now?: Date },
-): ArchivedTask[] {
-  return filterArchivedItems(cards, {
-    ...input,
-    matchesSearch: matchesArchivedSearch,
-    nameOf: (card) => card.title,
-  });
-}
-
-export function filterArchivedProjects(
-  projects: ArchivedProject[],
-  input: { query: string; range: ArchivedDateRange; sort: ArchivedSort; now?: Date },
-): ArchivedProject[] {
-  return filterArchivedItems(projects, {
-    ...input,
-    matchesSearch: (project, query) => matchesArchivedName(project.title, query),
-    nameOf: (project) => project.title,
-  });
-}
-
-export function sliceArchivedTasks<T>(
-  items: T[],
-  limit: number,
-): { shown: T[]; remaining: number } {
-  const shown = items.slice(0, limit);
-  return { shown, remaining: Math.max(0, items.length - shown.length) };
 }
 
 export function archivedCountLabel(count: number): string {

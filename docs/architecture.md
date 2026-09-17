@@ -498,9 +498,8 @@ the subtitle is not left excluding the unhidden row. The list collapses to the
 first page only after a failed mutation, or after a successful undo whose row
 is not in the accumulated rows. Mutations update the pending-hidden reducer;
 they do not bump the list epoch, splice rows, or adjust `totalCount`. Failed
-restore and Undo still insert on the non-paged path, and Undo on the paged path
-unhides so the row reappears from leftover rows, using the same comparator as
-the active sort. `router.refresh` does not reinitialise client list state.
+restore and Undo unhide the row so it reappears from the accumulated server
+rows. `router.refresh` does not reinitialise client list state.
 The on-screen page is valid only for the filter it was fetched with
 (`query`, `range`, `sort`). While that stamp differs from the current
 controls, leftover rows and the count stay visible but pending: dimmed,
@@ -629,7 +628,6 @@ be current.
     src/lib/archivedProjectsQuery.ts    paginated archived projects for a member (aggregates, no description)
     src/lib/archivedCopy.ts             English archived-screen copy
     src/lib/archivedExport.ts           CSV/JSON export; hydrate detail in MAX_ARCHIVED_BATCH chunks
-    src/lib/archivedScope.ts            tasks and projects scope adapters
     src/lib/restoreUndo.ts              undo-token id, ttl, expired-row cleanup
     src/lib/validation/pagination.ts    opaque page cursor string bound
     src/lib/validation/archived.ts      restore, rearchive, delete, list, count, and detail schemas
