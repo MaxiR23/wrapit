@@ -26,6 +26,15 @@ inconsistent dependency trees.
 
 See: https://pnpm.io/motivation
 
+## Production build
+
+`pnpm build` generates the Prisma Client, then uses Next.js 16's supported
+`next build --webpack` option. The default Turbopack build could not create a
+local process and bind a port in the restricted development environment, while
+the Webpack build completed. Development still uses the default `next dev`.
+
+See: https://nextjs.org/docs/app/guides/upgrading/version-16#opting-out-of-turbopack
+
 ## Prettier
 
 ### What it is
