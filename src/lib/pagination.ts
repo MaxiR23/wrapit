@@ -37,17 +37,43 @@ const cursorPayloadSchema = z.object({
 
 type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 
-function encodePageCursor(payload: CursorPayload): string {
-  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+async function encodePageCursor(payload: CursorPayload): Promise<string> {
+  const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${body}.${await signCursor(body)}`;
 }
 
-function decodePageCursor(raw: string, order: PaginationOrder): CursorPayload {
+async function signCursor(body: string): Promise<string> {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('BETTER_AUTH_SECRET is required for page cursors');
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  return Buffer.from(signature).toString('base64url');
+}
+
+async function decodePageCursor(raw: string, order: PaginationOrder): Promise<CursorPayload> {
   const bounded = pageCursorSchema.safeParse(raw);
   if (!bounded.success) throw new InvalidPageCursorError();
 
+  const parts = bounded.data.split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) throw new InvalidPageCursorError();
+  const [body, signature] = parts;
+  const expected = await signCursor(body);
+  if (signature.length !== expected.length) throw new InvalidPageCursorError();
+  let difference = 0;
+  for (let index = 0; index < signature.length; index += 1) {
+    difference |= signature.charCodeAt(index) ^ expected.charCodeAt(index);
+  }
+  if (difference !== 0) throw new InvalidPageCursorError();
+
   let json: unknown;
   try {
-    json = JSON.parse(Buffer.from(bounded.data, 'base64url').toString('utf8'));
+    json = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
   } catch {
     throw new InvalidPageCursorError();
   }
@@ -117,7 +143,7 @@ export async function fetchPage<T extends { id: string }>(input: {
   const decoded =
     input.cursor == null || input.cursor === ''
       ? null
-      : decodePageCursor(input.cursor, input.order);
+      : await decodePageCursor(input.cursor, input.order);
 
   const rows = await input.findMany({
     where: mergeWhere(input.where, decoded ? cursorWhere(decoded, input.order) : null),
@@ -130,7 +156,7 @@ export async function fetchPage<T extends { id: string }>(input: {
   const last = items[items.length - 1];
   const nextCursor =
     hasMore && last
-      ? encodePageCursor({
+      ? await encodePageCursor({
           id: last.id,
           value: sortValueFromRow(last as Record<string, unknown>, input.order),
           field: input.order.field,

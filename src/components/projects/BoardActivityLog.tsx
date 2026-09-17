@@ -15,6 +15,7 @@ import { initials } from '@/lib/initials';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { cn } from '@/lib/utils';
 import { shellFocusClassName } from '@/components/projects/shell';
+import LoadMore from '@/components/pagination/LoadMore';
 import { useViewerTimeZone } from '@/components/projects/ViewerTimeZoneProvider';
 
 export default function BoardActivityLog({
@@ -22,6 +23,7 @@ export default function BoardActivityLog({
   loading,
   error,
   hasMore,
+  nextCursor,
   onLoadMore,
   now = new Date(),
 }: {
@@ -29,7 +31,8 @@ export default function BoardActivityLog({
   loading: boolean;
   error: string | null;
   hasMore: boolean;
-  onLoadMore: () => void;
+  nextCursor: string | null;
+  onLoadMore: (cursor: string) => void | Promise<void>;
   now?: Date;
 }) {
   const views = collapseActivityEvents(items.map(activityEventViewFromItem));
@@ -66,20 +69,17 @@ export default function BoardActivityLog({
           </div>
         </section>
       ))}
-      {hasMore ? (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={loading}
-          className={cn(
-            shellFocusClassName,
-            'self-center rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] font-medium text-muted-foreground',
-            'hover:border-border-strong hover:text-foreground',
-          )}
-        >
-          {activityCopy.loadEarlier}
-        </button>
-      ) : null}
+      <LoadMore
+        hasMore={hasMore}
+        nextCursor={nextCursor}
+        onLoadMore={onLoadMore}
+        label={activityCopy.loadEarlier}
+        className={cn(
+          shellFocusClassName,
+          'self-center rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] font-medium text-muted-foreground',
+          'hover:border-border-strong hover:text-foreground',
+        )}
+      />
     </div>
   );
 }

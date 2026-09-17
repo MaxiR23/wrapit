@@ -8,7 +8,8 @@
 // - Rejects a payload missing required ids
 // - Rejects unknown keys when writing
 // - Writes a typed event through recordActivityEvent
-// - Lists events newest first and returns a cursor after a full page
+// - Lists events newest first through the shared opaque pagination contract
+// - Rejects a cursor bound to a different ordering
 // - A corrupt payload is returned as an invalid row instead of throwing
 // - Lists one actor across their current projects and hides others
 //
@@ -30,6 +31,7 @@ import {
   parseActivityPayload,
   recordActivityEvent,
 } from '@/lib/activity';
+import { fetchPage, InvalidPageCursorError } from '@/lib/pagination';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 
@@ -239,14 +241,25 @@ describe('listActivityForProject', () => {
     const first = await listActivityForProject(db, 'project-1');
     expect(first.items).toHaveLength(ACTIVITY_PAGE_SIZE);
     expect(first.items[0]?.id).toBe(`event-${String(ACTIVITY_PAGE_SIZE + 1).padStart(3, '0')}`);
-    expect(first.nextCursor).toEqual({
-      createdAt: first.items[ACTIVITY_PAGE_SIZE - 1]?.createdAt,
-      id: first.items[ACTIVITY_PAGE_SIZE - 1]?.id,
-    });
+    expect(first.hasMore).toBe(true);
+    expect(first.nextCursor).toEqual(expect.any(String));
 
     const second = await listActivityForProject(db, 'project-1', first.nextCursor);
     expect(second.items).toHaveLength(2);
+    expect(second.hasMore).toBe(false);
     expect(second.nextCursor).toBeNull();
+  });
+
+  it('rejects a cursor bound to another ordering', async () => {
+    const otherOrderPage = await fetchPage({
+      pageSize: 1,
+      order: { field: 'id', type: 'string', direction: 'asc', idDirection: 'asc' },
+      findMany: async () => [{ id: 'event-1' }, { id: 'event-2' }],
+    });
+
+    await expect(
+      listActivityForProject(db, 'project-1', otherOrderPage.nextCursor),
+    ).rejects.toBeInstanceOf(InvalidPageCursorError);
   });
 
   it('returns an invalid row instead of throwing on a corrupt payload', () => {
@@ -328,7 +341,7 @@ describe('listActivityForActor', () => {
 
     const result = await listActivityForActor(db, { actorId: 'user-ada', projectIds: [] });
 
-    expect(result).toEqual({ items: [], nextCursor: null });
+    expect(result).toEqual({ items: [], hasMore: false, nextCursor: null });
     expect(db.activityEvent.findMany).not.toHaveBeenCalled();
   });
 
@@ -355,6 +368,7 @@ describe('listActivityForActor', () => {
       projectIds: ['project-1'],
     });
     expect(first.items).toHaveLength(ACTIVITY_PAGE_SIZE);
+    expect(first.hasMore).toBe(true);
     expect(first.nextCursor).not.toBeNull();
 
     const second = await listActivityForActor(db, {
@@ -363,6 +377,7 @@ describe('listActivityForActor', () => {
       cursor: first.nextCursor,
     });
     expect(second.items).toHaveLength(1);
+    expect(second.hasMore).toBe(false);
     expect(second.nextCursor).toBeNull();
   });
 });
