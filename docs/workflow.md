@@ -47,4 +47,6 @@ Flow for every feature, fix or non-trivial change in this repo.
      if any step fails.
    - Body: what it does, decisions taken, how to test, `Closes #N`.
 
-9. **Merge and later could delete the branch**
+9. **Owner decision**
+   - The repo owner reviews and merges the PR. Branch cleanup follows the
+     owner's decision.
