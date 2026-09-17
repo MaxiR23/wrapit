@@ -67,7 +67,8 @@ export default function AccountScreen({
             <AccountActivity
               projects={activity?.projects ?? []}
               initialItems={activity?.items ?? []}
-              initialCursor={activity?.nextCursor ?? null}
+              initialHasMore={activity?.hasMore ?? false}
+              initialNextCursor={activity?.nextCursor ?? null}
             />
           )}
         </div>

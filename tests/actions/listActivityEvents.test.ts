@@ -80,6 +80,7 @@ describe('listActivityEvents', () => {
 
     expect(result).toEqual({
       data: {
+        hasMore: false,
         nextCursor: null,
         items: [
           expect.objectContaining({
@@ -105,10 +106,10 @@ describe('listActivityEvents', () => {
     });
 
     expect(await listActivityEvents({ projectId: commentProject.id })).toEqual({
-      data: { items: [], nextCursor: null },
+      data: { items: [], hasMore: false, nextCursor: null },
     });
     expect(await listActivityEvents({ projectId: editProject.id })).toEqual({
-      data: { items: [], nextCursor: null },
+      data: { items: [], hasMore: false, nextCursor: null },
     });
   });
 

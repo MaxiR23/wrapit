@@ -141,8 +141,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 const listActivityEvents = vi.fn(
-  async (): Promise<{ data: { items: unknown[]; nextCursor: null } } | { error: string }> => ({
-    data: { items: [], nextCursor: null },
+  async (): Promise<
+    { data: { items: unknown[]; hasMore: boolean; nextCursor: null } } | { error: string }
+  > => ({
+    data: { items: [], hasMore: false, nextCursor: null },
   }),
 );
 vi.mock('@/actions/listActivityEvents', () => ({
@@ -281,7 +283,7 @@ describe('ProjectBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listProjectMembers.mockResolvedValue({ data: { members: [] } });
-    listActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
+    listActivityEvents.mockResolvedValue({ data: { items: [], hasMore: false, nextCursor: null } });
     HTMLElement.prototype.scrollTo = vi.fn();
   });
 
@@ -1024,7 +1026,7 @@ describe('ProjectBoard', () => {
           resolveMove = resolve;
         }),
     );
-    listActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
+    listActivityEvents.mockResolvedValue({ data: { items: [], hasMore: false, nextCursor: null } });
 
     const ref = createRef<ProjectBoardHandle>();
     renderBoard(
@@ -1081,7 +1083,9 @@ describe('ProjectBoard', () => {
 
   it('does not let an older activity load overwrite a newer one', async () => {
     const user = userEvent.setup();
-    const resolvers: Array<(result: { data: { items: unknown[]; nextCursor: null } }) => void> = [];
+    const resolvers: Array<
+      (result: { data: { items: unknown[]; hasMore: boolean; nextCursor: null } }) => void
+    > = [];
     listActivityEvents.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -1140,7 +1144,7 @@ describe('ProjectBoard', () => {
     };
 
     await act(async () => {
-      resolvers[1]!({ data: { items: [newer], nextCursor: null } });
+      resolvers[1]!({ data: { items: [newer], hasMore: false, nextCursor: null } });
       await Promise.resolve();
     });
     await waitFor(() => {
@@ -1148,7 +1152,7 @@ describe('ProjectBoard', () => {
     });
 
     await act(async () => {
-      resolvers[0]!({ data: { items: [older], nextCursor: null } });
+      resolvers[0]!({ data: { items: [older], hasMore: false, nextCursor: null } });
       await Promise.resolve();
     });
     expect(screen.getByText('Ada Lovelace created "New task" in To do.')).toBeInTheDocument();

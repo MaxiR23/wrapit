@@ -210,8 +210,10 @@ row layout is CSS only.
 Account `?tab=activity` is the mirror: one actor across every project they
 currently belong to. `listMyActivityEvents` re-reads memberships each page so
 a project they left cannot leak. The first page loads in the account RSC;
-earlier pages use the same request-id append as the board log. Each row names
-its project. Assigned-card counts on the project grid ignore archived cards.
+earlier pages use the shared opaque keyset cursor and `LoadMore` control also
+used by the board log. Both controls render from the server's `hasMore` result,
+not from cursor presence. Each row names its project. Assigned-card counts on
+the project grid ignore archived cards.
 
 The client owns an id list per column; a move persists
 `cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
@@ -395,11 +397,11 @@ src/lib/cardCode.ts                  project-title initials + sequence
 src/lib/cardDue.ts                  Today / Yesterday / Tomorrow / late; calendar-day persist; dueDeltaDays
 src/lib/labelTones.ts               eight label tones as CSS token classes
 src/lib/labels.ts                   defaults, last-label guard, card pill sync
-src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject, listActivityForActor
+src/lib/activity.ts                 typed payloads, recordActivityEvent, shared paginated activity queries
 src/lib/activityCopy.ts             English activity sentences and chrome copy
 src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
 src/lib/accountActivity.ts          account Activity tab projects + assigned counts
-src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
+src/lib/validation/activity.ts      activity action inputs with the shared opaque cursor schema
 src/lib/projectLabels.ts            read/seed per-project labels
 src/lib/board.ts                    carousel width, long-press constants
 src/lib/boardView.ts                board filters, search match, visibility defaults, summary

@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { ACTIVITY_PAGE_SIZE } from '@/lib/activity';
-import { MAX_ID_LENGTH } from '@/lib/validation/id';
+import { PAGE_CURSOR_MAX } from '@/lib/validation/pagination';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -101,6 +101,7 @@ describe('listMyActivityEvents', () => {
 
     expect(result).toEqual({
       data: {
+        hasMore: false,
         nextCursor: null,
         items: [
           expect.objectContaining({
@@ -116,17 +117,10 @@ describe('listMyActivityEvents', () => {
   it('rejects an invalid cursor without a lookup', async () => {
     db.membership.findMany.mockClear();
 
-    expect(await listMyActivityEvents({ cursor: { createdAt: 'nope', id: 'event-1' } })).toEqual({
+    expect(await listMyActivityEvents({ cursor: '' })).toEqual({ error: 'Unauthorized' });
+    expect(await listMyActivityEvents({ cursor: 'a'.repeat(PAGE_CURSOR_MAX + 1) })).toEqual({
       error: 'Unauthorized',
     });
-    expect(
-      await listMyActivityEvents({ cursor: { createdAt: new Date().toISOString(), id: '' } }),
-    ).toEqual({ error: 'Unauthorized' });
-    expect(
-      await listMyActivityEvents({
-        cursor: { createdAt: new Date().toISOString(), id: 'a'.repeat(MAX_ID_LENGTH + 1) },
-      }),
-    ).toEqual({ error: 'Unauthorized' });
     expect(db.membership.findMany).not.toHaveBeenCalled();
   });
 

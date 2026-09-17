@@ -9,7 +9,7 @@
 // - Shows only the projects empty copy when there are no projects
 // - Shows the activity empty copy when there are projects but no events
 // - Load earlier appends the next page
-// - An older in-flight page does not overwrite a newer one
+// - The shared load control prevents duplicate in-flight requests
 // - A rejected load shows the generic error and clears busy
 //
 // What is covered:
@@ -58,7 +58,9 @@ function item(
 describe('AccountActivity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listMyActivityEvents.mockResolvedValue({ data: { items: [], nextCursor: null } });
+    listMyActivityEvents.mockResolvedValue({
+      data: { items: [], hasMore: false, nextCursor: null },
+    });
   });
 
   it('renders project cards and groups events by day with matching sentences', () => {
@@ -118,7 +120,8 @@ describe('AccountActivity', () => {
           },
         ]}
         initialItems={[created, commented, opened]}
-        initialCursor={null}
+        initialHasMore={false}
+        initialNextCursor={null}
         now={now}
       />,
     );
@@ -148,7 +151,15 @@ describe('AccountActivity', () => {
   });
 
   it('shows only the projects empty copy when there are no projects or events', () => {
-    render(<AccountActivity projects={[]} initialItems={[]} initialCursor={null} now={now} />);
+    render(
+      <AccountActivity
+        projects={[]}
+        initialItems={[]}
+        initialHasMore={false}
+        initialNextCursor={null}
+        now={now}
+      />,
+    );
 
     expect(screen.getByText(activityCopy.emptyProjects)).toBeInTheDocument();
     expect(screen.queryByText(activityCopy.empty)).not.toBeInTheDocument();
@@ -170,7 +181,8 @@ describe('AccountActivity', () => {
           },
         ]}
         initialItems={[]}
-        initialCursor={null}
+        initialHasMore={false}
+        initialNextCursor={null}
         now={now}
       />,
     );
@@ -201,13 +213,16 @@ describe('AccountActivity', () => {
         columnTitle: 'To do',
       },
     });
-    listMyActivityEvents.mockResolvedValue({ data: { items: [earlier], nextCursor: null } });
+    listMyActivityEvents.mockResolvedValue({
+      data: { items: [earlier], hasMore: false, nextCursor: null },
+    });
 
     render(
       <AccountActivity
         projects={[]}
         initialItems={[first]}
-        initialCursor={{ createdAt: first.createdAt, id: first.id }}
+        initialHasMore
+        initialNextCursor="opaque-cursor"
         now={now}
       />,
     );
@@ -223,16 +238,18 @@ describe('AccountActivity', () => {
       screen.getByText(activitySentence(activityEventViewFromItem(first))),
     ).toBeInTheDocument();
     expect(listMyActivityEvents).toHaveBeenCalledWith({
-      cursor: { createdAt: first.createdAt, id: first.id },
+      cursor: 'opaque-cursor',
     });
     expect(
       screen.queryByRole('button', { name: activityCopy.loadEarlier }),
     ).not.toBeInTheDocument();
   });
 
-  it('does not let an older activity load overwrite a newer one', async () => {
+  it('does not send a duplicate activity load while one is pending', async () => {
     const resolvers: Array<
-      (result: { data: { items: AccountActivityEventListItem[]; nextCursor: null } }) => void
+      (result: {
+        data: { items: AccountActivityEventListItem[]; hasMore: boolean; nextCursor: null };
+      }) => void
     > = [];
     listMyActivityEvents.mockImplementation(
       () =>
@@ -261,18 +278,12 @@ describe('AccountActivity', () => {
         columnTitle: 'To do',
       },
     });
-    const newer = item({
-      ...older,
-      id: 'evt-new',
-      createdAt: new Date('2026-08-25T15:00:00').toISOString(),
-      payload: { ...older.payload, cardTitle: 'New task' },
-    });
-
     render(
       <AccountActivity
         projects={[]}
         initialItems={[first]}
-        initialCursor={{ createdAt: first.createdAt, id: first.id }}
+        initialHasMore
+        initialNextCursor="opaque-cursor"
         now={now}
       />,
     );
@@ -281,29 +292,18 @@ describe('AccountActivity', () => {
     fireEvent.click(button);
     fireEvent.click(button);
     await waitFor(() => {
-      expect(resolvers).toHaveLength(2);
+      expect(resolvers).toHaveLength(1);
     });
 
     await act(async () => {
-      resolvers[1]!({ data: { items: [newer], nextCursor: null } });
+      resolvers[0]!({ data: { items: [older], hasMore: false, nextCursor: null } });
       await Promise.resolve();
     });
     await waitFor(() => {
       expect(
-        screen.getByText(activitySentence(activityEventViewFromItem(newer))),
+        screen.getByText(activitySentence(activityEventViewFromItem(older))),
       ).toBeInTheDocument();
     });
-
-    await act(async () => {
-      resolvers[0]!({ data: { items: [older], nextCursor: null } });
-      await Promise.resolve();
-    });
-    expect(
-      screen.getByText(activitySentence(activityEventViewFromItem(newer))),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(activitySentence(activityEventViewFromItem(older))),
-    ).not.toBeInTheDocument();
   });
 
   it('clears loading and shows an error when the list rejects', async () => {
@@ -322,7 +322,8 @@ describe('AccountActivity', () => {
             payload: { ...actor, projectTitle: 'Sprint board' },
           }),
         ]}
-        initialCursor={{ createdAt: new Date('2026-08-25T14:00:00').toISOString(), id: 'evt-1' }}
+        initialHasMore
+        initialNextCursor="opaque-cursor"
         now={now}
       />,
     );

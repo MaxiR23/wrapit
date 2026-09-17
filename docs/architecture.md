@@ -552,7 +552,7 @@ be current.
     src/lib/labelTones.ts               eight label tones mapped to CSS tokens
     src/lib/labels.ts                   defaults, last-label guard, project-row lock, card pill sync
     src/lib/accountActivity.ts          account Activity tab projects + assigned counts
-    src/lib/activity.ts                 typed payloads, recordActivityEvent, listActivityForProject, listActivityForActor
+    src/lib/activity.ts                 typed payloads, recordActivityEvent, shared paginated activity queries
     src/lib/activityCopy.ts             English activity sentences and chrome copy
     src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
     src/lib/projectLabels.ts            read/seed per-project labels (server only)
@@ -578,7 +578,7 @@ be current.
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
     src/lib/validation/label.ts         label id, name, tone; create projectId
-    src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
+    src/lib/validation/activity.ts      activity action inputs with the shared opaque cursor schema
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status

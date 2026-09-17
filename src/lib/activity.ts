@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '@/lib/validation/id';
 import { MEMBERSHIP_ROLE_VALUES } from '@/lib/validation/membership';
+import { fetchPage, type PageResult } from '@/lib/pagination';
 
 export const ACTIVITY_EVENT_TYPES = [
   'CARD_CREATED',
@@ -202,11 +203,6 @@ export type ActorActivityListDb = ActivityListDb & {
   };
 };
 
-export type ActivityCursor = {
-  createdAt: string;
-  id: string;
-};
-
 export type ActivityEventListItem = {
   id: string;
   type: ActivityEventType;
@@ -318,68 +314,54 @@ export function activityEventFromRow(row: Record<string, unknown>): ActivityEven
   };
 }
 
-function withActivityCursor(
-  where: Record<string, unknown>,
-  cursor?: ActivityCursor | null,
-): Record<string, unknown> {
-  if (!cursor) return where;
-  return {
-    ...where,
-    OR: [
-      { createdAt: { lt: new Date(cursor.createdAt) } },
-      {
-        AND: [{ createdAt: new Date(cursor.createdAt) }, { id: { lt: cursor.id } }],
-      },
-    ],
-  };
-}
+const ACTIVITY_ORDER = {
+  field: 'createdAt',
+  type: 'date',
+  direction: 'desc',
+  idDirection: 'desc',
+} as const;
 
 async function listActivityPage(
   db: ActivityListDb,
   where: Record<string, unknown>,
-  cursor?: ActivityCursor | null,
-): Promise<{
-  rows: Array<Record<string, unknown>>;
-  items: ActivityEventListItem[];
-  nextCursor: ActivityCursor | null;
-}> {
-  const rows = await db.activityEvent.findMany({
-    where: withActivityCursor(where, cursor),
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: ACTIVITY_PAGE_SIZE + 1,
+  cursor?: string | null,
+): Promise<PageResult<Record<string, unknown> & { id: string }>> {
+  return fetchPage({
+    pageSize: ACTIVITY_PAGE_SIZE,
+    order: ACTIVITY_ORDER,
+    cursor,
+    where,
+    findMany: async (args) => {
+      const rows = await db.activityEvent.findMany(args);
+      return rows.map((row) => ({ ...row, id: String(row.id) }));
+    },
   });
-  const page = rows.slice(0, ACTIVITY_PAGE_SIZE);
-  const items = page.map((row) => activityEventFromRow(row));
-  const last = items[items.length - 1];
-  const nextCursor =
-    rows.length > ACTIVITY_PAGE_SIZE && last ? { createdAt: last.createdAt, id: last.id } : null;
-  return { rows: page, items, nextCursor };
 }
 
 export async function listActivityForProject(
   db: ActivityListDb,
   projectId: string,
-  cursor?: ActivityCursor | null,
-): Promise<{ items: ActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
-  const { items, nextCursor } = await listActivityPage(db, { projectId }, cursor);
-  return { items, nextCursor };
+  cursor?: string | null,
+): Promise<PageResult<ActivityEventListItem>> {
+  const page = await listActivityPage(db, { projectId }, cursor);
+  return { ...page, items: page.items.map(activityEventFromRow) };
 }
 
 export async function listActivityForActor(
   db: ActorActivityListDb,
-  input: { actorId: string; projectIds: string[]; cursor?: ActivityCursor | null },
-): Promise<{ items: AccountActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
+  input: { actorId: string; projectIds: string[]; cursor?: string | null },
+): Promise<PageResult<AccountActivityEventListItem>> {
   if (input.projectIds.length === 0) {
-    return { items: [], nextCursor: null };
+    return { items: [], hasMore: false, nextCursor: null };
   }
 
-  const { rows, items, nextCursor } = await listActivityPage(
+  const page = await listActivityPage(
     db,
     { actorId: input.actorId, projectId: { in: input.projectIds } },
     input.cursor,
   );
 
-  const pageProjectIds = [...new Set(rows.map((row) => String(row.projectId)))];
+  const pageProjectIds = [...new Set(page.items.map((row) => String(row.projectId)))];
   const projects =
     pageProjectIds.length === 0
       ? []
@@ -389,14 +371,16 @@ export async function listActivityForActor(
   );
 
   return {
-    items: items.map((item, index) => {
-      const projectId = String(rows[index]?.projectId ?? '');
+    items: page.items.map((row) => {
+      const item = activityEventFromRow(row);
+      const projectId = String(row.projectId ?? '');
       return {
         ...item,
         projectId,
         projectTitle: titleById.get(projectId) ?? '',
       };
     }),
-    nextCursor,
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
   };
 }
