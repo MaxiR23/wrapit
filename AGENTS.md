@@ -77,6 +77,10 @@ nothing above it. Nothing outside `src/app/` imports a route.
 - Follow `docs/workflow.md` for branch names, Conventional Commits, the
   verification gate, and PR content. Use the `issue-pr-finisher` skill when
   finishing issue work or preparing a PR.
+- Before opening or updating a PR, inspect existing PRs for its issue and
+  verify its base is `main`. If a PR for the same change already exists,
+  update or retarget it instead of creating another. Check that the intended
+  commit is in `main` before treating an issue as delivered or closing it.
 - Inspect the complete diff and test results before committing. Never bypass
   repository hooks or report an incomplete `pnpm verify` as passed.
 - The repo owner decides product tradeoffs and merges PRs. Do not merge, force
