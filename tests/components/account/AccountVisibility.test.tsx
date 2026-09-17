@@ -55,7 +55,9 @@ vi.mock('@/actions/deleteUserStatus', () => ({
 vi.mock('@/actions/updateProfileField', () => ({ updateProfileField: vi.fn() }));
 vi.mock('@/actions/updateProfileVisibility', () => ({ updateProfileVisibility: vi.fn() }));
 vi.mock('@/actions/listMyActivityEvents', () => ({
-  listMyActivityEvents: vi.fn(async () => ({ data: { items: [], nextCursor: null } })),
+  listMyActivityEvents: vi.fn(async () => ({
+    data: { items: [], hasMore: false, nextCursor: null },
+  })),
 }));
 
 const { default: AccountScreen } = await import('@/components/account/AccountScreen');

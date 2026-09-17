@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '@/lib/validation/id';
 import { MEMBERSHIP_ROLE_VALUES } from '@/lib/validation/membership';
+import { fetchPage, type PageCursor, type PageResult } from '@/lib/pagination';
 
 export const ACTIVITY_EVENT_TYPES = [
   'CARD_CREATED',
@@ -202,11 +203,6 @@ export type ActorActivityListDb = ActivityListDb & {
   };
 };
 
-export type ActivityCursor = {
-  createdAt: string;
-  id: string;
-};
-
 export type ActivityEventListItem = {
   id: string;
   type: ActivityEventType;
@@ -318,62 +314,65 @@ export function activityEventFromRow(row: Record<string, unknown>): ActivityEven
   };
 }
 
-function withActivityCursor(
-  where: Record<string, unknown>,
-  cursor?: ActivityCursor | null,
-): Record<string, unknown> {
-  if (!cursor) return where;
-  return {
-    ...where,
-    OR: [
-      { createdAt: { lt: new Date(cursor.createdAt) } },
-      {
-        AND: [{ createdAt: new Date(cursor.createdAt) }, { id: { lt: cursor.id } }],
-      },
-    ],
-  };
-}
+const ACTIVITY_ORDER = {
+  field: 'createdAt',
+  type: 'date',
+  direction: 'desc',
+  idDirection: 'desc',
+} as const;
 
 async function listActivityPage(
   db: ActivityListDb,
   where: Record<string, unknown>,
-  cursor?: ActivityCursor | null,
+  cursor?: PageCursor | null,
 ): Promise<{
-  rows: Array<Record<string, unknown>>;
+  rows: Array<Record<string, unknown> & { id: string }>;
   items: ActivityEventListItem[];
-  nextCursor: ActivityCursor | null;
+  hasMore: boolean;
+  nextCursor: PageCursor | null;
 }> {
-  const rows = await db.activityEvent.findMany({
-    where: withActivityCursor(where, cursor),
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: ACTIVITY_PAGE_SIZE + 1,
+  const page = await fetchPage({
+    pageSize: ACTIVITY_PAGE_SIZE,
+    order: ACTIVITY_ORDER,
+    cursor,
+    where,
+    findMany: async (args) =>
+      (await db.activityEvent.findMany(args)) as Array<Record<string, unknown> & { id: string }>,
   });
-  const page = rows.slice(0, ACTIVITY_PAGE_SIZE);
-  const items = page.map((row) => activityEventFromRow(row));
-  const last = items[items.length - 1];
-  const nextCursor =
-    rows.length > ACTIVITY_PAGE_SIZE && last ? { createdAt: last.createdAt, id: last.id } : null;
-  return { rows: page, items, nextCursor };
+  return {
+    rows: page.items,
+    items: page.items.map(activityEventFromRow),
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function listActivityForProject(
   db: ActivityListDb,
   projectId: string,
-  cursor?: ActivityCursor | null,
-): Promise<{ items: ActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
-  const { items, nextCursor } = await listActivityPage(db, { projectId }, cursor);
-  return { items, nextCursor };
+  cursor?: PageCursor | null,
+): Promise<PageResult<ActivityEventListItem>> {
+  const { items, hasMore, nextCursor } = await listActivityPage(db, { projectId }, cursor);
+  return { items, hasMore, nextCursor };
 }
 
 export async function listActivityForActor(
   db: ActorActivityListDb,
-  input: { actorId: string; projectIds: string[]; cursor?: ActivityCursor | null },
-): Promise<{ items: AccountActivityEventListItem[]; nextCursor: ActivityCursor | null }> {
+  input: { actorId: string; projectIds: string[]; cursor?: PageCursor | null },
+): Promise<PageResult<AccountActivityEventListItem>> {
   if (input.projectIds.length === 0) {
-    return { items: [], nextCursor: null };
+    if (input.cursor) {
+      await fetchPage({
+        pageSize: ACTIVITY_PAGE_SIZE,
+        order: ACTIVITY_ORDER,
+        cursor: input.cursor,
+        findMany: async () => [],
+      });
+    }
+    return { items: [], hasMore: false, nextCursor: null };
   }
 
-  const { rows, items, nextCursor } = await listActivityPage(
+  const { rows, items, hasMore, nextCursor } = await listActivityPage(
     db,
     { actorId: input.actorId, projectId: { in: input.projectIds } },
     input.cursor,
@@ -397,6 +396,7 @@ export async function listActivityForActor(
         projectTitle: titleById.get(projectId) ?? '',
       };
     }),
+    hasMore,
     nextCursor,
   };
 }

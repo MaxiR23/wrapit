@@ -10,6 +10,8 @@
 // - A malformed cursor is rejected without fetching
 // - A cursor whose sort field or direction does not match the request is
 //   rejected without fetching
+// - A cursor with a changed but otherwise valid anchor is rejected
+// - A cursor signed with a different secret is rejected
 //
 // What is covered:
 // - Page size boundary, id tie-break, opaque cursor validation
@@ -187,5 +189,37 @@ describe('fetchPage', () => {
       }),
     ).rejects.toBeInstanceOf(InvalidPageCursorError);
     expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cursor whose valid anchor was changed', async () => {
+    const findMany = findManyFor(rows);
+    const first = await fetchPage({ pageSize: 2, order: byName, findMany });
+    const [body, signature] = first.nextCursor!.split('.');
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as {
+      id: string;
+    };
+    const changed = `${Buffer.from(JSON.stringify({ ...payload, id: 'a' })).toString('base64url')}.${signature}`;
+    findMany.mockClear();
+
+    await expect(
+      fetchPage({ pageSize: 2, order: byName, cursor: changed, findMany }),
+    ).rejects.toBeInstanceOf(InvalidPageCursorError);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cursor after the signing secret changes', async () => {
+    const findMany = findManyFor(rows);
+    const first = await fetchPage({ pageSize: 2, order: byName, findMany });
+    findMany.mockClear();
+
+    vi.stubEnv('BETTER_AUTH_SECRET', 'another-test-secret-at-least-32-characters-long');
+    try {
+      await expect(
+        fetchPage({ pageSize: 2, order: byName, cursor: first.nextCursor, findMany }),
+      ).rejects.toBeInstanceOf(InvalidPageCursorError);
+      expect(findMany).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
