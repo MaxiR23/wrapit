@@ -1,0 +1,19 @@
+name: PR target
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+jobs:
+  require-main:
+    name: Require main as PR base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check merge target
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "$BASE_REF" != main ]; then
+            echo "::error::This PR targets '$BASE_REF'. Retarget it to main and review its diff and checks before merging."
+            exit 1
+          fi

@@ -45,8 +45,23 @@ Flow for every feature, fix or non-trivial change in this repo.
    - The pre-push hook refuses the push unless the updated ref is the
      clean checked-out HEAD, then runs `pnpm verify` and blocks the push
      if any step fails.
-   - Body: what it does, decisions taken, how to test, `Closes #N`.
+   - Search existing open and merged PRs for the issue before creating one.
+     Reuse an open PR by updating its branch or retargeting its base. Explain any
+     replacement PR in both descriptions, and keep the original issue link.
+   - The merge target is `main`. A dependent PR can temporarily target a
+     feature branch for review, but it stays draft and must be retargeted to
+     `main` after its dependency merges. Recheck the diff and checks after
+     retargeting. Never merge the dependent PR into that feature branch as a
+     substitute for merging it into `main`.
+   - Before asking for merge, inspect `baseRefName`, `headRefName`, the diff,
+     issue state, and checks on GitHub. The PR body describes the change,
+     decisions, and verification. Use `Closes #N` only for an open issue that
+     this PR will deliver to `main`; otherwise use `Related to #N`.
 
 9. **Owner decision**
-   - The repo owner reviews and merges the PR. Branch cleanup follows the
+   - The repo owner reviews and merges the PR into `main`. After merging,
+     fetch `main` and verify that it contains the change (by commit ancestry
+     or the final tree diff). Confirm the issue state separately. Close an
+     issue as completed only after its intended change is in `main`; if it is
+     closed early, reopen it until delivery. Branch cleanup follows the
      owner's decision.
