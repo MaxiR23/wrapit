@@ -70,12 +70,22 @@ nothing above it. Nothing outside `src/app/` imports a route.
 3. Tests for the change ship in the same branch and PR.
 4. Relevant `docs/` updated.
 
-## Roles
+## Roles and Git ownership
 
-- Implementation: Claude Code.
-- Review: Codex, read-only, before committing.
-- Decisions and merge: the repo owner.
-- Agents never run git commands (commit, push, merge). The owner handles all git.
+- Codex implements, tests, reviews the diff, and can create branches, commit,
+  push, and open or update pull requests when the owner requests that work.
+- Follow `docs/workflow.md` for branch names, Conventional Commits, the
+  verification gate, and PR content. Use the `issue-pr-finisher` skill when
+  finishing issue work or preparing a PR.
+- Inspect the complete diff and test results before committing. Never bypass
+  repository hooks or report an incomplete `pnpm verify` as passed.
+- The repo owner decides product tradeoffs and merges PRs. Do not merge, force
+  push, rewrite published history, or delete branches without an explicit
+  request.
+
+Codex reads this file as repository guidance. Keep project instructions here
+and in the referenced docs. Official guidance for instruction discovery:
+https://learn.chatgpt.com/docs/agent-configuration/agents-md.
 
 ## See also
 
