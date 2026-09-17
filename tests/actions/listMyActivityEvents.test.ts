@@ -19,7 +19,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { ACTIVITY_PAGE_SIZE } from '@/lib/activity';
-import { MAX_ID_LENGTH } from '@/lib/validation/id';
 
 import { createPrismaFake } from '../helpers/prismaFake';
 import { seedAccessibleProject } from '../helpers/seedAccessibleProject';
@@ -102,6 +101,7 @@ describe('listMyActivityEvents', () => {
     expect(result).toEqual({
       data: {
         nextCursor: null,
+        hasMore: false,
         items: [
           expect.objectContaining({
             id: 'evt-mine',
@@ -113,21 +113,10 @@ describe('listMyActivityEvents', () => {
     });
   });
 
-  it('rejects an invalid cursor without a lookup', async () => {
-    db.membership.findMany.mockClear();
-
-    expect(await listMyActivityEvents({ cursor: { createdAt: 'nope', id: 'event-1' } })).toEqual({
+  it('rejects an invalid opaque cursor', async () => {
+    expect(await listMyActivityEvents({ cursor: 'not-a-cursor' })).toEqual({
       error: 'Unauthorized',
     });
-    expect(
-      await listMyActivityEvents({ cursor: { createdAt: new Date().toISOString(), id: '' } }),
-    ).toEqual({ error: 'Unauthorized' });
-    expect(
-      await listMyActivityEvents({
-        cursor: { createdAt: new Date().toISOString(), id: 'a'.repeat(MAX_ID_LENGTH + 1) },
-      }),
-    ).toEqual({ error: 'Unauthorized' });
-    expect(db.membership.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects the call when there is no session', async () => {
@@ -161,11 +150,13 @@ describe('listMyActivityEvents', () => {
     const first = await listMyActivityEvents({});
     if ('error' in first) throw new Error('expected data');
     expect(first.data.items).toHaveLength(ACTIVITY_PAGE_SIZE);
+    expect(first.data.hasMore).toBe(true);
     expect(first.data.nextCursor).not.toBeNull();
 
     const second = await listMyActivityEvents({ cursor: first.data.nextCursor ?? undefined });
     if ('error' in second) throw new Error('expected data');
     expect(second.data.items).toHaveLength(1);
+    expect(second.data.hasMore).toBe(false);
     expect(second.data.nextCursor).toBeNull();
   });
 });

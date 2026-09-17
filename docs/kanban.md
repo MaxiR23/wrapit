@@ -201,7 +201,9 @@ project-wide activity log (`surface: 'board' | 'log'`). It is not an
 and open dialogs are not torn down. The log wins over empty-columns and
 no-results. Board filters do not apply. Any member (VIEW+) can read.
 `listActivityEvents` loads when the log opens (including re-open), 50 raw
-events per page, keyset on `createdAt` + `id`. Consecutive same-type events by
+events per page through shared pagination, with a signed opaque cursor bound to
+the descending `createdAt` + `id` order. `hasMore` from the server drives the shared
+Load more control. Consecutive same-type events by
 the same actor on the same card collapse on the client before day grouping;
 member and project-created events never collapse. Sentences come from
 `activityCopy` at display time. The phone uses the same header clock; stacked
@@ -210,8 +212,9 @@ row layout is CSS only.
 Account `?tab=activity` is the mirror: one actor across every project they
 currently belong to. `listMyActivityEvents` re-reads memberships each page so
 a project they left cannot leak. The first page loads in the account RSC;
-earlier pages use the same request-id append as the board log. Each row names
-its project. Assigned-card counts on the project grid ignore archived cards.
+earlier pages append through the shared Load more control and the server
+`hasMore`/`nextCursor` result. Each row names its project. Assigned-card counts
+on the project grid ignore archived cards.
 
 The client owns an id list per column; a move persists
 `cardId` + `sourceColumnId` + `targetColumnId`. Display order is the id list;
@@ -399,7 +402,7 @@ src/lib/activity.ts                 typed payloads, recordActivityEvent, listAct
 src/lib/activityCopy.ts             English activity sentences and chrome copy
 src/lib/activityDisplay.ts          sentence, clock, day groups, collapse
 src/lib/accountActivity.ts          account Activity tab projects + assigned counts
-src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
+src/lib/validation/activity.ts      activity action inputs with optional shared opaque cursor
 src/lib/projectLabels.ts            read/seed per-project labels
 src/lib/board.ts                    carousel width, long-press constants
 src/lib/boardView.ts                board filters, search match, visibility defaults, summary
