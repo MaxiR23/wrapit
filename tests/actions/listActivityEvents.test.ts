@@ -81,6 +81,7 @@ describe('listActivityEvents', () => {
     expect(result).toEqual({
       data: {
         nextCursor: null,
+        hasMore: false,
         items: [
           expect.objectContaining({
             type: 'CARD_CREATED',
@@ -105,10 +106,10 @@ describe('listActivityEvents', () => {
     });
 
     expect(await listActivityEvents({ projectId: commentProject.id })).toEqual({
-      data: { items: [], nextCursor: null },
+      data: { items: [], hasMore: false, nextCursor: null },
     });
     expect(await listActivityEvents({ projectId: editProject.id })).toEqual({
-      data: { items: [], nextCursor: null },
+      data: { items: [], hasMore: false, nextCursor: null },
     });
   });
 
@@ -163,6 +164,7 @@ describe('listActivityEvents', () => {
     const first = await listActivityEvents({ projectId: project.id });
     if ('error' in first) throw new Error('expected data');
     expect(first.data.items).toHaveLength(ACTIVITY_PAGE_SIZE);
+    expect(first.data.hasMore).toBe(true);
     expect(first.data.nextCursor).not.toBeNull();
 
     const second = await listActivityEvents({
@@ -171,6 +173,18 @@ describe('listActivityEvents', () => {
     });
     if ('error' in second) throw new Error('expected data');
     expect(second.data.items).toHaveLength(1);
+    expect(second.data.hasMore).toBe(false);
     expect(second.data.nextCursor).toBeNull();
+  });
+
+  it('rejects a malformed opaque cursor', async () => {
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: sessionUser.id,
+    });
+
+    expect(await listActivityEvents({ projectId: project.id, cursor: 'not-a-cursor' })).toEqual({
+      error: 'Unauthorized',
+    });
   });
 });

@@ -1,9 +1,9 @@
 import {
   listActivityForActor,
   type AccountActivityEventListItem,
-  type ActivityCursor,
   type ActorActivityListDb,
 } from '@/lib/activity';
+import type { PageCursor } from '@/lib/pagination';
 
 export type AccountProjectRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 
@@ -18,7 +18,8 @@ export type AccountProjectView = {
 export type AccountActivityView = {
   projects: AccountProjectView[];
   items: AccountActivityEventListItem[];
-  nextCursor: ActivityCursor | null;
+  hasMore: boolean;
+  nextCursor: PageCursor | null;
 };
 
 type FindMany = {
@@ -129,5 +130,10 @@ export async function getAccountActivityForUser(
     actorId: userId,
     projectIds: projects.map((project) => project.id),
   });
-  return { projects, items: page.items, nextCursor: page.nextCursor };
+  return {
+    projects,
+    items: page.items,
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
+  };
 }

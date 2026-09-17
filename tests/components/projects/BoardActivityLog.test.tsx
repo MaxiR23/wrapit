@@ -76,6 +76,7 @@ describe('BoardActivityLog', () => {
         loading={false}
         error={null}
         hasMore={false}
+        nextCursor={null}
         onLoadMore={() => {}}
         now={now}
       />,
@@ -123,6 +124,7 @@ describe('BoardActivityLog', () => {
             loading={false}
             error={null}
             hasMore={false}
+            nextCursor={null}
             onLoadMore={() => {}}
             now={now}
           />
@@ -150,6 +152,7 @@ describe('BoardActivityLog', () => {
         loading={false}
         error={null}
         hasMore={false}
+        nextCursor={null}
         onLoadMore={() => {}}
       />,
     );
@@ -162,10 +165,18 @@ describe('BoardActivityLog', () => {
     const events = userEvent.setup();
     const onLoadMore = vi.fn();
     render(
-      <BoardActivityLog items={[]} loading={false} error={null} hasMore onLoadMore={onLoadMore} />,
+      <BoardActivityLog
+        items={[]}
+        loading={false}
+        error={null}
+        hasMore
+        nextCursor="opaque-cursor"
+        onLoadMore={onLoadMore}
+      />,
     );
 
     await events.click(screen.getByRole('button', { name: 'Load earlier activity' }));
     expect(onLoadMore).toHaveBeenCalledTimes(1);
+    expect(onLoadMore).toHaveBeenCalledWith('opaque-cursor');
   });
 });

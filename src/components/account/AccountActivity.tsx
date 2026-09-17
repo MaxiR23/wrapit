@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 
 import { listMyActivityEvents } from '@/actions/listMyActivityEvents';
+import LoadMore from '@/components/pagination/LoadMore';
 import { shellFocusClassName } from '@/components/projects/shell';
 import {
   useViewerTimeZone,
   ViewerTimeZoneProvider,
 } from '@/components/projects/ViewerTimeZoneProvider';
 import { accountProjectRoleLine, type AccountProjectView } from '@/lib/accountActivity';
-import type { AccountActivityEventListItem, ActivityCursor } from '@/lib/activity';
+import type { AccountActivityEventListItem } from '@/lib/activity';
 import { activityCopy } from '@/lib/activityCopy';
 import {
   activityEventViewFromItem,
@@ -28,12 +29,14 @@ import { cn } from '@/lib/utils';
 export default function AccountActivity({
   projects,
   initialItems,
-  initialCursor,
+  initialHasMore,
+  initialNextCursor,
   now = new Date(),
 }: {
   projects: AccountProjectView[];
   initialItems: AccountActivityEventListItem[];
-  initialCursor: ActivityCursor | null;
+  initialHasMore: boolean;
+  initialNextCursor: string | null;
   now?: Date;
 }) {
   return (
@@ -41,7 +44,8 @@ export default function AccountActivity({
       <AccountActivityBody
         projects={projects}
         initialItems={initialItems}
-        initialCursor={initialCursor}
+        initialHasMore={initialHasMore}
+        initialNextCursor={initialNextCursor}
         now={now}
       />
     </ViewerTimeZoneProvider>
@@ -51,35 +55,39 @@ export default function AccountActivity({
 function AccountActivityBody({
   projects,
   initialItems,
-  initialCursor,
+  initialHasMore,
+  initialNextCursor,
   now,
 }: {
   projects: AccountProjectView[];
   initialItems: AccountActivityEventListItem[];
-  initialCursor: ActivityCursor | null;
+  initialHasMore: boolean;
+  initialNextCursor: string | null;
   now: Date;
 }) {
   const viewerTimeZone = useViewerTimeZone();
   const [items, setItems] = useState(initialItems);
-  const [cursor, setCursor] = useState(initialCursor);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
-  async function loadActivity(nextCursor?: ActivityCursor) {
+  async function loadActivity(cursor: string) {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
     try {
-      const result = await listMyActivityEvents(nextCursor ? { cursor: nextCursor } : {});
+      const result = await listMyActivityEvents({ cursor });
       if (requestId !== requestIdRef.current) return;
       if ('error' in result) {
         setError(GENERIC_ERROR_MESSAGE);
         return;
       }
       setError(null);
-      setItems((current) => (nextCursor ? [...current, ...result.data.items] : result.data.items));
-      setCursor(result.data.nextCursor);
+      setItems((current) => [...current, ...result.data.items]);
+      setHasMore(result.data.hasMore);
+      setNextCursor(result.data.nextCursor);
     } catch {
       if (requestId !== requestIdRef.current) return;
       setError(GENERIC_ERROR_MESSAGE);
@@ -172,23 +180,17 @@ function AccountActivityBody({
             </div>
           </div>
         ))}
-        {cursor !== null ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (cursor) void loadActivity(cursor);
-            }}
-            aria-disabled={loading}
-            className={cn(
-              shellFocusClassName,
-              'self-center rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] font-medium text-muted-foreground',
-              'hover:border-border-strong hover:text-foreground',
-              loading && 'pointer-events-none opacity-60',
-            )}
-          >
-            {activityCopy.loadEarlier}
-          </button>
-        ) : null}
+        <LoadMore
+          hasMore={hasMore}
+          nextCursor={nextCursor}
+          onLoadMore={loadActivity}
+          label={activityCopy.loadEarlier}
+          className={cn(
+            shellFocusClassName,
+            'self-center rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] font-medium text-muted-foreground',
+            'hover:border-border-strong hover:text-foreground',
+          )}
+        />
       </section>
     </div>
   );

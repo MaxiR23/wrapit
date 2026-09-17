@@ -9,21 +9,19 @@ import {
 } from '@/lib/activity';
 import { auth } from '@/lib/auth';
 import { accessibleByUser } from '@/lib/membership';
+import { InvalidPageCursorError, type PageResult } from '@/lib/pagination';
 import { prisma } from '@/lib/prisma';
 import { listActivityEventsSchema } from '@/lib/validation/activity';
 
 type ListActivityEventsResult =
   | {
-      data: {
-        items: ActivityEventListItem[];
-        nextCursor: { createdAt: string; id: string } | null;
-      };
+      data: PageResult<ActivityEventListItem>;
     }
   | { error: string };
 
 export async function listActivityEvents(input: {
   projectId: string;
-  cursor?: { createdAt: string; id: string };
+  cursor?: string;
 }): Promise<ListActivityEventsResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -42,10 +40,15 @@ export async function listActivityEvents(input: {
     return { error: 'Unauthorized' };
   }
 
-  const data = await listActivityForProject(
-    prisma as unknown as ActivityListDb,
-    project.id,
-    parsed.data.cursor,
-  );
-  return { data };
+  try {
+    const data = await listActivityForProject(
+      prisma as unknown as ActivityListDb,
+      project.id,
+      parsed.data.cursor,
+    );
+    return { data };
+  } catch (error) {
+    if (error instanceof InvalidPageCursorError) return { error: 'Unauthorized' };
+    throw error;
+  }
 }
