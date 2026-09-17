@@ -133,9 +133,10 @@ rolls the card back. `moveCard`, `archiveCard`, `deleteCard`,
 types. Title and description writes, subtasks, comment edits, column/label CRUD, and
 invitations are not logged. `createProject` writes `PROJECT_CREATED` in the
 same transaction as the project and owner membership. `listActivityEvents`
-is membership-gated (VIEW+) and pages with a createdAt+id keyset.
-`listMyActivityEvents` is the same page for the session user as actor, across
-projects they currently belong to.
+is membership-gated (VIEW+) and uses the shared pagination module with an
+opaque cursor bound to the descending `createdAt` + `id` order.
+`listMyActivityEvents` returns the same shared page result for the session user
+as actor, across projects they currently belong to.
 Card detail writes follow the same pattern: `updateCardField` persists title,
 description, or due date (returning `{ data: { value } }` for
 `useProfileAutosave`, plus the resolved `dueDate` and `dueTimeZone` on the due
@@ -354,8 +355,10 @@ A new list that needs pages uses the shared module, not a domain cursor.
    unscoped filter for a subtitle; that count is not completeness.
 2. The action returns `PageResult` fields (`items` or the domain list, `hasMore`,
    `nextCursor`) and maps `InvalidPageCursorError` to Unauthorized. The cursor
-   schema is an opaque string (`pageCursorSchema`). Decode binds the cursor to
-   the request order: a date-sort cursor on a name-sort request is rejected.
+   schema is an opaque string (`pageCursorSchema`). The shared module signs the
+   cursor with `BETTER_AUTH_SECRET` and binds it to the request order: edited
+   values and a date-sort cursor on a name-sort request are rejected. Changing
+   the secret invalidates outstanding page cursors.
 3. The client stores `hasMore` and `nextCursor` from the response (after any
    epoch check, in the same place as the rows) and renders
    `src/components/pagination/LoadMore.tsx`. Load more sends `nextCursor` as
@@ -578,7 +581,7 @@ be current.
     src/lib/validation/userProfile.ts   profile field values and per-field visibility
     src/lib/validation/userStatus.ts    status id, name, description, color
     src/lib/validation/label.ts         label id, name, tone; create projectId
-    src/lib/validation/activity.ts      listActivityEvents projectId and optional cursor; listMyActivityEvents cursor
+    src/lib/validation/activity.ts      activity action inputs with optional shared opaque cursor
     src/actions/updateProfileField.ts   persist one profile field for the session user
     src/actions/updateProfileVisibility.ts  persist one profile visibility for the session user
     src/actions/setActiveStatus.ts      point User.activeStatusId at an owned status

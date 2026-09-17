@@ -52,7 +52,7 @@ import {
   type MembershipRole,
 } from '@/lib/boardAccess';
 import type { BoardAccess } from '@/lib/membership';
-import type { ActivityCursor, ActivityEventListItem } from '@/lib/activity';
+import type { ActivityEventListItem } from '@/lib/activity';
 import { GENERIC_ERROR_MESSAGE } from '@/lib/messages';
 import { projectProgress } from '@/lib/projectGrid';
 import { ARCHIVED_PATH, projectArchivedPath } from '@/lib/routes';
@@ -146,7 +146,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
   const [jumpToken, setJumpToken] = useState(0);
   const [surface, setSurface] = useState<'board' | 'log'>('board');
   const [activityItems, setActivityItems] = useState<ActivityEventListItem[]>([]);
-  const [activityCursor, setActivityCursor] = useState<ActivityCursor | null>(null);
+  const [activityHasMore, setActivityHasMore] = useState(false);
+  const [activityNextCursor, setActivityNextCursor] = useState<string | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
   const activityRequestIdRef = useRef(0);
@@ -489,7 +490,7 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     void commitMove(cardId, columnId);
   }
 
-  async function loadActivity(cursor?: ActivityCursor) {
+  async function loadActivity(cursor?: string) {
     const requestId = activityRequestIdRef.current + 1;
     activityRequestIdRef.current = requestId;
     setActivityLoading(true);
@@ -504,7 +505,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
       setActivityItems((current) =>
         cursor ? [...current, ...result.data.items] : result.data.items,
       );
-      setActivityCursor(result.data.nextCursor);
+      setActivityHasMore(result.data.hasMore);
+      setActivityNextCursor(result.data.nextCursor);
     } catch {
       if (requestId !== activityRequestIdRef.current) return;
       setActivityError(GENERIC_ERROR_MESSAGE);
@@ -523,7 +525,8 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
     }
     setSurface('log');
     setActivityItems([]);
-    setActivityCursor(null);
+    setActivityHasMore(false);
+    setActivityNextCursor(null);
     setActivityError(null);
     void loadActivity();
   }
@@ -561,10 +564,9 @@ const ProjectBoard = forwardRef<ProjectBoardHandle, ProjectBoardProps>(function 
             items={activityItems}
             loading={activityLoading}
             error={activityError}
-            hasMore={activityCursor !== null}
-            onLoadMore={() => {
-              if (activityCursor) void loadActivity(activityCursor);
-            }}
+            hasMore={activityHasMore}
+            nextCursor={activityNextCursor}
+            onLoadMore={loadActivity}
           />
         ) : null}
 

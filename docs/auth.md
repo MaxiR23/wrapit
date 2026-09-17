@@ -15,8 +15,9 @@ social providers.
 
 They live in `.env` (never committed) and are listed in `.env.example`:
 
-- `BETTER_AUTH_SECRET` — signs sessions and tokens. Generate one with
-  `openssl rand -base64 32`. Changing it invalidates every existing session.
+- `BETTER_AUTH_SECRET` — signs sessions, tokens, and shared pagination cursors.
+  Generate one with `openssl rand -base64 32`. Changing it invalidates every
+  existing session and outstanding pagination cursor.
 - `BETTER_AUTH_URL` — the base URL of the app, `http://localhost:3000` in
   development. Without it Better Auth derives the origin from the incoming
   request, which makes callbacks and redirects unreliable. Password-reset
