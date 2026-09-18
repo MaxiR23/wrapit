@@ -22,7 +22,10 @@ type NotificationsContextValue = {
   items: NotificationListItem[];
   unreadCount: number;
   listReady: boolean;
+  hasMore: boolean;
+  nextCursor: string | null;
   refresh: () => Promise<void>;
+  loadMore: (cursor: string) => Promise<void>;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   accept: (invitationId: string) => Promise<void>;
@@ -40,7 +43,10 @@ export function NotificationsProvider({
 }) {
   const router = useRouter();
   const listEpochRef = useRef(0);
+  const loadingMoreRef = useRef(false);
   const [items, setItems] = useState<NotificationListItem[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [listReady, setListReady] = useState(false);
   const [seededCount, setSeededCount] = useState(initialUnreadCount);
@@ -61,8 +67,28 @@ export function NotificationsProvider({
     if ('data' in result) {
       setItems(result.data.items);
       setUnreadCount(result.data.unreadCount);
+      setHasMore(result.data.hasMore);
+      setNextCursor(result.data.nextCursor);
     }
     setListReady(true);
+  }, []);
+
+  const loadMore = useCallback(async (cursor: string) => {
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    const epoch = listEpochRef.current;
+    try {
+      const result = await listNotifications(cursor);
+      if (epoch !== listEpochRef.current || !('data' in result)) return;
+      setItems((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...result.data.items.filter((item) => !seen.has(item.id))];
+      });
+      setHasMore(result.data.hasMore);
+      setNextCursor(result.data.nextCursor);
+    } finally {
+      loadingMoreRef.current = false;
+    }
   }, []);
 
   const markRead = useCallback(
@@ -151,13 +177,28 @@ export function NotificationsProvider({
       items,
       unreadCount,
       listReady,
+      hasMore,
+      nextCursor,
       refresh,
+      loadMore,
       markRead,
       markAllRead,
       accept,
       reject,
     }),
-    [items, unreadCount, listReady, refresh, markRead, markAllRead, accept, reject],
+    [
+      items,
+      unreadCount,
+      listReady,
+      hasMore,
+      nextCursor,
+      refresh,
+      loadMore,
+      markRead,
+      markAllRead,
+      accept,
+      reject,
+    ],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

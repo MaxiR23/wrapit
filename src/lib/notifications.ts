@@ -1,4 +1,7 @@
 import { prisma } from '@/lib/prisma';
+import { fetchPage, type PageResult } from '@/lib/pagination';
+
+export const NOTIFICATIONS_PAGE_SIZE = 20;
 
 export type NotificationType =
   'INVITATION_RECEIVED' | 'INVITATION_ACCEPTED' | 'INVITATION_REJECTED';
@@ -18,7 +21,8 @@ export type NotificationDb = {
   notification: {
     findMany: (args: {
       where: Record<string, unknown>;
-      orderBy?: Record<string, unknown>;
+      orderBy?: Record<string, unknown> | Array<Record<string, unknown>>;
+      take?: number;
     }) => Promise<Array<Record<string, unknown>>>;
     findFirst: (args: {
       where: Record<string, unknown>;
@@ -72,11 +76,21 @@ function actorFor(
 export async function listNotificationsForUser(
   db: NotificationDb,
   userId: string,
-): Promise<{ items: NotificationListItem[]; unreadCount: number }> {
-  const rows = await db.notification.findMany({
-    where: { recipientId: userId },
-    orderBy: { createdAt: 'desc' },
-  });
+  cursor?: string | null,
+  pageSize = NOTIFICATIONS_PAGE_SIZE,
+): Promise<PageResult<NotificationListItem> & { unreadCount: number }> {
+  const [page, unreadCount] = await Promise.all([
+    fetchPage({
+      pageSize,
+      order: { field: 'createdAt', type: 'date', direction: 'desc', idDirection: 'desc' },
+      cursor,
+      where: { recipientId: userId },
+      findMany: (args) =>
+        db.notification.findMany(args) as Promise<Array<Record<string, unknown> & { id: string }>>,
+    }),
+    countUnreadNotificationsForUser(db, userId),
+  ]);
+  const rows = page.items;
 
   const invitationIds = [
     ...new Set(
@@ -122,7 +136,9 @@ export async function listNotificationsForUser(
 
   return {
     items,
-    unreadCount: items.filter((item) => !item.read).length,
+    hasMore: page.hasMore,
+    nextCursor: page.nextCursor,
+    unreadCount,
   };
 }
 
@@ -153,8 +169,8 @@ export async function markAllNotificationsReadForUser(
 }
 
 /** Session-user list for the notifications panel. Uses the shared Prisma client. */
-export function getNotificationsForUser(userId: string) {
-  return listNotificationsForUser(prisma as unknown as NotificationDb, userId);
+export function getNotificationsForUser(userId: string, cursor?: string | null) {
+  return listNotificationsForUser(prisma as unknown as NotificationDb, userId, cursor);
 }
 
 /** Session-user unread count for the shell badge. Uses the shared Prisma client. */

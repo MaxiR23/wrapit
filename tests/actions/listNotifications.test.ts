@@ -4,13 +4,14 @@
 //
 // Tested:
 // - Returns the session user's notifications
+// - Rejects a malformed page cursor
 // - Rejects when there is no session
 // - Marks one owned notification read and refuses a foreign id
 // - Rejects an empty, oversized, or non-string notification id without a write
 // - Marks all unread for the session user
 //
 // What is covered:
-// - Happy path, unauthorized, mark one / mark all
+// - Happy path, invalid cursor, unauthorized, mark one / mark all
 //
 // Run with: pnpm test:run tests/actions/listNotifications.test.ts
 //
@@ -64,6 +65,8 @@ describe('listNotifications', () => {
     expect(result).toEqual({
       data: {
         unreadCount: 1,
+        hasMore: false,
+        nextCursor: null,
         items: [
           expect.objectContaining({
             id: 'n1',
@@ -79,6 +82,12 @@ describe('listNotifications', () => {
     getSession.mockResolvedValue(null);
 
     expect(await listNotifications()).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('rejects a malformed cursor before querying notifications', async () => {
+    db.notification.findMany.mockClear();
+    expect(await listNotifications('bad-cursor')).toEqual({ error: 'Unauthorized' });
+    expect(db.notification.findMany).not.toHaveBeenCalled();
   });
 });
 

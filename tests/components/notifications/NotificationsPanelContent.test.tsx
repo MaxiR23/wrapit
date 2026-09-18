@@ -8,9 +8,10 @@
 // - Clicking an item marks it read
 // - Mark all as read marks every item
 // - Accept and Decline call the invitation handlers
+// - Load more appears only when the server provides a next page
 //
 // What is covered:
-// - Empty, list, mark read, mark all, accept, reject
+// - Empty, list, pagination, mark read, mark all, accept, reject
 //
 // Run with: pnpm test:run tests/components/notifications/NotificationsPanelContent.test.tsx
 //
@@ -46,6 +47,36 @@ const accepted: NotificationListItem = {
 };
 
 describe('NotificationsPanelContent', () => {
+  it('shows Load more only when the server provides another page', async () => {
+    const onLoadMore = vi.fn();
+    const view = render(
+      <NotificationsPanelContent
+        items={[received]}
+        hasMore
+        nextCursor="cursor-1"
+        onLoadMore={onLoadMore}
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Load more' }));
+    expect(onLoadMore).toHaveBeenCalledWith('cursor-1');
+    view.rerender(
+      <NotificationsPanelContent
+        items={[received]}
+        hasMore={false}
+        nextCursor={null}
+        onLoadMore={onLoadMore}
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+  });
   it('shows a pending state instead of the empty copy while the list loads', () => {
     render(
       <NotificationsPanelContent
