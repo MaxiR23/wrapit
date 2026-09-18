@@ -84,6 +84,10 @@ Defined in `prisma/schema.prisma`. The models and their relations:
 - `Column` belongs to a `Project` and has many `Card`. Indexed on
   `(projectId, order)` for board, summaries, archived, and my-tasks column
   lists.
+  Project grid and archived project progress count live cards with a
+  `Card.groupBy` query per screen, grouped by column and filtered with
+  `archivedAt: null`. Assignment rows are not needed for these counts; a card
+  contributes once even when it has multiple assignees.
 - `Label` belongs to a `Project`. It holds a display `name`, a `tone` (one of
   eight palette keys: `blue`, `green`, `amber`, `red`, `violet`, `cyan`,
   `pink`, `gray`), and an `Int` `order`. Labels are per project and fully

@@ -13,6 +13,7 @@
 // - Omits archived cards so their subtasks and comments are not loaded
 // - Returns null for a non-member or unknown project id
 // - Summaries include computed progress, owner avatars, and 0 of 0
+// - Summary counts use one card aggregate without loading assignment rows
 // - Recents are at most 4 after membership access filtering, most recent first,
 //   and scoped to the user. Inaccessible rows do not consume the cap.
 //   Membership-only recents are returned.
@@ -496,6 +497,44 @@ describe('listProjectSummariesForUser', () => {
     const summaries = await listProjectSummariesForUser('user-ada');
 
     expect(summaries[0]?.taskCount).toBe(1);
+  });
+
+  it('counts cards once regardless of assignees and excludes archived cards', async () => {
+    await db.user.create({ data: { id: 'user-ada', name: 'Ada', username: 'ada' } });
+    await db.user.create({ data: { id: 'user-max', name: 'Max', username: 'max' } });
+    const project = await seedAccessibleProject(db, {
+      title: 'Sprint board',
+      userId: 'user-ada',
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const done = await db.column.create({
+      data: { title: 'Done', order: 2, projectId: project.id },
+    });
+    const open = await db.card.create({ data: { title: 'Open', order: 1, columnId: todo.id } });
+    await db.card.create({ data: { title: 'Finished', order: 1, columnId: done.id } });
+    const archived = await db.card.create({
+      data: { title: 'Archived', order: 2, columnId: todo.id, archivedAt: new Date('2026-08-01') },
+    });
+    for (const cardId of [open.id, archived.id]) {
+      for (const userId of ['user-ada', 'user-max']) {
+        await db.cardAssignee.create({ data: { cardId, userId } });
+      }
+    }
+
+    db.card.groupBy.mockClear();
+    db.cardAssignee.findMany.mockClear();
+    const summaries = await listProjectSummariesForUser('user-ada');
+
+    expect(summaries[0]).toEqual(
+      expect.objectContaining({ taskCount: 2, doneCount: 1, percent: 50 }),
+    );
+    expect(db.card.groupBy).toHaveBeenCalledTimes(1);
+    expect(db.card.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ archivedAt: null }) }),
+    );
+    expect(db.cardAssignee.findMany).not.toHaveBeenCalled();
   });
 });
 
