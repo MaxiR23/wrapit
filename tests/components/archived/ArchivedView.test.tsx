@@ -343,6 +343,7 @@ describe('ArchivedView', () => {
         projectId="project-1"
         projectTitle="Sprint board"
         initialCards={[]}
+        initialTotalCount={0}
         canAdminister
       />,
     );
@@ -358,23 +359,32 @@ describe('ArchivedView', () => {
 
   it('shows a no-results empty state when filters match nothing', async () => {
     const user = userEvent.setup();
+    listArchivedCards.mockImplementation(async (input) => ({
+      data: {
+        cards: input?.query ? [] : [card],
+        totalCount: input?.query ? 0 : 1,
+        hasMore: false,
+        nextCursor: null,
+      },
+    }));
     renderView(
       <ArchivedView
         projectId="project-1"
         projectTitle="Sprint board"
         initialCards={[card]}
+        initialTotalCount={1}
         canAdminister
       />,
     );
 
     await user.type(screen.getByLabelText('Search archived tasks'), 'zzzz');
 
-    expect(screen.getByText('No results')).toBeInTheDocument();
+    expect(await screen.findByText('No results')).toBeInTheDocument();
     expect(
       screen.getByText('No archived item matches the search and date range.'),
     ).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: 'Clear filters' })[0]!);
-    expect(screen.getAllByText('Write tests').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Write tests')).length).toBeGreaterThan(0);
   });
 
   it('clears selection when search, date range, or sort changes', async () => {
@@ -385,6 +395,7 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card, other]}
         canAdminister
+        initialTotalCount={2}
       />,
     );
 
@@ -417,6 +428,7 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card]}
         canAdminister={false}
+        initialTotalCount={1}
       />,
     );
 
@@ -1650,6 +1662,7 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card]}
         canAdminister
+        initialTotalCount={1}
       />,
     );
 
@@ -1689,6 +1702,7 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card]}
         canAdminister
+        initialTotalCount={1}
       />,
     );
 
@@ -1725,6 +1739,7 @@ describe('ArchivedView', () => {
         projectTitle="Sprint board"
         initialCards={[card, other]}
         canAdminister
+        initialTotalCount={2}
       />,
     );
 
@@ -1978,7 +1993,7 @@ describe('ArchivedView projects scope', () => {
   });
 
   it('shows archived-projects empty copy', () => {
-    renderView(<ArchivedView initialProjects={[]} />);
+    renderView(<ArchivedView initialProjects={[]} initialTotalCount={0} />);
 
     expect(screen.getByText('No archived projects')).toBeInTheDocument();
     expect(
@@ -1989,14 +2004,19 @@ describe('ArchivedView projects scope', () => {
   });
 
   it('hides export and batch delete', () => {
-    renderView(<ArchivedView initialProjects={[archivedProject]} />);
+    renderView(<ArchivedView initialProjects={[archivedProject]} initialTotalCount={1} />);
 
     expect(screen.queryAllByRole('button', { name: 'Export' })).toHaveLength(0);
     expect(screen.getAllByRole('button', { name: 'Delete permanently' }).length).toBeGreaterThan(0);
   });
 
   it('keeps restore and delete disabled for a member of that project', () => {
-    renderView(<ArchivedView initialProjects={[{ ...archivedProject, canAdminister: false }]} />);
+    renderView(
+      <ArchivedView
+        initialProjects={[{ ...archivedProject, canAdminister: false }]}
+        initialTotalCount={1}
+      />,
+    );
 
     for (const button of screen.getAllByRole('button', { name: 'Restore' })) {
       expect(button).toBeDisabled();
@@ -2008,7 +2028,7 @@ describe('ArchivedView projects scope', () => {
 
   it('requires typing the project title before permanent delete', async () => {
     const user = userEvent.setup();
-    renderView(<ArchivedView initialProjects={[archivedProject]} />);
+    renderView(<ArchivedView initialProjects={[archivedProject]} initialTotalCount={1} />);
 
     await user.click(screen.getAllByRole('button', { name: 'Delete permanently' })[0]!);
     const dialog = await screen.findByRole('dialog');
