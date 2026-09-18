@@ -10,6 +10,7 @@
 // - Exclude ids are omitted from rows and totalCount
 // - Count and page stay on one snapshot if a row is restored between the reads
 // - A row inserted ahead of the cursor does not change hasMore for the next page
+// - Progress counts cards once despite multiple assignees, without reading assignments
 //
 // What is covered:
 // - Membership isolation, live exclusion, admin flag, keyset page,
@@ -82,6 +83,48 @@ describe('listArchivedProjectsForUser', () => {
 
     expect(list.projects[0]?.canAdminister).toBe(false);
     expect(list.projects[0]).not.toHaveProperty('description');
+  });
+
+  it('counts live cards once regardless of assignees and excludes archived cards', async () => {
+    await db.user.create({ data: { id: 'user-ada', name: 'Ada', username: 'ada' } });
+    await db.user.create({ data: { id: 'user-max', name: 'Max', username: 'max' } });
+    const project = await seedAccessibleProject(db, {
+      title: 'Archived board',
+      userId: 'user-ada',
+    });
+    await db.project.update({
+      where: { id: project.id },
+      data: { archivedAt: new Date('2026-08-09T10:00:00.000Z') },
+    });
+    const todo = await db.column.create({
+      data: { title: 'To do', order: 1, projectId: project.id },
+    });
+    const done = await db.column.create({
+      data: { title: 'Done', order: 2, projectId: project.id },
+    });
+    const open = await db.card.create({ data: { title: 'Open', order: 1, columnId: todo.id } });
+    await db.card.create({ data: { title: 'Finished', order: 1, columnId: done.id } });
+    const archived = await db.card.create({
+      data: { title: 'Archived', order: 2, columnId: todo.id, archivedAt: new Date('2026-08-01') },
+    });
+    for (const cardId of [open.id, archived.id]) {
+      for (const userId of ['user-ada', 'user-max']) {
+        await db.cardAssignee.create({ data: { cardId, userId } });
+      }
+    }
+
+    db.card.groupBy.mockClear();
+    db.cardAssignee.findMany.mockClear();
+    const page = await listArchivedProjectsForUser('user-ada');
+
+    expect(page.projects[0]).toEqual(
+      expect.objectContaining({ taskCount: 2, doneCount: 1, percent: 50 }),
+    );
+    expect(db.card.groupBy).toHaveBeenCalledTimes(1);
+    expect(db.card.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ archivedAt: null }) }),
+    );
+    expect(db.cardAssignee.findMany).not.toHaveBeenCalled();
   });
 
   it('continues from the last row of the previous page', async () => {
