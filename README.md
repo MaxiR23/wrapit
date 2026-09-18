@@ -5,13 +5,11 @@ production-style stack and eventually contribute to similar codebases.
 
 ## Status
 
-Stack and tooling are in place. Authentication covers sign up, email verification, sign in, sign out
-and route protection. Projects can be listed, created and opened inside the
-projects shell. The project board shows columns and cards, with desktop
-drag-and-drop and a mobile carousel; moves persist by appending to the target
-column. Card create/edit/delete dialogs exist but are not mounted on the board
-yet. Card metadata (due date, priority, labels) is stored on the model and shown
-when present; there is no editor for it on the board.
+Authentication covers sign up, email verification, password reset, sign in,
+sign out and route protection. The projects shell includes project lists,
+boards, archives, notifications, account settings and personal tasks. Boards
+support columns and cards, desktop drag-and-drop, a mobile carousel, card
+details and editing, labels, assignees, subtasks, comments and activity.
 
 The database runs in Docker; the app runs on the host with `pnpm dev`. A fully
 dockerized mode is planned but not set up yet.
@@ -37,19 +35,43 @@ could not already open themselves.
 ## Prerequisites
 
 - Node.js 22+
-- pnpm
+- pnpm 11 (the version in `package.json` is 11.20.0)
 - Docker (for the database)
 
 ## Running
 
-    git clone project-url
-    cd wrapit
-    cp .env.example .env      fill in the values
-    pnpm install
-    pnpm db:up                start Postgres in Docker
-    pnpm db:migrate           apply migrations
-    pnpm db:generate          generate the Prisma Client
-    pnpm dev                  dev server at :3000
+1. Clone the repository, then install dependencies:
+
+   ```bash
+   git clone https://github.com/MaxiR23/wrapit.git
+   cd wrapit
+   pnpm install
+   ```
+
+2. Copy `.env.example` to `.env`. Set `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+   `POSTGRES_DB` and `POSTGRES_PORT`, and make `DATABASE_URL` use the same
+   credentials, database and host port. Set `BETTER_AUTH_URL` to
+   `http://localhost:3000`, generate `BETTER_AUTH_SECRET` with
+   `openssl rand -base64 32`, and set `RESEND_API_KEY` for verification and
+   password-reset email. See [database setup](docs/database.md) and
+   [authentication](docs/auth.md) for the variables and email behavior.
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Start Docker, apply the migrations already in the repository, generate the
+   Prisma Client and start the app:
+
+   ```bash
+   pnpm db:up
+   pnpm db:deploy
+   pnpm db:generate
+   pnpm dev
+   ```
+
+   Open `http://localhost:3000`. Use `pnpm db:migrate` only when changing the
+   schema locally and creating a new migration.
 
 ## Commands
 
@@ -64,29 +86,34 @@ could not already open themselves.
     pnpm verify           lint, format check, tsc, tests, then build; stops at first failure
     pnpm db:up            start Postgres in Docker
     pnpm db:down          stop the container
-    pnpm db:migrate       create and apply a migration (local/dev)
-    pnpm db:deploy        apply pending migrations (Vercel via vercel.json)
+    pnpm db:migrate       create and apply a new migration (local schema changes)
+    pnpm db:deploy        apply existing pending migrations without creating one
     pnpm db:generate      regenerate the Prisma Client
     pnpm db:studio        open Prisma Studio
     pnpm db:reset         drop and recreate the database
 
-Locally, apply migrations with `pnpm db:migrate`. On Vercel, `vercel.json`
-runs `pnpm db:deploy` before `pnpm build`.
+On Vercel, `vercel.json` runs `pnpm db:deploy && pnpm build`. The build generates
+the Prisma Client; `db:deploy` applies migrations first. Configure the hosted
+database and the app's environment variables in Vercel. See
+[database deployment](docs/database.md) and [authentication](docs/auth.md).
 
 ## Layout
 
-    src/app/        routes, layouts, pages (App Router)
-    src/components/ React components: domain dirs (auth/, projects/, ...) and ui/ (shadcn)
-    src/actions/    server actions (mutations)
-    src/lib/        shared code (e.g. the Prisma client, utils)
-    src/generated/  generated Prisma Client (gitignored)
-    src/proxy.ts    route protection (Next 16's renamed middleware)
+    src/
+      app/          App Router routes, pages, layouts and route handlers
+      actions/      server actions
+      components/   domain UI (account/, archived/, auth/, cards/, labels/,
+                    notifications/, pagination/, projects/, tasks/) and ui/
+      lib/          shared queries, auth, pagination and validation
+      generated/    generated Prisma Client (gitignored)
+      proxy.ts      route protection
     prisma/         schema and migrations
-    scripts/        repo tooling (pnpm verify)
-    tests/          tests, mirroring the source structure
-    docs/           architecture, auth, kanban, tooling and related docs
+    scripts/        verification and Git hook helpers
+    tests/          tests mirroring the source structure
+    docs/           architecture and feature guidance, plus adr/
 
-What belongs in each directory: `AGENTS.md`.
+See [AGENTS.md](AGENTS.md) for placement rules and
+[architecture](docs/architecture.md) for data flow and ownership.
 
 ## Checks
 
@@ -94,17 +121,19 @@ What belongs in each directory: `AGENTS.md`.
 then the production build, stopping at the first failure. A pre-push hook
 refuses the push unless the updated ref is the clean checked-out HEAD, then
 runs `pnpm verify` and blocks the push if any step fails, including when a
-step cannot run because of the environment (for example Postgres is down). A
-pre-commit hook runs lint-staged (ESLint and Prettier on staged files) and
-can be skipped. See `docs/tooling.md` and `docs/workflow.md`.
+step cannot run because of the environment. A
+pre-commit hook runs lint-staged (ESLint and Prettier on staged files). See
+[tooling](docs/tooling.md) and [workflow](docs/workflow.md).
 
 ## Documentation
 
-    docs/workflow.md           development workflow
-    docs/tooling.md            formatters, linters, git hooks, test runner
-    docs/testing.md            test conventions
-    docs/architecture.md       layers, data flow, ownership, file map
-    docs/kanban.md             projects, columns, cards, order, DnD
-    docs/database.md           database and Prisma usage
-    docs/auth.md               Better Auth and route protection
-    docs/repository-setup.md   GitHub settings that live outside this repo
+    docs/adr/                architecture decision records
+    docs/architecture.md     layers, data flow and ownership
+    docs/auth.md             Better Auth and route protection
+    docs/database.md         database and Prisma usage
+    docs/kanban.md           projects, columns, cards, order and DnD
+    docs/repository-setup.md GitHub settings outside this repo
+    docs/testing.md          test conventions
+    docs/theming.md          theme and visual tokens
+    docs/tooling.md          formatters, linters, hooks and test runner
+    docs/workflow.md         development workflow
