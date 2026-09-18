@@ -106,6 +106,15 @@ built (the token lives only there) and swallows Resend failures after logging
 `nextCookies()` plugin goes last in the plugin list; it lets Better Auth set
 cookies from server actions.
 
+Both email callbacks await their Resend helper, and both helpers await
+`resend.emails.send`. Better Auth keeps sign-up, explicit verification resend,
+and password-reset requests open until the send settles. None uses a
+fire-and-forget promise or needs `after()` to outlive the response. Invitations
+write in-app notifications and send no email. Resend response errors and
+transport exceptions are logged as `email.reset_failed` or
+`email.verification_failed` with safe metadata only. Verification failures stay
+hidden from the client; reset failures propagate to Better Auth.
+
 The route handler mounts every Better Auth endpoint under `/api/auth/`, for
 example `/api/auth/sign-up/email` and `/api/auth/get-session`.
 
@@ -298,7 +307,8 @@ does not set one, so Better Auth's default applies and inventing a number in
 the copy would be worse than saying nothing. Resend resolves with an
 `{ error }` field instead of throwing; the helper throws when that field is
 set so Better Auth does not report success for a send that never happened.
-The thrown message is for server logs. The form never renders it.
+The helper logs the failure without the address or reset token. The form never
+renders the thrown message.
 
 `/reset-password` reads `token` and `error` from the query string and passes
 them to `ResetPasswordForm`. A missing token or `error=INVALID_TOKEN` shows

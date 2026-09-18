@@ -17,6 +17,7 @@
 // - Returns success for a sign up whose email is already registered
 // - Rejects a sign up whose username is already taken
 // - Swallows a verification-send failure so sign-up still succeeds
+// - Waits for verification and reset sends before completing their requests
 // - Rejects an unverified sign in
 // - Signs in a verified account with the correct password and rejects the wrong one
 // - Rejects a sign in for an email that is not registered
@@ -94,6 +95,43 @@ describe('auth', () => {
     expect(typeof url).toBe('string');
     expect(url).toContain('callbackURL=');
     expect(JSON.stringify(sendVerificationEmail.mock.calls)).toContain('token=');
+  });
+
+  it('waits for the verification send before sign-up completes', async () => {
+    let finishSend!: () => void;
+    sendVerificationEmail.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishSend = resolve)),
+    );
+    let completed = false;
+    const request = auth.api.signUpEmail({ body: credentials }).then(() => {
+      completed = true;
+    });
+
+    await vi.waitFor(() => expect(sendVerificationEmail).toHaveBeenCalledTimes(1));
+    expect(completed).toBe(false);
+    finishSend();
+    await request;
+    expect(completed).toBe(true);
+  });
+
+  it('waits for the reset send before the reset request completes', async () => {
+    await auth.api.signUpEmail({ body: credentials });
+    let finishSend!: () => void;
+    sendResetPasswordEmail.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishSend = resolve)),
+    );
+    let completed = false;
+    const request = auth.api
+      .requestPasswordReset({ body: { email: credentials.email } })
+      .then(() => {
+        completed = true;
+      });
+
+    await vi.waitFor(() => expect(sendResetPasswordEmail).toHaveBeenCalledTimes(1));
+    expect(completed).toBe(false);
+    finishSend();
+    await request;
+    expect(completed).toBe(true);
   });
 
   it('stores the password hashed on a credential account, not on the user', async () => {
