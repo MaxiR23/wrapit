@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import LoadMore from '@/components/pagination/LoadMore';
 
 import { initials } from '@/lib/initials';
 import type { NotificationListItem } from '@/lib/notifications';
@@ -9,6 +10,9 @@ import { formatRelativeTime } from '@/lib/relativeTime';
 export function NotificationsPanelContent({
   items,
   loading = false,
+  hasMore = false,
+  nextCursor = null,
+  onLoadMore = () => {},
   onMarkRead,
   onMarkAllRead,
   onAccept,
@@ -17,6 +21,9 @@ export function NotificationsPanelContent({
 }: {
   items: NotificationListItem[];
   loading?: boolean;
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  onLoadMore?: (cursor: string) => void | Promise<void>;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onAccept: (invitationId: string) => void;
@@ -55,17 +62,25 @@ export function NotificationsPanelContent({
           No notifications
         </p>
       ) : (
-        <ul className="min-h-0 flex-1 overflow-auto">
-          {items.map((item) => (
-            <NotificationItem
-              key={item.id}
-              item={item}
-              onMarkRead={onMarkRead}
-              onAccept={onAccept}
-              onReject={onReject}
-            />
-          ))}
-        </ul>
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ul>
+            {items.map((item) => (
+              <NotificationItem
+                key={item.id}
+                item={item}
+                onMarkRead={onMarkRead}
+                onAccept={onAccept}
+                onReject={onReject}
+              />
+            ))}
+          </ul>
+          <LoadMore
+            hasMore={hasMore}
+            nextCursor={nextCursor}
+            onLoadMore={onLoadMore}
+            className="mx-auto my-3 block rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+          />
+        </div>
       )}
     </div>
   );

@@ -10,6 +10,7 @@
 // - The same initialUnreadCount does not wipe a local mark-read
 // - A list response that started before mark-all-read does not restore unread
 //   items or the badge count
+// - Later pages append without duplicates, and stale page responses are discarded
 //
 // What is covered:
 // - router.refresh after accept success only, unread count sync after a
@@ -73,7 +74,16 @@ function Actions() {
 }
 
 function ListProbe() {
-  const { items, unreadCount, markRead, markAllRead, refresh: loadList } = useNotifications();
+  const {
+    items,
+    unreadCount,
+    markRead,
+    markAllRead,
+    refresh: loadList,
+    loadMore,
+    hasMore,
+    nextCursor,
+  } = useNotifications();
   return (
     <div>
       <p>unread:{unreadCount}</p>
@@ -87,6 +97,11 @@ function ListProbe() {
       <button type="button" onClick={() => void loadList()}>
         Load list
       </button>
+      {hasMore && nextCursor ? (
+        <button type="button" onClick={() => void loadMore(nextCursor)}>
+          Load more
+        </button>
+      ) : null}
       <button type="button" onClick={() => void markAllRead()}>
         Mark all as read
       </button>
@@ -236,5 +251,59 @@ describe('NotificationsProvider', () => {
     expect(screen.getByText('unread:0')).toBeInTheDocument();
     expect(screen.getByText('read Ada invited you to Sprint board')).toBeInTheDocument();
     expect(screen.queryByText('unread Ada invited you to Sprint board')).not.toBeInTheDocument();
+  });
+
+  it('appends only new rows and keeps the unread count independent of loaded pages', async () => {
+    const older = { ...unreadItem, id: 'n2', message: 'Older notification' };
+    listNotifications
+      .mockResolvedValueOnce({
+        data: { items: [unreadItem], unreadCount: 5, hasMore: true, nextCursor: 'page-2' },
+      })
+      .mockResolvedValueOnce({
+        data: { items: [unreadItem, older], unreadCount: 5, hasMore: false, nextCursor: null },
+      });
+    const events = userEvent.setup();
+    renderProvider(5);
+    await events.click(screen.getByRole('button', { name: 'Load list' }));
+    await events.click(await screen.findByRole('button', { name: 'Load more' }));
+
+    await waitFor(() => expect(screen.getByText('unread Older notification')).toBeInTheDocument());
+    expect(screen.getAllByText('unread Ada invited you to Sprint board')).toHaveLength(1);
+    expect(screen.getByText('unread:5')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(listNotifications).toHaveBeenNthCalledWith(2, 'page-2');
+  });
+
+  it('discards a page response that began before marking all as read', async () => {
+    let resolvePage!: (value: unknown) => void;
+    listNotifications
+      .mockResolvedValueOnce({
+        data: { items: [unreadItem], unreadCount: 2, hasMore: true, nextCursor: 'page-2' },
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePage = resolve;
+          }),
+      );
+    const events = userEvent.setup();
+    renderProvider(2);
+    await events.click(screen.getByRole('button', { name: 'Load list' }));
+    await events.click(await screen.findByRole('button', { name: 'Load more' }));
+    await events.click(screen.getByRole('button', { name: 'Mark all as read' }));
+    await act(async () => {
+      resolvePage({
+        data: {
+          items: [{ ...unreadItem, id: 'n2' }],
+          unreadCount: 2,
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
+    });
+
+    expect(screen.getByText('unread:0')).toBeInTheDocument();
+    expect(screen.queryByText('unread Ada invited you to Sprint board')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 });

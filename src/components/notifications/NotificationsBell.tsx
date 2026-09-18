@@ -59,7 +59,8 @@ function NotificationsPanel({
   kind: 'popover' | 'sheet';
   onClose?: () => void;
 }) {
-  const { items, markRead, markAllRead, accept, reject, listReady } = useNotifications();
+  const { items, markRead, markAllRead, accept, reject, listReady, hasMore, nextCursor, loadMore } =
+    useNotifications();
 
   return (
     <div
@@ -71,6 +72,9 @@ function NotificationsPanel({
       <NotificationsPanelContent
         items={items}
         loading={!listReady}
+        hasMore={hasMore}
+        nextCursor={nextCursor}
+        onLoadMore={loadMore}
         onMarkRead={(id) => void markRead(id)}
         onMarkAllRead={() => void markAllRead()}
         onAccept={(invitationId) => void accept(invitationId)}

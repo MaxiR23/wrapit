@@ -365,6 +365,12 @@ A new list that needs pages uses the shared module, not a domain cursor.
    received and is disabled while that request is in flight. It does not
    compute remaining and does not build a cursor.
 
+The notifications panel follows this flow when opened: it fetches the first
+page, then appends pages on demand. Its unread badge uses a separate count of
+all unread notifications, independent of the loaded pages. Mark all as read
+updates every unread row for the recipient on the server; a failed mutation
+refreshes the first page.
+
 ## Projects shell on the phone
 
 Below `tablet` (600px) `ProjectsShell` pins the tab bar with `position: fixed`

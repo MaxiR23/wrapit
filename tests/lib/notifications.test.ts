@@ -3,7 +3,8 @@
 // Tests for listing and marking notifications for a recipient.
 //
 // Tested:
-// - Lists the recipient's notifications newest first with actor and unread count
+// - Paginates the recipient's notifications newest first with an id tiebreak
+// - Counts unread rows beyond the loaded page and rejects invalid cursors
 // - Counts unread rows for the recipient without loading the list
 // - Ignores another user's notifications
 // - Marks one of the recipient's rows read and refuses a foreign id
@@ -11,7 +12,7 @@
 // - Marks all of the recipient's unread rows
 //
 // What is covered:
-// - Happy path, authorization by recipient, mark one / mark all
+// - Happy path, cursor validation, authorization by recipient, mark one / mark all
 //
 // Run with: pnpm test:run tests/lib/notifications.test.ts
 //
@@ -97,6 +98,46 @@ describe('listNotificationsForUser', () => {
         invitationId: 'invite-1',
         read: false,
       }),
+    );
+  });
+
+  it('limits each page, breaks equal timestamps by id, and counts unread rows beyond the page', async () => {
+    for (const id of ['a', 'b', 'c']) {
+      await db.notification.create({
+        data: {
+          id,
+          type: 'INVITATION_RECEIVED',
+          recipientId: maxi.id,
+          read: false,
+          createdAt: new Date('2026-08-02T00:00:00Z'),
+        },
+      });
+    }
+
+    const first = await listNotificationsForUser(db, maxi.id, undefined, 2);
+    expect(first.items.map((item) => item.id)).toEqual(['c', 'b']);
+    expect(first).toMatchObject({ hasMore: true, unreadCount: 3 });
+    expect(first.nextCursor).toEqual(expect.any(String));
+    expect(db.notification.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 3 }));
+
+    const second = await listNotificationsForUser(db, maxi.id, first.nextCursor, 2);
+    expect(second.items.map((item) => item.id)).toEqual(['a']);
+    expect(second).toMatchObject({ hasMore: false, nextCursor: null, unreadCount: 3 });
+  });
+
+  it('rejects malformed and tampered page cursors', async () => {
+    await expect(listNotificationsForUser(db, maxi.id, 'bad-cursor')).rejects.toThrow(
+      'Invalid page cursor',
+    );
+
+    for (const id of ['a', 'b']) {
+      await db.notification.create({
+        data: { id, type: 'INVITATION_RECEIVED', recipientId: maxi.id, read: false },
+      });
+    }
+    const first = await listNotificationsForUser(db, maxi.id, undefined, 1);
+    await expect(listNotificationsForUser(db, maxi.id, `${first.nextCursor}x`, 1)).rejects.toThrow(
+      'Invalid page cursor',
     );
   });
 });
@@ -200,5 +241,24 @@ describe('markAllNotificationsReadForUser', () => {
     expect(db.notification.rows.find((row) => row.id === 'a')?.read).toBe(true);
     expect(db.notification.rows.find((row) => row.id === 'b')?.read).toBe(true);
     expect(db.notification.rows.find((row) => row.id === 'c')?.read).toBe(false);
+  });
+
+  it('marks notifications that were never loaded in the first page', async () => {
+    for (let index = 0; index < 21; index += 1) {
+      await db.notification.create({
+        data: {
+          id: `notification-${index}`,
+          type: 'INVITATION_ACCEPTED',
+          read: false,
+          recipientId: 'user-ada',
+        },
+      });
+    }
+    const first = await listNotificationsForUser(db, 'user-ada');
+    expect(first.items).toHaveLength(20);
+    expect(first.unreadCount).toBe(21);
+
+    await markAllNotificationsReadForUser(db, 'user-ada');
+    expect(await countUnreadNotificationsForUser(db, 'user-ada')).toBe(0);
   });
 });
