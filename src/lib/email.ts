@@ -21,18 +21,26 @@ export async function sendResetPasswordEmail(to: string, resetUrl: string): Prom
     footer: 'If you did not request a password reset, you can ignore this email.',
   });
 
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to,
-    subject: 'Reset your password',
-    html,
-    text,
-  });
+  let result;
+  try {
+    result = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: 'Reset your password',
+      html,
+      text,
+    });
+  } catch (error) {
+    logInfo('email.reset_failed', { name: error instanceof Error ? error.name : 'unknown' });
+    throw error;
+  }
 
   // Resend resolves with { error } instead of throwing. Surface that so Better
   // Auth does not report success when the email was never sent. The message is
   // for server logs only; auth forms never render error.message.
-  if (error) {
+  if (result.error) {
+    const { error } = result;
+    logInfo('email.reset_failed', { name: error.name, statusCode: error.statusCode });
     throw new Error(
       `Failed to send reset password email: ${error.name} (${error.statusCode}): ${error.message}`,
     );
@@ -59,15 +67,22 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
       'This link expires in 24 hours. If you did not create an account, you can ignore this email.',
   });
 
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to,
-    subject: 'Verify your email',
-    html,
-    text,
-  });
+  let result;
+  try {
+    result = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: 'Verify your email',
+      html,
+      text,
+    });
+  } catch (error) {
+    logInfo('email.verification_failed', { name: error instanceof Error ? error.name : 'unknown' });
+    throw error;
+  }
 
-  if (error) {
+  if (result.error) {
+    const { error } = result;
     logInfo('email.verification_failed', { name: error.name, statusCode: error.statusCode });
     throw new Error(
       `Failed to send verification email: ${error.name} (${error.statusCode}): ${error.message}`,

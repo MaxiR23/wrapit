@@ -6,6 +6,7 @@
 // - Sends the reset email with the given address, URL, HTML layout, and plain text
 // - Resolves when Resend returns no error
 // - Throws with the Resend error details when Resend reports a failure
+// - Logs reset and verification failures, including transport exceptions
 // - Sends the verification email with the given address, URL, HTML layout, and plain text
 // - Throws without the URL and logs only Resend metadata when Resend fails
 //
@@ -81,6 +82,21 @@ describe('sendResetPasswordEmail', () => {
     expect(thrown).toBeDefined();
     expect(thrown?.message).toMatch(/invalid_api_key.*API key is invalid/);
     expect(thrown?.message).not.toContain(resetUrl);
+    expect(logInfo).toHaveBeenCalledWith('email.reset_failed', {
+      name: 'invalid_api_key',
+      statusCode: 401,
+    });
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(resetUrl);
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(to);
+  });
+
+  it('logs a transport failure without leaking the reset URL', async () => {
+    send.mockRejectedValue(new Error('network unavailable'));
+
+    await expect(sendResetPasswordEmail(to, resetUrl)).rejects.toThrow('network unavailable');
+
+    expect(logInfo).toHaveBeenCalledWith('email.reset_failed', { name: 'Error' });
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(resetUrl);
   });
 });
 
@@ -139,5 +155,14 @@ describe('sendVerificationEmail', () => {
     });
     expect(JSON.stringify(logInfo.mock.calls)).not.toContain(verifyUrl);
     expect(JSON.stringify(logInfo.mock.calls)).not.toContain(to);
+  });
+
+  it('logs a transport failure without leaking the verification URL', async () => {
+    send.mockRejectedValue(new Error('network unavailable'));
+
+    await expect(sendVerificationEmail(to, verifyUrl)).rejects.toThrow('network unavailable');
+
+    expect(logInfo).toHaveBeenCalledWith('email.verification_failed', { name: 'Error' });
+    expect(JSON.stringify(logInfo.mock.calls)).not.toContain(verifyUrl);
   });
 });
